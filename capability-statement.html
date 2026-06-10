@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Alex Price — Capability Statement</title>
+<style>
+  @page { size: Letter; margin: 0.72in 0.7in; }
+  :root{ --ink:#16202b; --muted:#55657a; --line:#c9d3de; --accent:#0f6e68; --rule:#e3e9f0; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; }
+  body{ font-family:"Helvetica Neue",Arial,system-ui,sans-serif; color:var(--ink);
+    font-size:10.4pt; line-height:1.5; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .doc{ max-width:7.1in; margin:0 auto; }
+  /* header */
+  .head{ border-bottom:2.5px solid var(--accent); padding-bottom:12px; margin-bottom:16px; }
+  .name{ font-size:23pt; font-weight:700; letter-spacing:-.01em; margin:0; }
+  .name .handle{ color:var(--muted); font-weight:500; font-size:15pt; }
+  .role{ font-size:10.5pt; color:var(--accent); font-weight:600; letter-spacing:.04em;
+    text-transform:uppercase; margin:3px 0 8px; }
+  .contact{ font-size:9pt; color:var(--muted); }
+  .contact a{ color:var(--muted); text-decoration:none; }
+  .contact span{ margin:0 6px; color:var(--line); }
+  /* sections */
+  h2{ font-size:9pt; letter-spacing:.12em; text-transform:uppercase; color:var(--accent);
+    border-bottom:1px solid var(--rule); padding-bottom:3px; margin:16px 0 8px; }
+  p{ margin:0 0 7px; }
+  .lead{ font-size:10.6pt; }
+  .lead b{ color:var(--ink); }
+  /* competencies grid */
+  .cols{ display:grid; grid-template-columns:1fr 1fr; gap:4px 26px; }
+  .cols div{ font-size:9.6pt; padding:1.5px 0 1.5px 13px; position:relative; color:var(--ink); }
+  .cols div::before{ content:"▸"; color:var(--accent); position:absolute; left:0; font-size:8pt; top:2.5px; }
+  /* work entries */
+  .work{ margin-bottom:8px; }
+  .work .t{ font-weight:700; font-size:10.4pt; }
+  .work .t .tag{ font-weight:500; color:var(--muted); font-size:8.5pt; letter-spacing:.03em;
+    text-transform:uppercase; margin-left:8px; }
+  .work .d{ color:var(--ink); font-size:9.7pt; }
+  /* principles */
+  .princ{ font-size:9.7pt; margin:0; padding-left:0; list-style:none; }
+  .princ li{ padding:2px 0 2px 16px; position:relative; }
+  .princ li::before{ content:"—"; position:absolute; left:0; color:var(--accent); }
+  .princ b{ color:var(--ink); }
+  .foot{ margin-top:16px; border-top:1px solid var(--rule); padding-top:8px;
+    font-size:8.6pt; color:var(--muted); display:flex; justify-content:space-between; }
+  .foot b{ color:var(--accent); }
+  .reserved{ font-size:8.8pt; color:var(--muted); font-style:italic; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <div class="head">
+    <h1 class="name">Alex Price <span class="handle">/ StellarRequiem</span></h1>
+    <div class="role">Security Research &nbsp;·&nbsp; AI-Systems Verification &nbsp;·&nbsp; Responsible Practice</div>
+    <div class="contact">
+      <a href="mailto:alexanderprice91@yahoo.com">alexanderprice91@yahoo.com</a><span>•</span>
+      <a href="https://github.com/StellarRequiem">github.com/StellarRequiem</a><span>•</span>
+      <a href="https://x.com/StellarRequiem">x.com/StellarRequiem</a>
+    </div>
+  </div>
+
+  <h2>Professional Summary</h2>
+  <p class="lead">I build the <b>trust layer for AI-era work</b>. As models and agents produce more
+    claims than anyone can check, the dangerous failures are the confident-sounding results nobody
+    verified. One rule governs everything I deliver: <b>no belief without verification</b> — every
+    result ships with evidence a third party can independently re-run. I apply the same discipline to
+    security: offensive technique under <b>explicit authorization</b>, with a complete, tamper-evident
+    record of what was tested and found.</p>
+
+  <h2>Core Competencies</h2>
+  <div class="cols">
+    <div>Vulnerability research &amp; PoC development</div>
+    <div>Verification &amp; statistical-validity engineering</div>
+    <div>Authorization-gated security testing</div>
+    <div>AI-infrastructure / MCP security</div>
+    <div>Coordinated / responsible disclosure</div>
+    <div>Append-only, hash-chained audit systems</div>
+    <div>Red-team &amp; offensive tooling development</div>
+    <div>Agentic-system evaluation &amp; calibration</div>
+  </div>
+
+  <h2>Selected Work &nbsp;<span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:8.5pt">— public, CI-verified · github.com/StellarRequiem</span></h2>
+  <div class="work"><span class="t">scope-gate <span class="tag">Responsible security</span></span>
+    <div class="d">A deny-by-default authorization gate — test only what you are explicitly authorized to test. Ships with a responsible-research charter. The boundary that makes dual-use work safe.</div></div>
+  <div class="work"><span class="t">verity-core <span class="tag">The gate</span></span>
+    <div class="d">Refuses an accuracy claim until it clears statistical hygiene — sample size, out-of-sample, leakage, significance, and lift over the base rate. 17 domain packs, a CI check, and an MCP tool.</div></div>
+  <div class="work"><span class="t">verified-ai-labor <span class="tag">The platform</span></span>
+    <div class="d">A validated organization of agents routing work through a 13-stage pipeline — every result-claim verity-gated, every action hash-chain-logged, observable in a live console.</div></div>
+  <div class="work"><span class="t">calibration-log <span class="tag">The proof</span></span>
+    <div class="d">A public, hash-chained prediction record scored over time (Brier + calibration) — honesty that cannot be doctored after the fact. Reports the real number whether or not there is an edge.</div></div>
+
+  <h2>Approach &amp; Standard</h2>
+  <ul class="princ">
+    <li><b>Verified work, or it doesn't ship.</b> Public repositories carry their own tests; the CI badge is the claim.</li>
+    <li><b>Runnable proofs.</b> Every result is accompanied by the exact command needed to reproduce it.</li>
+    <li><b>Authorized &amp; audited.</b> Security work is performed only within explicit scope, with an append-only record of activity.</li>
+    <li><b>Honest gaps, stated.</b> Every deliverable names what it did not verify. An unverifiable claim does not count.</li>
+  </ul>
+
+  <h2>Credentials &amp; References</h2>
+  <p class="reserved">Verifiable identity attestation, professional certifications, security-platform researcher profiles, and references available on request.</p>
+
+  <div class="foot">
+    <span><b>Verified work, or it doesn't ship.</b> &nbsp;·&nbsp; no belief without verification</span>
+    <span>Alex Price · StellarRequiem</span>
+  </div>
+
+</div>
+</body>
+</html>
