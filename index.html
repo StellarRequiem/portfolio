@@ -108,6 +108,13 @@
       <p>Append-only, hash-chained records of what was tested and found — the same evidence standard
         that governs the rest of my work, applied to security engagements.</p>
     </div>
+    <div class="card">
+      <div class="role">Benchmark · public</div>
+      <h3><a href="https://github.com/StellarRequiem/mcp-bench" target="_blank" rel="noopener">mcp-bench</a></h3>
+      <p>Do MCP security scanners actually catch authorization-logic bugs? An independent, reproducible
+        benchmark seeded with real confirmed findings: two mature SASTs catch the control bugs but miss
+        the authz-logic class (0/3). Scanners run only in a disposable CI runner.</p>
+    </div>
   </div>
   <div style="margin-top:14px">
     <span class="pill">vulnerability research</span><span class="pill">PoC development</span>
@@ -124,8 +131,9 @@
     <div class="card feature">
       <div class="role">The gate</div>
       <h3><a href="https://github.com/StellarRequiem/verity-core" target="_blank" rel="noopener">verity-core</a></h3>
-      <p>Refuses a "95% accuracy" claim until it clears statistical hygiene (sample, out-of-sample,
-        leakage, significance, lift over base rate). 17 domain packs · CI check · MCP tool.</p>
+      <p>Refuses a "95% accuracy" claim until it clears statistical hygiene — sample, out-of-sample,
+        leakage, lift over base rate — then <em>proves</em> it: a claim ships a re-runnable command and
+        the number must reproduce or CI fails. 17 domain packs · CI gate · MCP tool.</p>
     </div>
     <div class="card">
       <div class="role">The labor</div>
