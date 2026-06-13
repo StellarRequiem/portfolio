@@ -4,59 +4,73 @@
 <meta charset="utf-8">
 <title>Alex Price — Capability Statement</title>
 <style>
-  @page { size: Letter; margin: 0.72in 0.7in; }
-  :root{ --ink:#16202b; --muted:#55657a; --line:#c9d3de; --accent:#0f6e68; --rule:#e3e9f0; }
+  @page { size: Letter; margin: 0.6in 0.62in; }
+  :root{
+    --void:#02060d; --panel:#06101e; --cy:#5ad4ff; --mint:#3df0bb; --amber:#ffb547; --red:#ff5d6c;
+    --tx:#dcefff; --dim:#6c8aa6; --line:rgba(86,206,255,.4); --hair:rgba(86,206,255,.22);
+    --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  }
   *{ box-sizing:border-box; }
   html,body{ margin:0; }
-  body{ font-family:"Helvetica Neue",Arial,system-ui,sans-serif; color:var(--ink);
+  body{ background:var(--void); color:var(--tx); font-family:var(--sans);
     font-size:10.4pt; line-height:1.5; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  .doc{ max-width:7.1in; margin:0 auto; }
-  /* header */
-  .head{ border-bottom:2.5px solid var(--accent); padding-bottom:12px; margin-bottom:16px; }
-  .name{ font-size:23pt; font-weight:700; letter-spacing:-.01em; margin:0; }
-  .name .handle{ color:var(--muted); font-weight:500; font-size:15pt; }
-  .role{ font-size:10.5pt; color:var(--accent); font-weight:600; letter-spacing:.04em;
-    text-transform:uppercase; margin:3px 0 8px; }
-  .contact{ font-size:9pt; color:var(--muted); }
-  .contact a{ color:var(--muted); text-decoration:none; }
-  .contact span{ margin:0 6px; color:var(--line); }
-  /* sections */
-  h2{ font-size:9pt; letter-spacing:.12em; text-transform:uppercase; color:var(--accent);
-    border-bottom:1px solid var(--rule); padding-bottom:3px; margin:16px 0 8px; }
-  p{ margin:0 0 7px; }
-  .lead{ font-size:10.6pt; }
-  .lead b{ color:var(--ink); }
-  /* competencies grid */
+  .doc{ max-width:7.3in; margin:0 auto; padding:0.5in 0.45in; }
+  a{ color:var(--cy); text-decoration:none; }
+  .mono{ font-family:var(--mono); }
+  .head{ display:flex; align-items:flex-start; gap:15px; border-bottom:1.5px solid var(--line); padding-bottom:13px; margin-bottom:14px; }
+  .mark{ font-family:var(--mono); font-size:30pt; color:var(--cy); line-height:.85; text-shadow:0 0 16px rgba(86,206,255,.6); }
+  .name{ font-family:var(--mono); font-size:21pt; font-weight:500; letter-spacing:.01em; margin:0; color:#eaf6ff; }
+  .name .handle{ color:var(--dim); font-weight:400; font-size:13pt; }
+  .role{ font-family:var(--mono); font-size:9pt; color:var(--cy); font-weight:500; letter-spacing:.13em; text-transform:uppercase; margin:5px 0 7px; }
+  .contact{ font-family:var(--mono); font-size:8.6pt; color:var(--dim); }
+  .contact a{ color:var(--dim); } .contact span{ margin:0 7px; color:var(--hair); }
+  h2{ font-family:var(--mono); font-size:8.6pt; letter-spacing:.18em; text-transform:uppercase; color:var(--cy);
+    border-bottom:1px solid var(--hair); padding-bottom:3px; margin:15px 0 8px; display:flex; align-items:center; gap:7px; }
+  h2 .sub{ font-family:var(--sans); font-weight:400; text-transform:none; letter-spacing:0; color:var(--dim); font-size:8.5pt; }
+  p{ margin:0 0 7px; color:var(--dim); }
+  .lead{ font-size:10.4pt; color:var(--tx); }
+  .lead b{ color:#eaf6ff; }
   .cols{ display:grid; grid-template-columns:1fr 1fr; gap:4px 26px; }
-  .cols div{ font-size:9.6pt; padding:1.5px 0 1.5px 13px; position:relative; color:var(--ink); }
-  .cols div::before{ content:"▸"; color:var(--accent); position:absolute; left:0; font-size:8pt; top:2.5px; }
-  /* work entries */
+  .cols div{ font-family:var(--mono); font-size:9pt; padding:1.5px 0 1.5px 15px; position:relative; color:var(--tx); }
+  .cols div::before{ content:"\25B8"; color:var(--cy); position:absolute; left:0; font-size:8pt; top:2.5px; }
   .work{ margin-bottom:8px; }
-  .work .t{ font-weight:700; font-size:10.4pt; }
-  .work .t .tag{ font-weight:500; color:var(--muted); font-size:8.5pt; letter-spacing:.03em;
-    text-transform:uppercase; margin-left:8px; }
-  .work .d{ color:var(--ink); font-size:9.7pt; }
-  /* principles */
-  .princ{ font-size:9.7pt; margin:0; padding-left:0; list-style:none; }
-  .princ li{ padding:2px 0 2px 16px; position:relative; }
-  .princ li::before{ content:"—"; position:absolute; left:0; color:var(--accent); }
-  .princ b{ color:var(--ink); }
-  .foot{ margin-top:16px; border-top:1px solid var(--rule); padding-top:8px;
-    font-size:8.6pt; color:var(--muted); display:flex; justify-content:space-between; }
-  .foot b{ color:var(--accent); }
-  .reserved{ font-size:8.8pt; color:var(--muted); font-style:italic; }
+  .work .t{ font-family:var(--mono); font-weight:500; font-size:10.2pt; color:#eaf6ff; display:flex; align-items:center; gap:8px; }
+  .work .t .dot{ width:6px; height:6px; border-radius:50%; background:var(--mint); box-shadow:0 0 6px var(--mint); flex:none; }
+  .work .t .tag{ font-weight:400; color:var(--dim); font-size:8.2pt; letter-spacing:.1em; text-transform:uppercase; }
+  .work .d{ color:var(--dim); font-size:9.6pt; font-family:var(--sans); margin-top:1px; }
+  .princ{ font-size:9.6pt; margin:0; padding-left:0; list-style:none; }
+  .princ li{ padding:2.5px 0 2.5px 16px; position:relative; color:var(--dim); }
+  .princ li::before{ content:"\2014"; position:absolute; left:0; color:var(--cy); }
+  .princ b{ color:var(--tx); }
+  .foot{ margin-top:15px; border-top:1px solid var(--hair); padding-top:8px; font-family:var(--mono);
+    font-size:8.2pt; color:var(--dim); display:flex; justify-content:space-between; letter-spacing:.04em; }
+  .foot b{ color:var(--cy); }
+  .reserved{ font-size:8.8pt; color:var(--dim); font-style:italic; }
+  /* print / PDF: flip to clean ink-on-white so the statement stays professional + legible on paper */
+  @media print{
+    :root{ --void:#ffffff; --panel:#f4f7fa; --tx:#16202b; --dim:#4a5a6a; --cy:#0e6e7a; --line:#0e6e7a; --hair:#dbe3ea; }
+    body{ font-size:10pt; }
+    .name,.work .t,.lead b{ color:#0d1722; }
+    .mark{ text-shadow:none; }
+    .work .t .dot{ box-shadow:none; background:#0e6e7a; }
+    a{ color:#0e6e7a; }
+  }
 </style>
 </head>
 <body>
 <div class="doc">
 
   <div class="head">
-    <h1 class="name">Alex Price <span class="handle">/ StellarRequiem</span></h1>
-    <div class="role">Security Research &nbsp;·&nbsp; AI-Systems Verification &nbsp;·&nbsp; Responsible Practice</div>
-    <div class="contact">
-      <a href="mailto:alexanderprice91@yahoo.com">alexanderprice91@yahoo.com</a><span>•</span>
-      <a href="https://github.com/StellarRequiem">github.com/StellarRequiem</a><span>•</span>
-      <a href="https://x.com/StellarRequiem">x.com/StellarRequiem</a>
+    <span class="mark">&#10689;</span>
+    <div>
+      <h1 class="name">Alex Price <span class="handle">/ StellarRequiem</span></h1>
+      <div class="role">Security Research &nbsp;·&nbsp; AI-Systems Verification &nbsp;·&nbsp; Responsible Practice</div>
+      <div class="contact">
+        <a href="mailto:alexanderprice91@yahoo.com">alexanderprice91@yahoo.com</a><span>•</span>
+        <a href="https://github.com/StellarRequiem">github.com/StellarRequiem</a><span>•</span>
+        <a href="https://x.com/StellarRequiem">x.com/StellarRequiem</a>
+      </div>
     </div>
   </div>
 
@@ -80,20 +94,20 @@
     <div>Agentic-system evaluation &amp; calibration</div>
   </div>
 
-  <h2>Selected Work &nbsp;<span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:8.5pt">— public, CI-verified · github.com/StellarRequiem</span></h2>
-  <div class="work"><span class="t">scope-gate <span class="tag">Responsible security</span></span>
+  <h2>Selected Work <span class="sub">— public, CI-verified · github.com/StellarRequiem</span></h2>
+  <div class="work"><span class="t"><span class="dot"></span>scope-gate <span class="tag">Responsible security</span></span>
     <div class="d">A deny-by-default authorization gate — test only what you are explicitly authorized to test. Ships with a responsible-research charter. The boundary that makes dual-use work safe.</div></div>
-  <div class="work"><span class="t">mcp-bench <span class="tag">Security benchmark</span></span>
+  <div class="work"><span class="t"><span class="dot"></span>mcp-bench <span class="tag">Security benchmark</span></span>
     <div class="d">An independent, reproducible benchmark of whether MCP security scanners catch authorization-logic bugs — seeded with real, responsibly-confirmed findings. Two mature SAST scanners catch the control bugs but miss the authz-logic class.</div></div>
-  <div class="work"><span class="t">verity-core <span class="tag">The gate</span></span>
+  <div class="work"><span class="t"><span class="dot"></span>verity-core <span class="tag">The gate</span></span>
     <div class="d">Refuses an accuracy claim until it clears statistical hygiene — sample size, out-of-sample, leakage, and lift over the base rate — then proves it: a claim ships a re-runnable command and the number must reproduce or CI fails. 17 domain packs, a CI gate, and an MCP tool.</div></div>
-  <div class="work"><span class="t">verified-ai-labor <span class="tag">The platform</span></span>
+  <div class="work"><span class="t"><span class="dot"></span>verified-ai-labor <span class="tag">The platform</span></span>
     <div class="d">A validated organization of agents routing work through a 13-stage pipeline — every result-claim verity-gated, every action hash-chain-logged, observable in a live console.</div></div>
-  <div class="work"><span class="t">calibration-log <span class="tag">The proof</span></span>
+  <div class="work"><span class="t"><span class="dot"></span>calibration-log <span class="tag">The proof</span></span>
     <div class="d">A public, hash-chained prediction record scored over time (Brier + calibration) — honesty that cannot be doctored after the fact. Reports the real number whether or not there is an edge.</div></div>
-  <div class="work"><span class="t">scorecheck <span class="tag">The adjudicator</span></span>
+  <div class="work"><span class="t"><span class="dot"></span>scorecheck <span class="tag">The adjudicator</span></span>
     <div class="d">Adjudicates a published benchmark claim against its raw run-logs — REPRODUCED / DID-NOT-REPRODUCE / CHERRY-PICKED — sealed into a re-runnable receipt. Surfaces the dropped, flipped, and fabricated rows that re-run leaderboards and reproducibility badges miss.</div></div>
-  <div class="work"><span class="t">groundtruth-bench <span class="tag">Citation-faithfulness benchmark</span></span>
+  <div class="work"><span class="t"><span class="dot"></span>groundtruth-bench <span class="tag">Citation-faithfulness benchmark</span></span>
     <div class="d">A cryptographically committed corpus scored offline to a byte-identical hash across machines — where RAG eval (RAGAS/ARES) is online and uncommittable. Reports where the scorer fails, not just the flattering number.</div></div>
 
   <h2>Approach &amp; Standard</h2>

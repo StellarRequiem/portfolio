@@ -7,7 +7,7 @@
 <meta name="description" content="Alex Price (StellarRequiem) — responsible security research and the trust layer for AI-era work. Verified work, or it doesn't ship.">
 <!-- PWA: installable calling card (Add to Home Screen on iPhone/iPad) -->
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#0a0d12">
+<meta name="theme-color" content="#02060d">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -15,105 +15,177 @@
 <meta name="apple-mobile-web-app-title" content="StellarRequiem">
 <style>
   :root{
-    --bg:#0a0d12; --panel:#11151c; --panel2:#0d1116; --line:#1e2630; --txt:#e6edf6;
-    --dim:#8b9bb0; --accent:#36c9c0; --amber:#d9a441; --red:#e0705a; --link:#6fd6cf;
-    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --void:#02060d; --panel:#06101e; --panel2:#040b16;
+    --cy:#5ad4ff; --mint:#3df0bb; --amber:#ffb547; --red:#ff5d6c; --violet:#9b8cff;
+    --tx:#dcefff; --dim:#6c8aa6; --line:rgba(86,206,255,.4); --line2:rgba(86,206,255,.9); --hair:rgba(86,206,255,.22);
+    --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
-  body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--sans);line-height:1.6;
-    font-size:16px;-webkit-font-smoothing:antialiased;
-    background-image:radial-gradient(1200px 600px at 70% -10%,rgba(54,201,192,.07),transparent 60%);}
-  a{color:var(--link);text-decoration:none}
+  body{margin:0;background:var(--void);color:var(--tx);font-family:var(--sans);line-height:1.65;
+    font-size:16px;-webkit-font-smoothing:antialiased}
+  a{color:var(--cy);text-decoration:none}
   a:hover{text-decoration:underline}
   .wrap{max-width:980px;margin:0 auto;padding:0 24px}
   .mono{font-family:var(--mono)}
+  /* ── ambient backdrop: fills the void, stays strictly BEHIND all text (z-index 0 vs content 1) ── */
+  .backdrop{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .bg-grid{position:absolute;inset:0;background-image:
+    linear-gradient(rgba(86,206,255,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(86,206,255,.045) 1px,transparent 1px);background-size:46px 46px}
+  #drift{position:absolute;inset:0;width:100%;height:100%;opacity:.55}
+  .bg-glow{position:absolute;border-radius:50%}
+  .bg-wm{position:absolute;right:1.5vw;bottom:1vh;font-family:var(--mono);font-size:40vh;line-height:.8;
+    color:rgba(86,206,255,.05);user-select:none}
+  header.hero,section,footer{position:relative;z-index:1}
+
   /* ── hero ── */
-  header.hero{padding:84px 0 40px;border-bottom:1px solid var(--line)}
-  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
-  h1{font-size:clamp(34px,6vw,54px);line-height:1.05;margin:0 0 6px;font-weight:700;letter-spacing:-.01em}
-  h1 .handle{color:var(--dim);font-weight:500}
-  .tagline{font-size:clamp(18px,2.6vw,23px);color:var(--txt);font-weight:600;margin:18px 0 10px}
-  .lede{font-size:17px;color:var(--dim);max-width:680px}
-  .lede strong{color:var(--txt)}
-  .contacts{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
-  .contacts a{font-family:var(--mono);font-size:13px;border:1px solid var(--line);border-radius:8px;
-    padding:8px 14px;color:var(--txt);background:var(--panel)}
-  .contacts a:hover{border-color:var(--accent);text-decoration:none}
+  header.hero{position:relative;overflow:hidden;border-bottom:1px solid var(--hair)}
+  #rain{position:absolute;inset:0;width:100%;height:100%;opacity:.4;pointer-events:none}
+  .hero-inner{position:relative;max-width:980px;margin:0 auto;padding:64px 24px 44px}
+  .cnr{position:absolute;width:26px;height:26px;pointer-events:none;z-index:2}
+  .kicker{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:11px;
+    letter-spacing:.24em;text-transform:uppercase;color:var(--cy);text-shadow:0 0 8px rgba(86,206,255,.5)}
+  .reactor{position:relative;width:26px;height:26px;flex:none}
+  .reactor .ring{position:absolute;inset:0;border:1.5px solid var(--cy);border-top-color:transparent;
+    border-radius:50%;animation:spin 3.2s linear infinite;box-shadow:0 0 8px rgba(86,206,255,.6)}
+  .reactor .core{position:absolute;inset:8px;border-radius:50%;background:var(--cy);
+    box-shadow:0 0 10px var(--cy);animation:pulse 2.2s ease-in-out infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes pulse{0%,100%{opacity:.5;transform:scale(.9)}50%{opacity:1;transform:scale(1.06)}}
+  .wordmark{display:flex;align-items:baseline;gap:14px;margin:22px 0 4px}
+  .rune{font-size:34px;color:var(--cy);text-shadow:0 0 22px rgba(86,206,255,.7);line-height:1}
+  h1{font-family:var(--mono);font-size:clamp(28px,5vw,40px);font-weight:500;letter-spacing:.02em;margin:0;color:#eaf6ff}
+  h1 .handle{color:var(--dim);font-weight:400;font-size:.58em}
+  .tagline{font-family:var(--mono);font-size:clamp(18px,2.6vw,24px);font-weight:500;color:var(--tx);margin:14px 0 12px}
+  .lede{font-size:16.5px;color:var(--dim);max-width:660px}
+  .lede strong{color:var(--tx)} .lede .mint{color:var(--mint)} .lede .amb{color:var(--amber)}
+  .contacts{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+  .contacts a{font-family:var(--mono);font-size:12.5px;border:1px solid var(--line);border-radius:8px;
+    padding:8px 13px;color:var(--tx);background:rgba(6,16,30,.7)}
+  .contacts a:hover{border-color:var(--line2);text-decoration:none;box-shadow:0 0 12px rgba(86,206,255,.2)}
+  .vitals{display:flex;flex-wrap:wrap;gap:13px 26px;margin-top:26px;padding-top:16px;border-top:1px solid var(--hair);
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+  .vitals b{font-weight:500}
+  .v-cy{color:var(--cy);text-shadow:0 0 6px rgba(86,206,255,.5)} .v-mint{color:var(--mint)} .v-amb{color:var(--amber)}
+
   /* ── sections ── */
-  section{padding:52px 0;border-bottom:1px solid var(--line)}
-  h2{font-size:13px;font-family:var(--mono);letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin:0 0 6px}
-  .sublede{color:var(--dim);max-width:720px;margin:0 0 26px;font-size:16px}
+  section{padding:50px 0;border-bottom:1px solid var(--hair)}
+  h2{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:12px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--cy);margin:0 0 6px}
+  h2 .mk{color:var(--cy);text-shadow:0 0 10px rgba(86,206,255,.6)}
+  .sublede{color:var(--dim);max-width:720px;margin:0 0 24px;font-size:15.5px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;transition:border-color .2s}
-  .card:hover{border-color:#2b3a48}
-  .card h3{margin:0 0 4px;font-size:16px}
-  .card h3 a{color:var(--txt)}
-  .card .role{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
-  .card p{margin:0;color:var(--dim);font-size:14.5px}
-  .feature{border-color:#2b4a47;background:linear-gradient(180deg,rgba(54,201,192,.05),transparent)}
-  .pill{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--dim);border:1px solid var(--line);
-    border-radius:20px;padding:2px 10px;margin:0 6px 6px 0}
-  .principle{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-top:1px solid var(--line)}
+  .card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:16px 18px;transition:border-color .2s,box-shadow .2s}
+  .card:hover{border-color:var(--line2);box-shadow:0 0 18px rgba(86,206,255,.18)}
+  .card .role{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:9px}
+  .dot{width:7px;height:7px;border-radius:50%;flex:none}
+  .dot.up{background:var(--mint);box-shadow:0 0 7px var(--mint)}
+  .dot.warn{background:var(--amber);box-shadow:0 0 7px var(--amber)}
+  .card h3{margin:0 0 7px;font-family:var(--mono);font-size:15px;font-weight:500}
+  .card h3 a{color:#eaf6ff} .card h3 a:hover{color:var(--cy)}
+  .card p{margin:0;color:var(--dim);font-size:14px}
+  .card p em{color:var(--tx);font-style:normal}
+  .feature{border-color:var(--line2);box-shadow:inset 0 0 34px rgba(86,206,255,.06)}
+  .badges{margin-top:11px;display:flex;flex-wrap:wrap;gap:5px}
+  .badge{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;border-radius:5px;padding:3px 7px}
+  .b-mint{color:var(--mint);border:1px solid rgba(61,240,187,.5)}
+  .b-cy{color:var(--cy);border:1px solid var(--line)}
+  .b-amb{color:var(--amber);border:1px solid rgba(255,181,71,.5)}
+  .b-red{color:var(--red);border:1px solid rgba(255,93,108,.5)}
+  .b-dim{color:var(--dim);border:1px solid var(--hair)}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--dim);border:1px solid var(--hair);
+    border-radius:20px;padding:2px 11px;margin:0 6px 6px 0;text-transform:uppercase;letter-spacing:.08em}
+  .principle{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-top:1px solid var(--hair)}
   .principle:first-of-type{border-top:none}
-  .principle .n{font-family:var(--mono);color:var(--accent);font-size:13px;padding-top:2px;min-width:26px}
-  .principle b{color:var(--txt)}
-  .placeholder{border:1px dashed #3a4654;background:var(--panel2);border-radius:12px;padding:18px 20px;color:var(--dim)}
-  .placeholder .tag{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--amber)}
-  footer{padding:48px 0 72px;color:var(--dim);font-size:14px}
-  .verifyline{font-family:var(--mono);font-size:12.5px;color:var(--dim);margin-top:8px}
-  .verifyline b{color:var(--accent)}
+  .principle .n{font-family:var(--mono);color:var(--cy);font-size:13px;padding-top:2px;min-width:30px;text-shadow:0 0 8px rgba(86,206,255,.5)}
+  .principle b{color:var(--tx)} .principle em{color:var(--tx);font-style:normal}
+  .placeholder{border:1px dashed rgba(255,181,71,.5);background:var(--panel2);border-radius:12px;padding:18px 20px;color:var(--dim)}
+  .placeholder .tag{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--amber)}
+  footer{padding:46px 0 70px;color:var(--dim);font-size:14px}
+  .verifyline{font-family:var(--mono);font-size:12.5px;color:var(--dim);margin-top:10px}
+  .verifyline b{color:var(--cy)}
+  @media (prefers-reduced-motion: reduce){.reactor .ring,.reactor .core{animation:none}}
 </style>
 </head>
 <body>
 
-<header class="hero"><div class="wrap">
-  <div class="kicker">Security Research · Verification · Responsible Practice</div>
-  <h1>Alex Price <span class="handle">/ StellarRequiem</span></h1>
-  <div class="tagline">Verified work, or it doesn't ship.</div>
-  <p class="lede">I build the <strong>trust layer for AI-era work</strong>. As models and agents
-    produce more claims than anyone can check, the dangerous ones are the confident-sounding numbers
-    nobody verified. One rule runs through everything I ship: <strong>no belief without
-    verification</strong> — every result carries evidence a third party can re-run.</p>
-  <div class="contacts">
-    <a href="mailto:alexanderprice91@yahoo.com">📫 alexanderprice91@yahoo.com</a>
-    <a href="https://github.com/StellarRequiem" target="_blank" rel="noopener">🐙 github.com/StellarRequiem</a>
-    <a href="https://x.com/StellarRequiem" target="_blank" rel="noopener">𝕏 @StellarRequiem</a>
+<div class="backdrop" aria-hidden="true">
+  <div class="bg-grid"></div>
+  <canvas id="drift"></canvas>
+  <div class="bg-glow" style="top:-12vh;right:-8vw;width:52vw;height:52vh;background:radial-gradient(circle,rgba(86,206,255,.10),transparent 70%)"></div>
+  <div class="bg-glow" style="bottom:6vh;left:-12vw;width:48vw;height:48vh;background:radial-gradient(circle,rgba(155,140,255,.06),transparent 70%)"></div>
+  <div class="bg-wm">&#10689;</div>
+</div>
+
+<header class="hero">
+  <canvas id="rain" aria-hidden="true"></canvas>
+  <span class="cnr" style="top:10px;left:10px;border-left:1.6px solid var(--line2);border-top:1.6px solid var(--line2)"></span>
+  <span class="cnr" style="top:10px;right:10px;border-right:1.6px solid var(--line2);border-top:1.6px solid var(--line2)"></span>
+  <span class="cnr" style="bottom:10px;left:10px;border-left:1.6px solid var(--line2);border-bottom:1.6px solid var(--line2)"></span>
+  <span class="cnr" style="bottom:10px;right:10px;border-right:1.6px solid var(--line2);border-bottom:1.6px solid var(--line2)"></span>
+  <div class="hero-inner">
+    <div class="kicker"><span class="reactor"><span class="ring"></span><span class="core"></span></span>StellarRequiem · Verification Infrastructure</div>
+    <div class="wordmark"><span class="rune" aria-hidden="true">&#10689;</span><h1>Alex Price <span class="handle">/ StellarRequiem</span></h1></div>
+    <div class="tagline">Verified work, or it doesn't ship.</div>
+    <p class="lede">I build the <strong>trust layer for AI-era work</strong>. As models and agents produce
+      more claims than anyone can check, the dangerous ones are the confident-sounding numbers nobody
+      verified. One rule runs through everything I ship: <strong>no belief without verification</strong> —
+      every result carries evidence a third party can re-run. The badge <span class="mint">is</span> the
+      claim; the honest <span class="amb">no</span> is part of the deliverable.</p>
+    <div class="contacts">
+      <a href="mailto:alexanderprice91@yahoo.com">alexanderprice91@yahoo.com</a>
+      <a href="https://github.com/StellarRequiem" target="_blank" rel="noopener">github.com/StellarRequiem</a>
+      <a href="https://x.com/StellarRequiem" target="_blank" rel="noopener">@StellarRequiem</a>
+    </div>
+    <div class="vitals">
+      <span>Public repos <b class="v-cy">6</b></span>
+      <span>CI <b class="v-mint">all-green</b></span>
+      <span>Calibration-log <b class="v-mint">live</b></span>
+      <span>Unverified claims <b class="v-cy">0</b></span>
+      <span>Honest gaps <b class="v-amb">stated</b></span>
+    </div>
   </div>
-</div></header>
+</header>
 
 <section><div class="wrap">
-  <h2>Responsible Security Research</h2>
+  <h2><span class="mk">&#10689;</span> Responsible Security Research</h2>
   <p class="sublede">Offensive technique applied under explicit authorization, with audit. I treat
     "am I allowed to test this?" and "can I prove what I did?" as first-class, enforced constraints —
     not afterthoughts.</p>
   <div class="grid">
     <div class="card feature">
-      <div class="role">Authorization framework · public</div>
+      <div class="role"><span class="dot up"></span>Authorization framework · public</div>
       <h3><a href="https://github.com/StellarRequiem/scope-gate" target="_blank" rel="noopener">scope-gate</a></h3>
       <p>A deny-by-default authorization gate: test only what you're explicitly authorized to.
         Ships with a responsible-research charter. The boundary that makes dual-use work safe.</p>
+      <div class="badges"><span class="badge b-cy">Public</span><span class="badge b-dim">Deny-by-default</span></div>
     </div>
     <div class="card">
-      <div class="role">Coordinated disclosure</div>
+      <div class="role"><span class="dot warn"></span>Coordinated disclosure</div>
       <h3>Vulnerability research</h3>
       <p>Responsible coordinated-disclosure research across deployed AI-infrastructure / MCP-profile
         targets. Findings verified locally with reproducible PoCs before contact; novelty- and
-        scope-checked. <span class="mono" style="color:var(--amber)">Disclosures in progress.</span></p>
+        scope-checked.</p>
+      <div class="badges"><span class="badge b-amb">Disclosure — in progress</span></div>
     </div>
     <div class="card">
-      <div class="role">Discipline</div>
+      <div class="role"><span class="dot up"></span>Discipline</div>
       <h3>Audit everything</h3>
       <p>Append-only, hash-chained records of what was tested and found — the same evidence standard
         that governs the rest of my work, applied to security engagements.</p>
+      <div class="badges"><span class="badge b-dim">Append-only</span><span class="badge b-dim">Hash-chained</span></div>
     </div>
     <div class="card">
-      <div class="role">Benchmark · public</div>
+      <div class="role"><span class="dot up"></span>Benchmark · public</div>
       <h3><a href="https://github.com/StellarRequiem/mcp-bench" target="_blank" rel="noopener">mcp-bench</a></h3>
       <p>Do MCP security scanners actually catch authorization-logic bugs? An independent, reproducible
         benchmark seeded with real confirmed findings: two mature SASTs catch the control bugs but miss
-        the authz-logic class (0/3). Scanners run only in a disposable CI runner.</p>
+        the authz-logic class. Scanners run only in a disposable CI runner.</p>
+      <div class="badges"><span class="badge b-cy">Public</span><span class="badge b-mint">Reproducible</span><span class="badge b-red">authz-logic 0/3</span></div>
     </div>
   </div>
   <div style="margin-top:14px">
@@ -124,55 +196,60 @@
 </div></section>
 
 <section><div class="wrap">
-  <h2>Verified AI Labor — the platform</h2>
+  <h2><span class="mk">&#10689;</span> Verified AI Labor — the platform</h2>
   <p class="sublede">A company can be run as agents — but only if you can trust what each agent says it
     did. So I built the whole loop around one primitive: verification.</p>
   <div class="grid">
     <div class="card feature">
-      <div class="role">The gate</div>
+      <div class="role"><span class="dot up"></span>The gate</div>
       <h3><a href="https://github.com/StellarRequiem/verity-core" target="_blank" rel="noopener">verity-core</a></h3>
       <p>Refuses a "95% accuracy" claim until it clears statistical hygiene — sample, out-of-sample,
         leakage, lift over base rate — then <em>proves</em> it: a claim ships a re-runnable command and
         the number must reproduce or CI fails. 17 domain packs · CI gate · MCP tool.</p>
+      <div class="badges"><span class="badge b-mint">Proof-carrying</span><span class="badge b-cy">CI gate</span></div>
     </div>
     <div class="card">
-      <div class="role">The labor</div>
+      <div class="role"><span class="dot up"></span>The labor</div>
       <h3><a href="https://github.com/StellarRequiem/verified-ai-labor" target="_blank" rel="noopener">verified-ai-labor</a></h3>
       <p>A validated org of agents routing work through a 13-stage pipeline — every result-claim
         verity-gated, every action hash-chain-logged, observable in a live console.</p>
+      <div class="badges"><span class="badge b-cy">Verity-gated</span><span class="badge b-dim">Hash-chained</span></div>
     </div>
     <div class="card">
-      <div class="role">The benchmark</div>
+      <div class="role"><span class="dot up"></span>The benchmark</div>
       <h3><a href="https://github.com/StellarRequiem/groundtruth-bench" target="_blank" rel="noopener">groundtruth-bench</a></h3>
       <p>Citation faithfulness you can re-run to the same hash: a cryptographically committed corpus
         scored offline, byte-identical across machines — where RAG eval (RAGAS/ARES) is online, metered,
         and uncommittable. Reports where the scorer fails, not just the flattering number.</p>
+      <div class="badges"><span class="badge b-mint">Byte-reproducible</span><span class="badge b-cy">Committed corpus</span></div>
     </div>
     <div class="card">
-      <div class="role">The proof</div>
+      <div class="role"><span class="dot up"></span>The proof</div>
       <h3><a href="https://github.com/StellarRequiem/calibration-log" target="_blank" rel="noopener">calibration-log</a></h3>
       <p>A public, hash-chained prediction record scored over time (Brier + calibration). Honesty you
         can't doctor — it reports the real number whether there's an edge or not.</p>
+      <div class="badges"><span class="badge b-mint">Live</span><span class="badge b-dim">Hash-chained</span></div>
     </div>
     <div class="card">
-      <div class="role">The adjudicator</div>
+      <div class="role"><span class="dot up"></span>The adjudicator</div>
       <h3><a href="https://github.com/StellarRequiem/scorecheck" target="_blank" rel="noopener">scorecheck</a></h3>
       <p>Adjudicates a published benchmark claim against its raw run-logs — <em>REPRODUCED / DID-NOT-REPRODUCE /
         CHERRY-PICKED</em> — sealed into a re-runnable receipt. Surfaces the dropped, flipped, and fabricated
-        rows that re-run leaderboards and reproducibility badges miss. The verdict re-derives from the logs ·
-        survived a 3-lens adversarial pass.</p>
+        rows that re-run leaderboards and reproducibility badges miss; survived a 3-lens adversarial pass.</p>
+      <div class="badges"><span class="badge b-mint">Reproduced</span><span class="badge b-red">Cherry-picked</span><span class="badge b-cy">CI-green</span></div>
     </div>
     <div class="card">
-      <div class="role">Trust tooling</div>
+      <div class="role"><span class="dot up"></span>Trust tooling</div>
       <h3>firewall · grounded · reality-anchor</h3>
       <p>Flag unverified claims in AI output; verify every cited claim is supported by its source; a
         research agent that grounds its answers or abstains rather than fabricate.</p>
+      <div class="badges"><span class="badge b-dim">Deterministic</span><span class="badge b-dim">Offline</span></div>
     </div>
   </div>
 </div></section>
 
 <section><div class="wrap">
-  <h2>How my work is verifiable</h2>
+  <h2><span class="mk">&#10689;</span> How my work is verifiable</h2>
   <p class="sublede">Not a portfolio of assertions — a portfolio you can re-run.</p>
   <div class="principle"><div class="n">01</div><div><b>CI-green or it doesn't ship.</b> Public
     repos carry their own tests; the badge is the claim.</div></div>
@@ -185,10 +262,10 @@
 </div></section>
 
 <section><div class="wrap">
-  <h2>Verifiable Identity &amp; Credentials</h2>
+  <h2><span class="mk">&#10689;</span> Verifiable Identity &amp; Credentials</h2>
   <p class="sublede">Identity and credential attestations for verification programs and engagements.</p>
   <div class="placeholder">
-    <div class="tag">◇ to populate — operator</div>
+    <div class="tag">&#9671; to populate — operator</div>
     <p style="margin:10px 0 0">Reserved for verifiable identity + credential material you control:
       digital ID / attestation, PGP public key &amp; fingerprint, organization details (if applying as
       an org), security certifications, professional references, and platform researcher profiles
@@ -206,9 +283,58 @@
 </div></footer>
 
 <script>
+  // Bifrost rune-rain behind the hero only — CPU-light, pauses when hidden, off under reduced-motion.
+  (function(){
+    var cv=document.getElementById("rain"); if(!cv) return;
+    if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var ctx=cv.getContext("2d"), sp=15, cols=1, drops=[], timer=null;
+    var glyphs="ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛋᛏᛒᛖᛗᛚ∑∫∂∇λπ∞⊕⊗σμΔ".split("").concat("0123456789".split(""));
+    function size(){ cv.width=cv.offsetWidth; cv.height=cv.offsetHeight; cols=Math.max(1,Math.floor(cv.width/sp)); drops=[]; for(var i=0;i<cols;i++) drops[i]=Math.random()*cv.height/sp; }
+    function hue(i){ var t=i/cols; return t<0.5 ? 280-(280-185)*(t/0.5) : 185-(185-45)*((t-0.5)/0.5); }
+    function draw(){
+      ctx.fillStyle="rgba(2,6,13,0.16)"; ctx.fillRect(0,0,cv.width,cv.height);
+      ctx.font="12px monospace";
+      for(var i=0;i<cols;i++){
+        ctx.fillStyle="hsla("+hue(i).toFixed(0)+",92%,66%,0.85)";
+        ctx.fillText(glyphs[Math.floor(Math.random()*glyphs.length)], i*sp, drops[i]*sp);
+        if(drops[i]*sp>cv.height && Math.random()>0.975) drops[i]=0;
+        drops[i]+=0.5;
+      }
+    }
+    function start(){ if(!timer) timer=setInterval(draw,70); }
+    function stop(){ if(timer){ clearInterval(timer); timer=null; } }
+    size(); start();
+    addEventListener("resize", function(){ size(); });
+    document.addEventListener("visibilitychange", function(){ document.hidden ? stop() : start(); });
+  })();
+  // Page-wide ambient rune-drift — sparse, slow, faint; a calmer echo of the hero rain that fills
+  // the void as you scroll. Fixed canvas, strictly behind content; off under reduced-motion.
+  (function(){
+    var cv=document.getElementById("drift"); if(!cv) return;
+    if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var ctx=cv.getContext("2d"), sp=42, cols=1, drops=[], timer=null;
+    var glyphs="ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛋᛏᛒᛖᛗᛚ∑∫∂∇λπ∞⊕⊗".split("");
+    function size(){ cv.width=innerWidth; cv.height=innerHeight; cols=Math.max(1,Math.floor(cv.width/sp)); drops=[]; for(var i=0;i<cols;i++) drops[i]=Math.random()*cv.height/sp; }
+    function hue(i){ var t=i/cols; return t<0.5 ? 280-(280-185)*(t/0.5) : 185-(185-45)*((t-0.5)/0.5); }
+    function draw(){
+      ctx.fillStyle="rgba(2,6,13,0.10)"; ctx.fillRect(0,0,cv.width,cv.height);
+      ctx.font="13px monospace";
+      for(var i=0;i<cols;i++){
+        ctx.fillStyle="hsla("+hue(i).toFixed(0)+",85%,62%,0.42)";
+        ctx.fillText(glyphs[Math.floor(Math.random()*glyphs.length)], i*sp, drops[i]*sp);
+        if(drops[i]*sp>cv.height && Math.random()>0.99) drops[i]=0;
+        drops[i]+=0.35;
+      }
+    }
+    function start(){ if(!timer) timer=setInterval(draw,110); }
+    function stop(){ if(timer){ clearInterval(timer); timer=null; } }
+    size(); start();
+    addEventListener("resize", function(){ size(); });
+    document.addEventListener("visibilitychange", function(){ document.hidden ? stop() : start(); });
+  })();
   // Register the service worker so the card installs + opens offline (HTTPS/localhost only).
   if ("serviceWorker" in navigator) {
-    addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+    addEventListener("load", function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); });
   }
 </script>
 </body>
