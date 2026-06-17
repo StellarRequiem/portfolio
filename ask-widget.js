@@ -40,7 +40,7 @@
       a: repo("calibration-log") + " is a public, hash-chained prediction record scored over time (Brier + calibration). Honesty you can't doctor — it reports the real number whether there's an edge or not." },
     { id: "val", chip: "What is Verified AI Labor?",
       keys: ["verified ai labor", "labor", "platform", "agents", "pipeline", "company", "org"],
-      a: "A company can be run as agents — but only if you can trust what each agent says it did. " + repo("verified-ai-labor") + " is a validated org of agents routing work through a 13-stage pipeline: every result-claim verity-gated, every action hash-chain-logged, observable in a live console. Around it sit " + repo("groundtruth-bench") + " (citation faithfulness re-runnable to the same hash) and the trust tooling (firewall · grounded · reality-anchor)." },
+      a: "Can a company be run as agents? Only if you can trust what each agent says it did. " + repo("verified-ai-labor") + " is a working prototype of exactly that — a 13-stage pipeline where every result-claim is verity-gated and every action hash-chain-logged, observable in a live console. Around it sit " + repo("groundtruth-bench") + " (citation faithfulness re-runnable to the same hash) and the trust tooling (firewall · grounded · reality-anchor)." },
     { id: "scorecheck", chip: "What is scorecheck?",
       keys: ["scorecheck", "adjudicate", "cherry", "leaderboard", "reproduced", "receipt"],
       a: repo("scorecheck") + " adjudicates a published benchmark claim against its raw run-logs — <b>REPRODUCED / DID-NOT-REPRODUCE / CHERRY-PICKED</b> — sealed into a re-runnable receipt. It surfaces the dropped, flipped, and fabricated rows that re-run leaderboards miss. Survived a 3-lens adversarial pass." },
