@@ -1,5 +1,5 @@
 // Minimal offline cache so the calling card opens with no network once installed.
-const CACHE = "sr-portfolio-v3";
+const CACHE = "sr-portfolio-v4";
 const ASSETS = ["./index.html", "./ask-widget.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));

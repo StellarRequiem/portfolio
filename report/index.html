@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Report a bug · xclusivexo.com</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Report a bug on xclusivexo.com — what happened, what you expected, with optional browser diagnostics attached.">
+<meta name="theme-color" content="#02060d">
+<style>
+  :root{--void:#02060d;--panel2:#040b16;--cy:#5ad4ff;--mint:#3df0bb;--amber:#ffb547;--red:#ff5d6c;--tx:#dcefff;--dim:#6c8aa6;
+    --line:rgba(86,206,255,.4);--hair:rgba(86,206,255,.22);
+    --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;}
+  *{box-sizing:border-box} body{margin:0;background:var(--void);color:var(--tx);font:15px/1.6 var(--sans);min-height:100vh;}
+  .wrap{max-width:660px;margin:0 auto;padding:50px 22px 80px;}
+  h1{font:600 26px/1.2 var(--mono);color:var(--cy);text-shadow:0 0 12px rgba(86,206,255,.35);margin:0 0 6px;}
+  .kick{font:12px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin:0 0 26px;}
+  label{display:block;font:12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:18px 0 6px;}
+  input,textarea{width:100%;background:var(--panel2);border:1px solid var(--hair);border-radius:8px;color:var(--tx);font:14px var(--sans);padding:10px 12px;}
+  textarea{min-height:90px;resize:vertical;} input:focus,textarea:focus{outline:none;border-color:var(--line);}
+  .btn{display:inline-block;font:13px var(--mono);color:var(--cy);text-shadow:0 0 8px rgba(86,206,255,.5);border:1px solid var(--line);
+    border-radius:8px;padding:11px 17px;background:rgba(6,16,30,.7);cursor:pointer;text-decoration:none;margin:20px 8px 0 0;}
+  .btn:hover{border-color:rgba(86,206,255,.9);}
+  .muted{color:var(--dim);font-size:13px;} .ok{color:var(--mint);}
+  .diag{background:var(--panel2);border:1px solid var(--hair);border-radius:8px;padding:12px 14px;margin-top:10px;
+    font:12px/1.7 var(--mono);color:var(--dim);white-space:pre-wrap;word-break:break-word;}
+  details{margin-top:18px;} summary{cursor:pointer;font:12px var(--mono);letter-spacing:.06em;color:var(--cy);}
+  nav{margin-top:46px;padding-top:18px;border-top:1px solid var(--hair);font:12.5px var(--mono);}
+  nav a{color:var(--dim);text-decoration:none;margin-right:16px;} nav a:hover{color:var(--cy);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Report a bug</h1>
+  <p class="kick">something broke? let me know</p>
+  <p>Tell me what went wrong. Your browser details below are collected automatically to help me reproduce it — they're shown to you here and only included if you send the report.</p>
+
+  <label for="what">What happened?</label>
+  <textarea id="what" placeholder="What you saw…"></textarea>
+
+  <label for="expected">What did you expect?</label>
+  <textarea id="expected" placeholder="What you expected instead…"></textarea>
+
+  <label for="steps">Steps to reproduce <span class="muted">(optional)</span></label>
+  <textarea id="steps" placeholder="1. …&#10;2. …"></textarea>
+
+  <details>
+    <summary>Browser diagnostics that will be attached</summary>
+    <div class="diag" id="diag">collecting…</div>
+  </details>
+
+  <div>
+    <a class="btn" id="email" href="#">✉ Email the report</a>
+    <a class="btn" id="gh" href="#" target="_blank" rel="noopener">⎇ Open a GitHub issue</a>
+  </div>
+  <p class="muted" id="note" style="margin-top:16px">The email opens your own mail app; the GitHub option opens a pre-filled issue (needs a GitHub account). Nothing is stored on this page. Need a deeper self-test first? <a href="/diagnostics/" style="color:var(--cy)">run diagnostics</a>.</p>
+
+  <nav>
+    <a href="/">home</a><a href="/village/">village</a><a href="/feedback/">feedback</a><a href="/diagnostics/">diagnostics</a>
+  </nav>
+</div>
+<script>
+"use strict";
+var TO = "alexanderprice91@yahoo.com";
+var GH = "https://github.com/StellarRequiem/portfolio/issues/new";
+function diagnostics(){
+  var n = navigator, s = screen, d = [];
+  d.push("page: " + (document.referrer || location.href));
+  d.push("userAgent: " + n.userAgent);
+  d.push("platform: " + (n.platform || "?"));
+  d.push("language: " + (n.language || "?"));
+  d.push("viewport: " + innerWidth + "×" + innerHeight + " @" + (window.devicePixelRatio || 1) + "x");
+  d.push("screen: " + s.width + "×" + s.height);
+  d.push("online: " + (n.onLine ? "yes" : "no"));
+  d.push("cookies: " + (n.cookieEnabled ? "enabled" : "disabled"));
+  d.push("reduced-motion: " + (matchMedia('(prefers-reduced-motion: reduce)').matches ? "on" : "off"));
+  return d.join("\n");
+}
+var DIAG = diagnostics();
+document.getElementById('diag').textContent = DIAG;
+function bodyText(){
+  var w = document.getElementById('what').value.trim();
+  var e = document.getElementById('expected').value.trim();
+  var st = document.getElementById('steps').value.trim();
+  var L = [];
+  L.push("What happened:", w || "(not described)", "");
+  L.push("Expected:", e || "(not described)", "");
+  if (st) L.push("Steps:", st, "");
+  L.push("— diagnostics —", DIAG);
+  return L.join("\n");
+}
+document.getElementById('email').addEventListener('click', function(ev){
+  ev.preventDefault();
+  var w = document.getElementById('what').value.trim();
+  if (!w){ document.getElementById('what').focus(); return; }
+  window.location.href = "mailto:" + TO + "?subject=" + encodeURIComponent("Bug report — xclusivexo.com") + "&body=" + encodeURIComponent(bodyText());
+});
+document.getElementById('gh').addEventListener('click', function(ev){
+  var w = document.getElementById('what').value.trim();
+  var url = GH + "?title=" + encodeURIComponent("Bug: " + (w ? w.slice(0,60) : "(describe)")) + "&body=" + encodeURIComponent(bodyText());
+  this.href = url;   // let the anchor open it in a new tab
+});
+</script>
+</body>
+</html>

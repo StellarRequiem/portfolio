@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Diagnostics · xclusivexo.com</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A quick client-side self-test for xclusivexo.com — browser capabilities and live-feed reachability. Runs entirely in your browser.">
+<meta name="theme-color" content="#02060d">
+<style>
+  :root{--void:#02060d;--panel2:#040b16;--cy:#5ad4ff;--mint:#3df0bb;--amber:#ffb547;--red:#ff5d6c;--tx:#dcefff;--dim:#6c8aa6;
+    --line:rgba(86,206,255,.4);--hair:rgba(86,206,255,.22);
+    --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;}
+  *{box-sizing:border-box} body{margin:0;background:var(--void);color:var(--tx);font:15px/1.6 var(--sans);min-height:100vh;}
+  .wrap{max-width:660px;margin:0 auto;padding:50px 22px 80px;}
+  h1{font:600 26px/1.2 var(--mono);color:var(--cy);text-shadow:0 0 12px rgba(86,206,255,.35);margin:0 0 6px;}
+  .kick{font:12px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin:0 0 22px;}
+  .row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:10px 2px;border-bottom:1px solid var(--hair);font:13px var(--mono);}
+  .row .k{color:var(--dim);} .row .v{text-align:right;word-break:break-word;}
+  .ok{color:var(--mint);} .bad{color:var(--red);} .warn{color:var(--amber);} .dim{color:var(--dim);}
+  .btn{display:inline-block;font:13px var(--mono);color:var(--cy);text-shadow:0 0 8px rgba(86,206,255,.5);border:1px solid var(--line);
+    border-radius:8px;padding:11px 17px;background:rgba(6,16,30,.7);cursor:pointer;text-decoration:none;margin:22px 8px 0 0;}
+  .btn:hover{border-color:rgba(86,206,255,.9);}
+  .muted{color:var(--dim);font-size:13px;}
+  nav{margin-top:44px;padding-top:18px;border-top:1px solid var(--hair);font:12.5px var(--mono);}
+  nav a{color:var(--dim);text-decoration:none;margin-right:16px;} nav a:hover{color:var(--cy);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Diagnostics</h1>
+  <p class="kick">a quick self-test, in your browser</p>
+  <p>This checks the things the interactive pages (like <a href="/village/" style="color:var(--cy)">the village</a>) need, and whether the live feeds are reachable from your network. It runs entirely in your browser — nothing is sent anywhere.</p>
+
+  <div id="rows"></div>
+
+  <div>
+    <button class="btn" id="copy" type="button">⧉ Copy results</button>
+    <a class="btn" href="/report/">Attach to a bug report →</a>
+  </div>
+  <p class="muted" id="note" style="margin-top:14px"></p>
+
+  <nav>
+    <a href="/">home</a><a href="/village/">village</a><a href="/feedback/">feedback</a><a href="/report/">report a bug</a>
+  </nav>
+</div>
+<script>
+"use strict";
+var rows = document.getElementById('rows'), results = [];
+function add(key, val, cls){
+  var r = document.createElement('div'); r.className = 'row';
+  var k = document.createElement('span'); k.className = 'k'; k.textContent = key;
+  var v = document.createElement('span'); v.className = 'v ' + (cls || 'dim'); v.textContent = val;
+  r.appendChild(k); r.appendChild(v); rows.appendChild(r);
+  results.push(key + ": " + val);
+}
+// --- environment ---
+add('JavaScript', 'enabled ✓', 'ok');
+add('Browser', (navigator.userAgent || '?'), 'dim');
+add('Platform', (navigator.platform || '?'), 'dim');
+add('Language', (navigator.language || '?'), 'dim');
+add('Viewport', innerWidth + '×' + innerHeight + ' @' + (window.devicePixelRatio || 1) + 'x', 'dim');
+add('Screen', screen.width + '×' + screen.height, 'dim');
+add('Network', navigator.onLine ? 'online ✓' : 'offline ✗', navigator.onLine ? 'ok' : 'bad');
+// --- capabilities the village needs ---
+var cv = document.createElement('canvas');
+var canCanvas = !!(cv.getContext && cv.getContext('2d'));
+add('Canvas 2D', canCanvas ? 'supported ✓' : 'missing ✗', canCanvas ? 'ok' : 'bad');
+var AC = window.AudioContext || window.webkitAudioContext;
+add('Web Audio', AC ? 'supported ✓' : 'missing ✗', AC ? 'ok' : 'warn');
+var canFetch = typeof fetch === 'function';
+add('Fetch API', canFetch ? 'supported ✓' : 'missing ✗', canFetch ? 'ok' : 'bad');
+add('Reduced motion', matchMedia('(prefers-reduced-motion: reduce)').matches ? 'on (calmer scene)' : 'off', 'dim');
+add('Color scheme', matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light', 'dim');
+// --- live feed reachability (the actual endpoints the village uses) ---
+function probe(label, url){
+  var r = document.createElement('div'); r.className = 'row';
+  var k = document.createElement('span'); k.className = 'k'; k.textContent = label;
+  var v = document.createElement('span'); v.className = 'v warn'; v.textContent = 'checking…';
+  r.appendChild(k); r.appendChild(v); rows.appendChild(r);
+  if (!canFetch){ v.className = 'v bad'; v.textContent = 'no fetch ✗'; results.push(label + ': no fetch'); return Promise.resolve(); }
+  var t0 = Date.now();
+  return fetch(url).then(function(res){ return res.ok ? res.text() : Promise.reject(res.status); }).then(function(){
+    v.className = 'v ok'; v.textContent = 'reachable ✓ (' + (Date.now()-t0) + 'ms)'; results.push(label + ': reachable');
+  }).catch(function(e){
+    v.className = 'v bad'; v.textContent = 'blocked / unreachable ✗'; results.push(label + ': blocked (' + e + ')');
+  });
+}
+Promise.all([
+  probe('Live news (Hacker News)', 'https://hacker-news.firebaseio.com/v0/maxitem.json'),
+  probe('Live facts (Wikipedia)', 'https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/01/01')
+]).then(function(){
+  document.getElementById('note').innerHTML = 'If a live feed shows <span class="bad">blocked</span>, your network or an extension is filtering it — the village still runs on its bundled quotes either way.';
+});
+// --- copy ---
+document.getElementById('copy').addEventListener('click', function(){
+  var text = '--- xclusivexo.com diagnostics ---\n' + results.join('\n');
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){
+      document.getElementById('note').innerHTML = '<span class="ok">Copied.</span> Paste it into a bug report or email.';
+    });
+  }
+});
+</script>
+</body>
+</html>
