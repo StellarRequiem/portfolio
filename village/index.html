@@ -247,16 +247,15 @@ function spawnCritter(animal, opts){                    // generate one critter;
   });
 }
 function introduce(){ if (critters.length < POP_MAX+2) spawnCritter(SPRITE_NAMES[(Math.random()*SPRITE_NAMES.length)|0], {enter:true}); }
-function manageCritters(dt){                            // the generator: keep a living, turning-over population
+function manageCritters(dt){                            // populate over time toward the cap, then gently recycle
   nextTurnover -= dt;
   var pop = 0; for (var i=0;i<critters.length;i++) if (critters[i].mode!=='leaving' && !critters[i].resident) pop++;
-  if (pop < POP_MIN){ introduce(); return; }
-  if (nextTurnover <= 0){ nextTurnover = Rn(28, 60);
-    if (pop > POP_MIN && Math.random()<0.6){                // swap: send one off, a fresh face wanders in
-      var cand = critters.filter(function(c){ return c.mode==='roam' && !c.resident; });   // never retire a resident
+  if (nextTurnover <= 0){ nextTurnover = Rn(12, 30);
+    if (pop < POP_MAX){ introduce(); }                    // a visitor lingering -> the scene fills up toward the cap
+    else if (Math.random() < 0.5){                        // at the cap: one wanders off so a fresh one can arrive (recycle)
+      var cand = critters.filter(function(c){ return c.mode==='roam' && !c.resident; });
       if (cand.length) cand[(Math.random()*cand.length)|0].mode = 'leaving';
-      setTimeout(introduce, (2+Math.random()*5)*1000);
-    } else if (pop < POP_MAX) introduce();
+    }
   }
 }
 /* ── personality layer (public edition): ambient critters surface short aspirational quotes (public-domain,
@@ -714,7 +713,7 @@ function stepCritters(dt){
       if (!ROOM && BUILDINGS.length && Math.random()<0.0012){   // occasionally pop into a shop/apartment (village only, not in a room)
         var avb=BUILDINGS.filter(function(b){return b.rooms.some(function(r){return !r.occupant;});});
         if (avb.length){ var bb=avb[(Math.random()*avb.length)|0]; c.mode='enterBldg'; c.targetB=bb; c.target={ x:bb.door.x-SP/2, y:groundY()-SP*0.4 }; } }
-      if ((c.ttl -= dt) <= 0 && pop > POP_MIN){ c.mode='leaving'; }    // lifespan up -> turnover
+      if ((c.ttl -= dt) <= 0 && pop >= POP_MAX){ c.mode='leaving'; }    // age out only at the cap (let the scene fill first)
     }
     var dancing = (perfActive || concertActive) && c.mode==='roam' && !reduced;   // audience grooves to the beat
     var hop = dancing ? -Math.abs(Math.sin(t0/430*Math.PI + c.x*0.02))*7
@@ -968,13 +967,14 @@ function parseRoomFromHash(){
   ROOM_CRITTERS = (spec.critters||[]).slice(0,6);
 }
 function boot(){
-  var mob = innerWidth < 640;                             // mobile: fewer, calmer critters so the scene isn't crowded
-  if (mob){ POP_MIN = 4; POP_MAX = 7; }
+  var mob = innerWidth < 640;
+  POP_MIN = 1; POP_MAX = mob ? 6 : 9;                     // sparse start that fills as a visitor lingers, then caps
   parseRoomFromHash();                                    // a composed room from a /room/ link (#r=) — before buildScene so the floor is room-aware
+  if (ROOM) POP_MAX = mob ? 4 : 6;                        // rooms stay cozier
   buildScene();
   SPRITE_NAMES = Object.keys(SPRITES); if (!SPRITE_NAMES.length) return;
-  var start = ROOM ? (mob ? 3 : 5) : (reduced ? 4 : (mob ? 6 : 10)), shuffled = SPRITE_NAMES.slice().sort(function(){return Math.random()-0.5;});
-  for (var i=0;i<start;i++) spawnCritter(shuffled[i % shuffled.length], {});   // ambient critters (fewer inside a room)
+  var start = reduced ? 1 : (mob ? 2 : 3), shuffled = SPRITE_NAMES.slice().sort(function(){return Math.random()-0.5;});
+  for (var i=0;i<start;i++) spawnCritter(shuffled[i % shuffled.length], {});   // start sparse — the scene populates over time
   startContentFeed();                                     // personality layer: quotes + curated trivia + live news
   spawnGuestFromHash();                                   // a single shared critter from a /create/ link, if present
   ROOM_CRITTERS.forEach(spawnGuest);                      // the room's composed critters
