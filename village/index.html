@@ -926,7 +926,7 @@ function spawnGuestFromHash(){
    Set SUPABASE_URL + SUPABASE_ANON (the project's PUBLIC anon key) — empty = disabled (per-session only).
    Count = real connected clients (unique per-browser key), or nothing — never a fabricated number.
    supabase-js loads on demand only when configured, so the page stays self-contained otherwise. ── */
-var SUPABASE_URL = "", SUPABASE_ANON = "";
+var SUPABASE_URL = "https://bhrwgygqpahtclwnrjmp.supabase.co", SUPABASE_ANON = "sb_publishable_xZG4n38G2cMtQjTCUKRarw_SUBtP9mK";
 var liveCount = 0, presenceEl = null;
 function showLive(n){
   if (!presenceEl){ presenceEl = document.createElement('div'); presenceEl.id = 'live'; stage.appendChild(presenceEl); }
