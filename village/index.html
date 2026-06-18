@@ -278,16 +278,91 @@ var QUOTES = [
   { t:"Do what you can, with what you have, where you are.", a:"Theodore Roosevelt" },
   { t:"Fall seven times, stand up eight.", a:"Japanese proverb" }
 ];
-var POOL = [], feedBubble = null, feedTarget = null, feedT = 5, feedIdx = -1, liveLoaded = { news:false, facts:false };
+// curated, fact-checked trivia by theme (adversarial workflow 2026-06-17: accuracy + tone + copyright verified)
+var TRIVIA = {
+  history: [
+    "Pssst — Oxford was teaching students before the Aztecs even built their capital city. Old school, literally!",
+    "Cleopatra lived closer in time to the Moon landing than to the building of the Great Pyramid. Wild, right?",
+    "The very first thing ever scanned with a barcode was a humble pack of Wrigley's gum, back in 1974.",
+    "Ancient Romans used crushed-up volcanic ash in their concrete — it's part of why their harbors still stand today.",
+    "The shortest war in recorded history lasted under an hour — roughly 38 minutes, between Britain and Zanzibar in 1896.",
+    "When the first dinosaur bones were named in 1842, the word 'dinosaur' was brand new — coined to mean 'terrible lizard.'",
+    "Ketchup used to be sold as medicine! In the 1830s some folks bottled tomato 'pills' to cure tummy troubles.",
+    "The fork was once seen as scandalous in Europe — for centuries, eating with one was considered fussy or even rude.",
+    "Ancient Egyptians loved board games — they played a race game called Senet over 5,000 years ago!",
+    "The first oranges weren't orange! Early ones were greenish, and many tropical oranges still ripen green today.",
+    "Bubble wrap was invented to be wallpaper! It flopped at that, then found fame protecting packages instead.",
+    "Some of the oldest known shoes are over 5,000 years old — one leather shoe was found preserved in an Armenian cave.",
+    "The Eiffel Tower can grow about 15 cm taller in summer — metal expands in the heat, so it stretches up a bit!",
+    "People have been chewing gum for thousands of years — folks in ancient times chewed birch-bark tar!",
+    "Tea bags were a happy accident — a merchant sent samples in little silk pouches, and customers brewed them whole!",
+    "The smiley face emoticon turns out to be old-school — :-) was first typed by a professor way back in 1982!"
+  ],
+  popculture: [
+    "Toy Story (1995) was the first feature-length movie made entirely with computer animation!",
+    "Snow White and the Seven Dwarfs (1937) was Disney's first full-length cel-animated feature!",
+    "Minecraft is the best-selling video game ever, with over 350 million copies sold!",
+    "Pong (1972) was the first commercially successful video game, designed by Allan Alcorn at Atari!",
+    "Tetris was created in 1984 by Soviet computer scientist Alexey Pajitnov on an Elektronika 60!",
+    "Pac-Man's four ghosts are named Blinky, Pinky, Inky and Clyde in the Western release!",
+    "Avatar (2009) is the highest-grossing film ever, earning over $2.9 billion worldwide!",
+    "Avengers: Endgame holds the record for the biggest opening weekend ever: $357M in the US!",
+    "Sean Connery was the first actor to play James Bond on the big screen, in Dr. No (1962)!",
+    "Michael Jackson's Thriller is the best-selling album of all time, with an estimated 70 million sold!",
+    "The Simpsons is the longest-running scripted primetime series in US TV history!",
+    "The Super Mario Bros. theme was the first video-game music added to the US National Recording Registry!",
+    "Koji Kondo was Nintendo's first ever dedicated in-house composer, hired in 1984!",
+    "Avatar was the first film ever to pass $2 billion at the worldwide box office!"
+  ],
+  nature: [
+    "An octopus has three hearts, and two of them pause beating whenever it swims!",
+    "A hummingbird's wings can beat around 50 times every single second.",
+    "Honeybees do a little waggle dance to tell hivemates exactly where the flowers are.",
+    "A group of flamingos is cheerfully called a flamboyance.",
+    "Your body has tiny bones in each ear, and the smallest is even smaller than a grain of rice.",
+    "A single teaspoon of healthy soil can hold more living microbes than there are people on Earth.",
+    "Sunflowers turn to follow the sun across the sky, a gentle habit called heliotropism.",
+    "Saturn is so light for its size it would actually float in a giant bathtub of water.",
+    "A starfish can grow a whole new arm if it loses one.",
+    "Sea otters hold hands while they sleep so they don't drift apart on the waves.",
+    "The Sun's light takes about eight minutes to travel all the way to Earth.",
+    "A snail can have thousands of microscopic teeth on its tongue-like radula.",
+    "Bamboo is a grass, and some kinds can grow nearly a meter taller in just one day.",
+    "An adult human body is made of around 37 trillion cells, all working together.",
+    "Some jellyfish glow with their own light through a trick called bioluminescence.",
+    "The Moon is slowly drifting away from Earth, about as fast as your fingernails grow."
+  ],
+  trivia: [
+    "Did you know an octopus has three hearts and its blood is blue? It carries oxygen with copper instead of iron!",
+    "Did you know a group of flamingos is called a 'flamboyance'? Perfect for such a flashy pink crowd!",
+    "Did you know bananas are berries but strawberries aren't? Botany has a delightfully different rulebook!",
+    "Did you know the dot over a lowercase 'i' or 'j' has a name? It's called a 'tittle'!",
+    "Did you know a 'jiffy' is a real unit of time? In physics it can mean the time light travels one centimeter!",
+    "Did you know wombats produce cube-shaped poop? Their unique intestines mold it into neat little cubes!",
+    "Did you know a shrimp's heart is in its head? Its main organs sit in the thorax behind the eyes!",
+    "Did you know Mount Everest isn't the tallest mountain base-to-peak? Hawaii's Mauna Kea wins from the seafloor!",
+    "Did you know the Eiffel Tower can grow taller in summer? Heat makes its iron expand by about 15 centimeters!",
+    "Did you know a cloud can weigh as much as a herd of elephants? A typical fluffy one holds tons of water droplets!",
+    "Did you know the longest word for fear of long words is 'hippopotomonstrosesquippedaliophobia'? Wonderfully ironic!",
+    "Did you know honeybees can recognize human faces? They piece features together much like we do!",
+    "Did you know 'four' is the only number whose letter count equals its value in English? F-O-U-R, exactly four!",
+    "Did you know a single strand of spaghetti has a name? An uncooked piece is called a 'spaghetto'!",
+    "Did you know a soccer ball's classic pattern is a real geometric shape? A truncated icosahedron, with 32 faces!",
+    "Did you know sea otters hold hands while they sleep? It keeps them from drifting apart on the water!"
+  ]
+};
+var TOPIC_META = { quote:'', news:'· 📰 Hacker News', history:'· 📜 history', popculture:'· 🎬 pop culture', nature:'· 🌿 nature', trivia:'· 💡 did you know' };
+var POOL = [], feedBubble = null, feedTarget = null, feedT = 5, feedIdx = -1, liveLoaded = { news:false };
 function shuffle(a){ for (var i=a.length-1;i>0;i--){ var j=(Math.random()*(i+1))|0, t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
 function updateCredits(){
-  var live = []; if (liveLoaded.news) live.push('Hacker News'); if (liveLoaded.facts) live.push('Wikipedia · CC BY-SA');
-  tag.textContent = 'quotes · public domain' + (live.length ? '   ·   live: ' + live.join(' + ') : '');
+  tag.textContent = 'quotes & trivia · curated' + (liveLoaded.news ? '   ·   live: Hacker News' : '');
 }
 function startContentFeed(){
-  POOL = shuffle(QUOTES.map(function(q){ return { type:'quote', text:'\u201c'+q.t+'\u201d', meta:'\u2014 '+q.a }; }));
+  POOL = QUOTES.map(function(q){ return { type:'quote', text:'\u201c'+q.t+'\u201d', meta:'\u2014 '+q.a }; });
+  Object.keys(TRIVIA).forEach(function(cat){ TRIVIA[cat].forEach(function(line){ POOL.push({ type:cat, text:line, meta:TOPIC_META[cat]||'' }); }); });
+  shuffle(POOL);
   feedBubble = document.createElement('div'); feedBubble.className = 'bubble'; stage.appendChild(feedBubble);
-  fetchNews(); fetchFacts();
+  fetchNews();   // the one live feed; curated trivia carries the rest
 }
 function fetchNews(){                                     // live general/tech headlines — Hacker News (key-less, CORS ok)
   fetch('https://hacker-news.firebaseio.com/v0/topstories.json').then(function(r){ return r.json(); }).then(function(ids){
@@ -299,19 +374,10 @@ function fetchNews(){                                     // live general/tech h
     if (added){ liveLoaded.news = true; shuffle(POOL); updateCredits(); }
   }).catch(function(){});                                 // honest fallback: keep the bundled quotes, show nothing fake
 }
-function fetchFacts(){                                    // on-this-day facts — Wikipedia REST (key-less, CORS '*', CC BY-SA)
-  var d = new Date(), mm = ('0'+(d.getMonth()+1)).slice(-2), dd = ('0'+d.getDate()).slice(-2);
-  fetch('https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/'+mm+'/'+dd).then(function(r){ return r.json(); }).then(function(j){
-    var evs = shuffle((((j && j.events) || []).slice())), added = 0;
-    evs.slice(0,12).forEach(function(e){ if (e && e.text && e.year){ POOL.push({ type:'fact', text:e.year+' — '+e.text, meta:'· 📅 on this day · Wikipedia' }); added++; } });
-    if (added){ liveLoaded.facts = true; shuffle(POOL); updateCredits(); }
-  }).catch(function(){});
-}
-function prefType(animal){                                // a little personality: singers muse, sharp animals report, others share trivia
-  var p = persona(animal);
-  if (p.role === 'singer') return 'quote';
-  return (animal==='fox' || animal==='cat' || animal==='owl') ? 'news' : 'fact';
-}
+// (Wikipedia on-this-day feed removed — its random entries were tonally off; replaced by curated TRIVIA themes)
+var ANIMAL_TOPIC = { owl:'history', bear:'history', fox:'news', cat:'popculture', chick:'popculture',
+                     mouse:'nature', hedgehog:'nature', frog:'quote', rabbit:'trivia', bird:'trivia' };
+function prefType(animal){ return ANIMAL_TOPIC[animal] || 'trivia'; }   // each critter leans into a theme (personality)
 function pickItem(pref){
   if (!POOL.length) return null;
   for (var i=0;i<POOL.length;i++){ feedIdx = (feedIdx+1) % POOL.length; if (POOL[feedIdx].type === pref) return POOL[feedIdx]; }
