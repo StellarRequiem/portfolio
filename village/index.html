@@ -51,6 +51,18 @@
     #backlink { left: 10px; } #sound { right: 10px; } #makeown { left: 10px; bottom: 10px; }
     #tag { font-size: 9px; bottom: 6px; right: 8px; }
   }
+  .walkzone { position: fixed; bottom: 0; width: 26vw; height: 58%; z-index: 50; display: none;
+    align-items: flex-end; justify-content: center; padding-bottom: 11vh; box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent; touch-action: none; user-select: none; }
+  #walkL { left: 0; } .walkR { right: 0; }
+  .walkzone span { font: 30px ui-monospace, monospace; color: rgba(90,212,255,.32); text-shadow: 0 0 10px rgba(0,0,0,.7);
+    opacity: 0; transition: opacity .15s; }
+  .walkzone:active span { opacity: 1; }
+  #walkhint { position: fixed; bottom: 56px; left: 50%; transform: translateX(-50%); z-index: 60; display: none;
+    font: 12px 'SF Mono', ui-monospace, Menlo, monospace; color: #5ad4ff; text-shadow: 0 0 8px rgba(0,0,0,.7);
+    border: 1px solid rgba(86,206,255,.3); border-radius: 16px; padding: 5px 12px; background: rgba(6,16,30,.66);
+    pointer-events: none; animation: hintfade 6s ease forwards; }
+  @keyframes hintfade { 0%,68%{ opacity: 1; } 100%{ opacity: 0; } }
 </style>
 </head>
 <body>
@@ -59,6 +71,9 @@
 <a id="backlink" href="https://xclusivexo.com/">&#8592; xclusivexo.com</a>
 <a id="makeown" href="/create/">&#10022; make your own</a>
 <button id="sound" type="button">&#9834; sound off</button>
+<div id="walkL" class="walkzone"><span>&#9664;</span></div>
+<div id="walkR" class="walkzone walkR"><span>&#9654;</span></div>
+<div id="walkhint">&#9664; &#9654; / A D &mdash; walk</div>
 <script>
 /* The Village (public web edition) — an ambient, self-contained pixel village. Critters roam a themed
    night town and, at the gazebo, sing procedural 8-bit music. For personality they surface aspirational
@@ -69,6 +84,16 @@ var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 var SENT = [255,0,255], SP = 76;
 var heat = 2, idle = 0, audioOn = false, vol = 0.5, hidden = false, lowPower = false;
 var critters = [], W = innerWidth, H = innerHeight, t0 = 0;
+// EXPLORE = walkable side-scroller mode (player + follow-camera + wide world). Default OFF so the
+// local ambient desktop village is unchanged; the public web build flips it on (see gen_village_public.py).
+var EXPLORE = false, WORLD_W = innerWidth, cameraX = 0, player = null, keyL = false, keyR = false, taken = false;
+function clampN(v,a,b){ return v<a?a:(v>b?b:v); }
+function worldW(){ return EXPLORE ? Math.max(W*3, 2400) : W; }
+function stepCamera(){                                   // follow the player; centre the world until the user takes control
+  if (!EXPLORE) { cameraX = 0; return; }
+  var tgt = clampN(player && taken ? player.x - W/2 + 16 : (WORLD_W - W)/2, 0, Math.max(0, WORLD_W - W));
+  cameraX += (tgt - cameraX) * 0.12;
+}
 var cv = document.getElementById('scene'), cx = cv.getContext('2d');
 var stage = document.getElementById('stage'), tag = document.getElementById('tag');
 var IDLE_WAKE = 0;                                    // 0 = always lively (no idle wait) — they start as soon as the village opens
@@ -198,9 +223,9 @@ function performSong(group){                            // a COORDINATED, dynami
 function floatNote(c, glyph){
   var n = document.createElement('div'); n.className = 'note'; n.textContent = glyph;
   stage.appendChild(n);
-  n.style.transform = 'translate(' + (c.x+30) + 'px,' + (c.y-2) + 'px)';
+  n.style.transform = 'translate(' + (c.x-cameraX+30) + 'px,' + (c.y-2) + 'px)';
   requestAnimationFrame(function(){ n.style.opacity = '1';
-    n.style.transform = 'translate(' + (c.x+30+(Math.random()*16-8)) + 'px,' + (c.y-34) + 'px)'; });
+    n.style.transform = 'translate(' + (c.x-cameraX+30+(Math.random()*16-8)) + 'px,' + (c.y-34) + 'px)'; });
   setTimeout(function(){ n.style.opacity = '0'; setTimeout(function(){ n.remove(); }, 500); }, 900);
 }
 
@@ -415,7 +440,7 @@ function toggleSound(){                                   // browser autoplay po
 }
 function Rn(a,b){ return a + Math.random()*(b-a); }
 function groundY(){ return ROOM ? H * ROOM.floor : H * 0.72; }   // a #r= room's floor, else the village ground line
-function gazebo(){ return { x: W*0.5, y: groundY()+8, r: Math.min(150, W*0.12) }; }
+function gazebo(){ return { x: (EXPLORE?WORLD_W:W)*0.5, y: groundY()+8, r: Math.min(150, W*0.12) }; }
 
 /* ── scene backdrop (sky, stars, Bifrost arc, huts, gazebo, ground, rune-rain) ── */
 var REPOS = [];                                         // decorative huts only in the public edition (no live data)
@@ -428,7 +453,7 @@ var demo = false, demoT = 0, demoPhase = 0, endCardA = 0;   // demo-mode orchest
 var SKYLINE = [], BUILDINGS = [];                        // town: distant skyline + multi-story shops/apartments critters enter
 var SHOPNAMES = ['BAKERY','FORGE','MARKET','CAFE','BOOKS','INN','ARCADE','CLINIC'], POND = null;
 function buildScene(){
-  W = innerWidth; H = innerHeight; cv.width = W; cv.height = H;
+  W = innerWidth; H = innerHeight; cv.width = W; cv.height = H; WORLD_W = worldW();
   stars = []; for (var i=0;i<90;i++) stars.push({ x:Math.random()*W, y:Math.random()*groundY()*0.95, r:Math.random()*1.4+0.3, tw:Math.random()*6.28 });
   runes = []; for (var j=0;j<26;j++) runes.push({ x:Math.random()*W, y:Math.random()*H, s:Math.random()*0.5+0.4, ch:glyphChars[(Math.random()*glyphChars.length)|0], a:Math.random()*0.18+0.05 });
   buildHuts();
@@ -439,8 +464,8 @@ function buildHuts(){                                    // huts = real repos (C
   var reps = REPOS.length ? REPOS : decorativeRepos();
   var nL = Math.ceil(reps.length/2), nR = reps.length - nL;
   reps.forEach(function(rep, i){
-    var x = i < nL ? (0.04 + 0.34*(nL>1?i/(nL-1):0))*W
-                   : (0.62 + 0.34*(nR>1?(i-nL)/(nR-1):0))*W;     // left + right zones — centre kept for the gazebo
+    var x = i < nL ? (0.04 + 0.34*(nL>1?i/(nL-1):0))*WORLD_W
+                   : (0.62 + 0.34*(nR>1?(i-nL)/(nR-1):0))*WORLD_W; // left + right zones — centre kept for the gazebo
     HUTS.push({ x:x, w:62, h:44+(rep.active?12:0), ci:rep.ci, active:rep.active, name:rep.name, ph:(i*1.7)%6.28 });
   });
 }
@@ -450,10 +475,11 @@ function defaultSeed(){ var d=new Date(); return d.getFullYear()*1000 + Math.cei
 function generateScene(seed){                            // seeded set-dressing: hills, trees, lanterns, rocks (avoids the gazebo)
   SEED = seed || defaultSeed(); rng = mulberry32(SEED);
   var gy=groundY(), gz=gazebo(), clear=function(x){ return Math.abs(x-gz.x) < gz.r*1.15; };
-  HILLS=[]; for(var i=0;i<5;i++) HILLS.push({ x:rng()*W, w:140+rng()*240, h:26+rng()*46 });
-  TREES=[]; for(var t=0;t<6+Math.floor(rng()*6);t++){ var x=rng()*W; if(clear(x))continue; TREES.push({ x:x, y:gy+10+rng()*(H-gy-46), s:0.7+rng()*0.7, pine:rng()<0.6 }); }
-  LANTERNS=[]; for(var l=0;l<3+Math.floor(rng()*3);l++){ var lx=rng()*W; if(clear(lx))continue; LANTERNS.push({ x:lx, y:gy+22+rng()*(H-gy-52) }); }
-  ROCKS=[]; for(var r=0;r<6;r++) ROCKS.push({ x:rng()*W, y:gy+14+rng()*(H-gy-28), s:4+rng()*8 });
+  var WW = WORLD_W, dens = WW / W;                       // EXPLORE: spread the set-dressing across the whole walkable world
+  HILLS=[]; for(var i=0;i<Math.round(5*dens);i++) HILLS.push({ x:rng()*WW, w:140+rng()*240, h:26+rng()*46 });
+  TREES=[]; for(var t=0;t<Math.round((6+Math.floor(rng()*6))*dens);t++){ var x=rng()*WW; if(clear(x))continue; TREES.push({ x:x, y:gy+10+rng()*(H-gy-46), s:0.7+rng()*0.7, pine:rng()<0.6 }); }
+  LANTERNS=[]; for(var l=0;l<Math.round((3+Math.floor(rng()*3))*dens);l++){ var lx=rng()*WW; if(clear(lx))continue; LANTERNS.push({ x:lx, y:gy+22+rng()*(H-gy-52) }); }
+  ROCKS=[]; for(var r=0;r<Math.round(6*dens);r++) ROCKS.push({ x:rng()*WW, y:gy+14+rng()*(H-gy-28), s:4+rng()*8 });
   CLOUDS=[]; for(var c=0;c<4;c++) CLOUDS.push({ x:rng()*W, y:gy*(0.12+rng()*0.3), w:60+rng()*80, sp:0.15+rng()*0.3 });
   RAIN=[]; for(var rd=0;rd<90;rd++) RAIN.push({ x:rng()*W, y:rng()*H, v:6+rng()*5, len:8+rng()*8 });
   buildLights(); generateSkyline(); generateBuildings(); generatePond();
@@ -641,9 +667,10 @@ function drawScene(ts){
   cx.globalAlpha = 1;
   drawSkyline(f);                                       // distant city skyline on the horizon
   drawFireworks();                                      // bursts in the sky behind the village
+  if (EXPLORE){ cx.save(); cx.translate(-cameraX, 0); }   // --- camera: the ground/world layer scrolls with the player ---
   var grd = cx.createLinearGradient(0,gy,0,H); grd.addColorStop(0,'#0c1a14'); grd.addColorStop(1,'#070d10');
-  cx.fillStyle = grd; cx.fillRect(0,gy,W,H-gy);
-  cx.strokeStyle = 'rgba(90,212,255,.22)'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(0,gy); cx.lineTo(W,gy); cx.stroke();
+  cx.fillStyle = grd; cx.fillRect(0,gy,(EXPLORE?WORLD_W:W),H-gy);
+  cx.strokeStyle = 'rgba(90,212,255,.22)'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(0,gy); cx.lineTo((EXPLORE?WORLD_W:W),gy); cx.stroke();
   drawPond(ts, f);                                       // reflecting pond on the ground
   drawProps(ts, f);                                      // seeded set-dressing behind the huts
   drawBuildings(ts, f);                                  // shops + apartments (critters walk in, appear in windows)
@@ -663,6 +690,7 @@ function drawScene(ts){
   drawGazebo(gz, ts);
   drawInstruments(ts, gz);
   drawSignpost(gz);
+  if (EXPLORE){ cx.restore(); }                           // --- end camera world layer (weather/celebration stay screen-space) ---
   drawWeatherFront(ts, wx);
   if (celebrating || concertActive || sparkles.length) drawCelebration(ts);
   drawEndCard();
@@ -683,7 +711,11 @@ function stepCritters(dt){
   var awake = idle >= IDLE_WAKE && !reduced, e = ENERGY[heat] != null ? ENERGY[heat] : 0.9;
   var pop = 0; for (var n=0;n<critters.length;n++) if (critters[n].mode!=='leaving' && !critters[n].resident) pop++;
   for (var k=critters.length-1;k>=0;k--){ var c=critters[k]; var moving=false;
-    if (c.mode==='leaving'){                              // wander off the nearest edge, then despawn
+    if (c.player){                                       // the user-controlled character (EXPLORE mode)
+      var pv = (keyL?-1:0) + (keyR?1:0);
+      if (pv){ c.x += pv*2.8; c.face = pv; c.bob += 0.28; moving = true; }
+      c.x = clampN(c.x, 8, WORLD_W - SP - 8); c.y = groundY() - 2;
+    } else if (c.mode==='leaving'){                       // wander off the nearest edge, then despawn
       var dir = c.x < W/2 ? -1 : 1; c.x += dir*Math.max(2.2, c.speed*1.6); c.bob+=0.3; c.face=dir; moving=true;
       if (c.x < -SP-12 || c.x > W+SP+12){ c.el.remove(); critters.splice(k,1); continue; }
     } else if (c.mode==='inside'){                        // tucked in a building -> shown in a window by drawBuildings
@@ -718,7 +750,7 @@ function stepCritters(dt){
       c.angle += Rn(-0.12,0.12); var sp=c.speed*e;
       c.x += Math.cos(c.angle)*sp; c.y += Math.sin(c.angle)*sp*0.3;
       var gyTop=groundY()-26, gyBot=H-SP-8;
-      if (c.x<8){c.x=8;c.angle=Math.PI-c.angle;} if (c.x>W-SP-8){c.x=W-SP-8;c.angle=Math.PI-c.angle;}
+      if (c.x<8){c.x=8;c.angle=Math.PI-c.angle;} if (c.x>WORLD_W-SP-8){c.x=WORLD_W-SP-8;c.angle=Math.PI-c.angle;}
       if (c.y<gyTop){c.y=gyTop;c.angle=-c.angle;} if (c.y>gyBot){c.y=gyBot;c.angle=-c.angle;}
       c.bob += 0.22+e*0.05; c.face=Math.cos(c.angle)<0?-1:1; moving=true;
       if ((c.cooldown -= dt) <= 0){ c.cooldown=Rn(5,14); if (audioOn && audioReady && Math.random()<0.5) emote(c); }
@@ -731,10 +763,10 @@ function stepCritters(dt){
     var hop = dancing ? -Math.abs(Math.sin(t0/430*Math.PI + c.x*0.02))*7
             : moving ? -Math.abs(Math.sin(c.bob))*(1.5+e)
             : (c.mode==='perform' ? -Math.abs(Math.sin(performBob(c)))*3 : 0);
-    var rs = c.scale || 1;
-    c.el.style.transform = 'translate(' + c.x.toFixed(1) + 'px,' + (c.y+hop).toFixed(1) + 'px) scale(' + (c.face*rs).toFixed(3) + ',' + rs.toFixed(3) + ')';
+    var rs = c.scale || 1, sx = c.x - cameraX;            // sx = screen-space x (world x minus camera) for DOM sprites
+    c.el.style.transform = 'translate(' + sx.toFixed(1) + 'px,' + (c.y+hop).toFixed(1) + 'px) scale(' + (c.face*rs).toFixed(3) + ',' + rs.toFixed(3) + ')';
     if (c.resident){                                      // follow the resident with its nameplate + speech bubble
-      var px = (c.x + SP*0.5).toFixed(1);
+      var px = (sx + SP*0.5).toFixed(1);
       c.plate.style.transform  = 'translate(' + px + 'px,' + (c.y + SP*0.62).toFixed(1) + 'px) translate(-50%,0)';
       c.bubble.style.transform = 'translate(' + px + 'px,' + (c.y - SP*0.10).toFixed(1) + 'px) translate(-50%,-100%)';
     }
@@ -878,7 +910,7 @@ function loop(ts){
   if (ts - _lastDraw < 32) return;                 // ~30fps cap — gentler on battery, esp. mobile / 120Hz screens
   _lastDraw = ts;
   t0 = ts; var dt = 1/30;
-  if (!hidden && !lowPower){ stepWeather(dt); drawScene(ts); stepCritters(dt); manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); updateFireworks(dt); demoTick(dt); }
+  if (!hidden && !lowPower){ stepWeather(dt); stepCamera(); drawScene(ts); stepCritters(dt); manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); updateFireworks(dt); demoTick(dt); }
 }
 
 /* ── host state: idle / heat / audio on / volume ── */
@@ -924,6 +956,41 @@ function spawnGuest(spec){
       color:eye, scale:scale, glow:eye, x:W*0.5, y:groundY()-4, angle:Rn(0,6.28), speed:Rn(0.5,1.0), bob:Rn(0,6), face:1, mode:'roam', cooldown:Rn(2,8) };
     critters.push(c); spawnSparkles(c.x+SP/2, c.y-20, 30); floatNote(c, '\u2726');
   });
+}
+function spawnPlayer(spec){                               // EXPLORE: the user-controlled character (your critter, or a default)
+  var base = (spec && SPRITES[spec.base]) ? spec.base : SPRITE_NAMES[0];
+  if (!base) return;
+  var eye = (spec && /^#[0-9a-fA-F]{6}$/.test(spec.eye||'')) ? spec.eye : '#3df0bb';
+  var outfit = (spec ? (spec.outfit||[]) : []).slice(0,4).map(function(p){ return { fn:ACC_BY_NAME[p&&p.item], c:(/^#[0-9a-fA-F]{6}$/.test(p&&p.color)?p.color:'#ffffff') }; }).filter(function(p){ return p.fn; });
+  var name = (spec && cleanName(spec.name)) || 'you';
+  var scale = spec ? Math.max(1, Math.min(2, +spec.scale || 1.5)) : 1.5;
+  recolor(SPRITES[base], eye, outfit).then(function(url){
+    var el=document.createElement('img'); el.className='critter'; el.src=url; el.alt=name;
+    el.style.transformOrigin='50% 92%'; el.style.zIndex='5';
+    el.style.filter='drop-shadow(0 3px 5px rgba(0,0,0,.5)) drop-shadow(0 0 12px '+eye+')';
+    stage.appendChild(el);
+    var plate=document.createElement('div'); plate.className='plate'; plate.style.color=eye; plate.style.opacity='0.95'; plate.textContent=name; stage.appendChild(plate);
+    var bubble=document.createElement('div'); bubble.className='bubble'; stage.appendChild(bubble);
+    player={ el:el, plate:plate, bubble:bubble, resident:true, player:true, animal:base, persona:persona(base),
+      color:eye, scale:scale, glow:eye, x:WORLD_W*0.5, y:groundY()-2, angle:0, speed:1, bob:0, face:1, mode:'roam', cooldown:99 };
+    critters.push(player);
+  });
+}
+function bindExploreControls(){
+  function set(dir,on){ if(dir<0) keyL=on; else keyR=on; if(on) taken=true; }
+  addEventListener('keydown', function(e){ var k=e.key;
+    if(k==='ArrowLeft'||k==='a'||k==='A'){ set(-1,true); e.preventDefault(); }
+    else if(k==='ArrowRight'||k==='d'||k==='D'){ set(1,true); e.preventDefault(); } });
+  addEventListener('keyup', function(e){ var k=e.key;
+    if(k==='ArrowLeft'||k==='a'||k==='A') set(-1,false);
+    else if(k==='ArrowRight'||k==='d'||k==='D') set(1,false); });
+  var zL=document.getElementById('walkL'), zR=document.getElementById('walkR');   // mobile: hold a side to walk
+  function bindZone(z,dir){ if(!z) return; z.style.display='block';
+    var down=function(e){ set(dir,true); e.preventDefault(); }, up=function(){ set(dir,false); };
+    z.addEventListener('touchstart',down,{passive:false}); z.addEventListener('touchend',up); z.addEventListener('touchcancel',up);
+    z.addEventListener('pointerdown',down); z.addEventListener('pointerup',up); z.addEventListener('pointerleave',up); }
+  bindZone(zL,-1); bindZone(zR,1);
+  var h=document.getElementById('walkhint'); if(h) h.style.display='block';   // brief "← → / A D — walk" cue, fades out
 }
 function spawnGuestFromHash(){
   var m = (location.hash||'').match(/[#&]c=([^&]+)/); if (!m) return;
@@ -1005,13 +1072,20 @@ function boot(){
   var mob = innerWidth < 640;
   POP_MIN = 1; POP_MAX = mob ? 6 : 9;                     // sparse start that fills as a visitor lingers, then caps
   parseRoomFromHash();                                    // a composed room from a /room/ link (#r=) — before buildScene so the floor is room-aware
+  EXPLORE = !ROOM;                                        // the open village is walkable; a composed room stays a single cozy screen
   if (ROOM) POP_MAX = mob ? 4 : 6;                        // rooms stay cozier
   buildScene();
   SPRITE_NAMES = Object.keys(SPRITES); if (!SPRITE_NAMES.length) return;
   var start = reduced ? 1 : (mob ? 2 : 3), shuffled = SPRITE_NAMES.slice().sort(function(){return Math.random()-0.5;});
   for (var i=0;i<start;i++) spawnCritter(shuffled[i % shuffled.length], {});   // start sparse — the scene populates over time
   startContentFeed();                                     // personality layer: quotes + curated trivia + live news
-  spawnGuestFromHash();                                   // a single shared critter from a /create/ link, if present
+  if (EXPLORE){                                           // you walk AS your critter (from a /create/ #c= link, else a default)
+    var pm=(location.hash||'').match(/[#&]c=([^&]+)/), pspec=null;
+    if(pm){ try{ pspec=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(pm[1]))))); }catch(e){} }
+    spawnPlayer(pspec); bindExploreControls();
+  } else {
+    spawnGuestFromHash();                                 // in a room: a single shared critter from a /create/ link, if present
+  }
   ROOM_CRITTERS.forEach(spawnGuest);                      // the room's composed critters
   updateCredits();
   connectPresence();                                      // live "● N here now" counter (no-op until the Supabase keys are set)
