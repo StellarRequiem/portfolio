@@ -31,6 +31,12 @@
     border-radius: 8px; padding: 8px 13px; background: rgba(6,16,30,.7); text-decoration: none; cursor: pointer; }
   #backlink { left: 14px; } #sound { right: 14px; }
   #backlink:hover, #sound:hover { border-color: rgba(86,206,255,.9); }
+  @media (max-width: 640px){
+    .bubble { max-width: 78vw; font-size: 11.5px; padding: 4px 8px; }
+    #backlink, #sound { font-size: 11px; padding: 7px 11px; top: 10px; }
+    #backlink { left: 10px; } #sound { right: 10px; }
+    #tag { font-size: 9px; bottom: 6px; right: 8px; }
+  }
 </style>
 </head>
 <body>
@@ -309,8 +315,9 @@ function pickItem(pref){
   feedIdx = (feedIdx+1) % POOL.length; return POOL[feedIdx];   // fall back to the next item of any type
 }
 function stepContentFeed(dt){                            // one critter at a time raises a speech bubble; ambient, not noisy
-  if (feedTarget && feedBubble){ var px = (feedTarget.x + SP*0.5).toFixed(1);
-    feedBubble.style.transform = 'translate('+px+'px,'+(feedTarget.y - SP*0.10).toFixed(1)+'px) translate(-50%,-100%)'; }
+  if (feedTarget && feedBubble){ var half = (feedBubble.offsetWidth||160)/2 + 8, cxp = feedTarget.x + SP*0.5;
+    cxp = Math.max(half, Math.min(W - half, cxp));   // clamp so the bubble stays fully on-screen (mobile-safe)
+    feedBubble.style.transform = 'translate('+cxp.toFixed(1)+'px,'+(feedTarget.y - SP*0.10).toFixed(1)+'px) translate(-50%,-100%)'; }
   feedT -= dt; if (feedT > 0) return;
   if (feedBubble) feedBubble.style.opacity = '0';
   var avail = critters.filter(function(c){ return c.mode === 'roam'; });
@@ -783,10 +790,13 @@ function drawCelebration(ts){
 }
 
 /* ── main loop + gating ── */
+var _lastDraw = 0;
 function loop(ts){
+  requestAnimationFrame(loop);
+  if (ts - _lastDraw < 32) return;                 // ~30fps cap — gentler on battery, esp. mobile / 120Hz screens
+  _lastDraw = ts;
   t0 = ts; var dt = 1/30;
   if (!hidden && !lowPower){ stepWeather(dt); drawScene(ts); stepCritters(dt); manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); updateFireworks(dt); demoTick(dt); }
-  requestAnimationFrame(loop);
 }
 
 /* ── host state: idle / heat / audio on / volume ── */
@@ -800,16 +810,19 @@ if (navigator.getBattery) navigator.getBattery().then(function(b){
   var upd = function(){ lowPower = (!b.charging && b.level < 0.2); }; upd(); b.onchargingchange = upd; b.onlevelchange = upd; });
 
 function boot(){
+  var mob = innerWidth < 640;                             // mobile: fewer, calmer critters so the scene isn't crowded
+  if (mob){ POP_MIN = 4; POP_MAX = 7; }
   buildScene();
   SPRITE_NAMES = Object.keys(SPRITES); if (!SPRITE_NAMES.length) return;
-  var start = reduced ? 5 : 10, shuffled = SPRITE_NAMES.slice().sort(function(){return Math.random()-0.5;});
+  var start = reduced ? 4 : (mob ? 6 : 10), shuffled = SPRITE_NAMES.slice().sort(function(){return Math.random()-0.5;});
   for (var i=0;i<start;i++) spawnCritter(shuffled[i % shuffled.length], {});   // initial ambient population
   startContentFeed();                                     // personality layer: quotes + live news + facts
   updateCredits();
   var sb = document.getElementById('sound'); if (sb) sb.addEventListener('click', toggleSound);
   requestAnimationFrame(loop);
 }
-window.addEventListener('resize', buildScene);
+var _rzT = null;
+window.addEventListener('resize', function(){ clearTimeout(_rzT); _rzT = setTimeout(buildScene, 180); });   // debounce — kills the mobile address-bar re-seed churn
 if (document.readyState !== 'loading') boot(); else document.addEventListener('DOMContentLoaded', boot);
 </script>
 </body>
