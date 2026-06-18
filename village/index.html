@@ -106,10 +106,13 @@ var critters = [], W = innerWidth, H = innerHeight, t0 = 0;
 // EXPLORE = walkable side-scroller mode (player + follow-camera + wide world). Default OFF so the
 // local ambient desktop village is unchanged; the public web build flips it on (see gen_village_public.py).
 var EXPLORE = false, WORLD_W = innerWidth, cameraX = 0, player = null, keyL = false, keyR = false, taken = false;
+var cycleT = 0, CYCLE_HALF = 600;   // EXPLORE day/night: 600s day + 600s night (10 min each); cycleT advances in stepCamera
+function cyclePhase(){ return (cycleT % (2*CYCLE_HALF)) / (2*CYCLE_HALF); }   // 0=dawn, 0.5=dusk, 1=dawn
 function clampN(v,a,b){ return v<a?a:(v>b?b:v); }
 function worldW(){ return EXPLORE ? Math.max(W*3, 2400) : W; }
 function stepCamera(){                                   // follow the player; centre the world until the user takes control
   if (!EXPLORE) { cameraX = 0; return; }
+  cycleT += 1/30;                                       // advance the day/night clock (once per ~30fps frame)
   var tgt = clampN(player && taken ? player.x - W/2 + 16 : (WORLD_W - W)/2, 0, Math.max(0, WORLD_W - W));
   cameraX += (tgt - cameraX) * 0.12;
 }
@@ -359,11 +362,14 @@ function spawnCritter(animal, opts){                    // generate one critter;
   var color = opts.color || EYE[(Math.random()*EYE.length)|0];
   var outfit = pickOutfit();                              // a simple multi-piece outfit per critter
   recolor(dataUri, color, outfit).then(function(url){
-    var el = document.createElement('img'); el.className = 'critter'; el.src = url; el.alt = animal; stage.appendChild(el);
+    var el = document.createElement('img'); el.className = 'critter'; el.src = url; el.alt = animal;
     var y = groundY()+Rn(-10,20);
     var x = opts.enter ? (EXPLORE ? (Math.random()<0.5 ? cameraX-SP : cameraX+W+SP) : (Math.random()<0.5 ? -SP : W+SP))
                        : (EXPLORE ? Rn(40, WORLD_W-SP-40) : Rn(40, Math.max(60, W-SP-40)));   // EXPLORE: across the world / into view
-    critters.push({ el:el, animal:animal, persona:persona(animal), color:color,
+    var isc = EXPLORE ? 0.55 : 1;                          // EXPLORE: born small (aging grows it); place + size before first paint
+    el.style.transform = 'translate('+(x-cameraX).toFixed(1)+'px,'+y.toFixed(1)+'px) scale('+isc+')';
+    stage.appendChild(el);
+    critters.push({ el:el, animal:animal, persona:persona(animal), color:color, scale:isc, age:0,
       x:x, y:y, angle:Rn(0,6.28), speed:Rn(0.7,1.4), bob:Rn(0,6), face:1,
       mode: opts.enter?'arriving':'roam', target: opts.enter?{ x:(EXPLORE?Rn(cameraX+W*0.12,cameraX+W*0.88):Rn(W*0.12,W*0.88)), y:y }:null, cooldown:Rn(2,8), ttl:Rn(70,180) });
   });
@@ -586,8 +592,14 @@ function drawSmoke(x, top, ts, ph){                      // a little chimney smo
     cx.beginPath(); cx.arc(x+Math.sin((t+ph)*6)*6, top-6-t*42, 4-t*2.2, 0, 6.28); cx.fill(); }
   cx.globalAlpha=1;
 }
-function dayFactor(){                                     // 0 = deep night, 1 = midday (smooth dawn/dusk) from the real clock
-  var d=new Date(), h=d.getHours()+d.getMinutes()/60;
+function dayFactor(){                                     // 0 = deep night, 1 = midday (smooth dawn/dusk)
+  if (EXPLORE){                                          // accelerated 10-min day / 10-min night cycle
+    var ph = cyclePhase();
+    if (ph >= 0.5) return 0;                             // night half
+    var dp = ph/0.5;                                     // 0..1 across the day half
+    return dp<0.16 ? dp/0.16 : (dp>0.84 ? (1-dp)/0.16 : 1);   // dawn ramp -> full day -> dusk ramp
+  }
+  var d=new Date(), h=d.getHours()+d.getMinutes()/60;    // non-EXPLORE: real clock
   if (h<5 || h>=21) return 0;
   if (h<8) return (h-5)/3;
   if (h<17) return 1;
@@ -604,9 +616,26 @@ function drawMoon(f){                                     // a soft moon arcing 
   cx.save(); cx.globalAlpha=0.45*(1-f)+0.1; cx.fillStyle='#d6e6f3'; cx.shadowColor='#9fc4e6'; cx.shadowBlur=22;
   cx.beginPath(); cx.arc(mx,my,20,0,6.28); cx.fill(); cx.shadowBlur=0; cx.restore(); cx.globalAlpha=1;
 }
-var _wx = 'clear', _wxNext = 0, _WX = ['clear','clear','cloudy','clear','storm','cloudy'];   // self-contained ambient weather cycle (no data)
+function drawSun(x,y,f){                                  // EXPLORE day: a warm sun arcing the sky
+  cx.save(); cx.globalAlpha=0.82*f+0.14; cx.fillStyle='#ffe08a'; cx.shadowColor='#ffd35a'; cx.shadowBlur=30;
+  cx.beginPath(); cx.arc(x,y,22,0,6.28); cx.fill();
+  cx.globalAlpha=0.22*f; cx.beginPath(); cx.arc(x,y,36,0,6.28); cx.fill();
+  cx.shadowBlur=0; cx.restore(); cx.globalAlpha=1;
+}
+function drawCelestial(f){                                // EXPLORE: sun arcs by day, moon by night; else the real-clock moon
+  if (!EXPLORE){ drawMoon(f); return; }
+  var ph=cyclePhase();
+  if (ph < 0.5){ var dp=ph/0.5; drawSun(W*(0.08+0.84*dp), groundY()*(0.68-0.40*Math.sin(dp*Math.PI)), f); }   // apex kept below the top HUD
+  else { var np=(ph-0.5)/0.5, mx=W*(0.08+0.84*np), my=groundY()*(0.68-0.40*Math.sin(np*Math.PI));
+    cx.save(); cx.globalAlpha=0.62; cx.fillStyle='#d6e6f3'; cx.shadowColor='#9fc4e6'; cx.shadowBlur=22;
+    cx.beginPath(); cx.arc(mx,my,19,0,6.28); cx.fill(); cx.shadowBlur=0; cx.restore(); cx.globalAlpha=1; }
+}
+var _wx = 'clear', _wxNext = 0;   // self-contained ambient weather (no data); evolves over time, calmer at night
 function weatherState(){ return _wx; }
-function stepWeather(dt){ _wxNext -= dt; if (_wxNext <= 0){ _wx = _WX[(Math.random()*_WX.length)|0]; _wxNext = Rn(45, 120); } }
+function stepWeather(dt){ _wxNext -= dt; if (_wxNext > 0) return; _wxNext = Rn(40, 110);
+  var night = (typeof dayFactor==='function' ? dayFactor() : 1) < 0.4, roll = Math.random();
+  _wx = night ? (roll<0.72?'clear':'cloudy')                              // night: mostly clear/cloudy, no storms
+              : (roll<0.55?'clear':(roll<0.85?'cloudy':'storm')); }
 function drawClouds(ts, wx, f){
   if (wx==='clear') return;
   var op = wx==='storm'?0.5:0.3;
@@ -739,7 +768,7 @@ function drawScene(ts){
   var wx = weatherState(), clearness = wx==='clear'?1:wx==='cloudy'?0.55:0.22;   // weather from CI health
   var sky = cx.createLinearGradient(0,0,0,gy); sky.addColorStop(0, mix('#04060d','#103246',f)); sky.addColorStop(1, mix('#0a1626','#1e506b',f));
   cx.fillStyle = sky; cx.fillRect(0,0,W,gy);
-  drawMoon(f);
+  drawCelestial(f);
   for (var i=0;i<stars.length;i++){ var s=stars[i], a=0.4+0.6*Math.abs(Math.sin(ts*0.0006+s.tw)); cx.globalAlpha=a*0.8*(1-f)*clearness; cx.fillStyle='#bfe6ff'; cx.fillRect(s.x|0,s.y|0,s.r,s.r); }
   cx.globalAlpha = 1;
   cx.save();                                            // Bifrost arc on the horizon
@@ -763,8 +792,8 @@ function drawScene(ts){
     cx.fillStyle='#0f1d24'; cx.fillRect(bx,by,b.w,b.h);
     cx.fillStyle='#15303a'; cx.beginPath(); cx.moveTo(bx-6,by); cx.lineTo(bx+b.w/2,by-b.h*0.5); cx.lineTo(bx+b.w+6,by); cx.closePath(); cx.fill();
     var col = b.ci==='green' ? '#3df0bb' : b.ci==='red' ? '#ff5d6c' : b.ci==='running' ? '#ffb547' : '#ffd27a';
-    var fl = b.ci==='red' ? (0.4+0.6*Math.abs(Math.sin(ts*0.006)))             // a red CI hut pulses, alarm-like
-           : b.ci==='neutral' ? 0.42 : (0.62+0.38*Math.sin(ts*0.002+b.ph));
+    var fl = b.ci==='red' ? (0.4+0.6*Math.abs(Math.sin(ts*0.006)))             // a red CI hut pulses, alarm-like (full bright any time)
+           : (b.ci==='neutral' ? 0.42 : (0.62+0.38*Math.sin(ts*0.002+b.ph))) * (0.45+0.55*(1-f));   // decorative glow dims by day
     cx.globalAlpha=fl; cx.fillStyle=col; cx.shadowColor=col; cx.shadowBlur=b.ci==='red'?18:13;
     cx.fillRect(bx+b.w*0.32,by+b.h*0.34,b.w*0.34,b.h*0.42); cx.shadowBlur=0; cx.globalAlpha=1;
     if (b.active) drawSmoke(bx+b.w*0.72, by-b.h*0.42, ts, b.ph);
@@ -803,6 +832,7 @@ function stepCritters(dt){
   var awake = idle >= IDLE_WAKE && !reduced, e = ENERGY[heat] != null ? ENERGY[heat] : 0.9;
   var pop = 0; for (var n=0;n<critters.length;n++) if (critters[n].mode!=='leaving' && !critters[n].resident) pop++;
   for (var k=critters.length-1;k>=0;k--){ var c=critters[k]; var moving=false;
+    if (EXPLORE && !c.player && !c.resident){ c.age=(c.age||0)+dt; c.scale=0.55+0.45*Math.min(1,c.age/9); }   // life cycle: born small, grow up over ~9s
     if (c.player){                                       // the user-controlled character (EXPLORE mode)
       var pv = (keyL?-1:0) + (keyR?1:0);
       if (pv){ c.x += pv*2.8; c.face = pv; c.bob += 0.28; moving = true; }
@@ -848,16 +878,21 @@ function stepCritters(dt){
             if (typeof pickEmoji==='function'){ floatNote(c, pickEmoji(c)); go.face=-c.face; if(go.mode==='roam') floatNote(go, pickEmoji(go)); } }
           if ((c.greetT-=dt)<=0){ c.mode='roam'; c.greeted=false; c.greetTarget=null; } } }
     } else if (awake && e>0){                             // free roam along the ground
-      c.angle += Rn(-0.12,0.12); var sp=c.speed*e;
+      c.angle += Rn(-0.12,0.12); var sp=c.speed*e*(EXPLORE?(0.4+0.6*dayFactor()):1);   // EXPLORE: drowsier (slower) at night
       c.x += Math.cos(c.angle)*sp; c.y += Math.sin(c.angle)*sp*0.3;
       var gyTop=groundY()-26, gyBot=H-SP-8;
       if (c.x<8){c.x=8;c.angle=Math.PI-c.angle;} if (c.x>WORLD_W-SP-8){c.x=WORLD_W-SP-8;c.angle=Math.PI-c.angle;}
       if (c.y<gyTop){c.y=gyTop;c.angle=-c.angle;} if (c.y>gyBot){c.y=gyBot;c.angle=-c.angle;}
       c.bob += 0.22+e*0.05; c.face=Math.cos(c.angle)<0?-1:1; moving=true;
       if ((c.cooldown -= dt) <= 0){ c.cooldown=Rn(5,14); if (audioOn && audioReady && Math.random()<0.5) emote(c); }
+      if (EXPLORE && dayFactor()<0.18 && Math.random()<0.004) floatNote(c, '💤');   // drowsy z's at night
       if (!ROOM && BUILDINGS.length && Math.random()<0.0012){   // occasionally pop into a shop/apartment (village only, not in a room)
         var avb=BUILDINGS.filter(function(b){return b.rooms.some(function(r){return !r.occupant;});});
         if (avb.length){ var bb=avb[(Math.random()*avb.length)|0]; c.mode='enterBldg'; c.targetB=bb; c.target={ x:bb.door.x-SP/2, y:groundY()-SP*0.4 }; } }
+      if (EXPLORE && c.mode==='roam' && BUILDINGS.length && weatherState()==='storm' && Math.random()<0.005
+          && critters.filter(function(z){return z.mode==='inside'||z.mode==='enterBldg';}).length < 4){   // shelter from rain, but never empty the village
+        var sh=BUILDINGS.filter(function(b){return b.rooms.some(function(r){return !r.occupant;});});
+        if (sh.length){ var sbb=sh[(Math.random()*sh.length)|0]; c.mode='enterBldg'; c.targetB=sbb; c.target={ x:sbb.door.x-SP/2, y:groundY()-SP*0.4 }; } }
       if (EXPLORE && c.mode==='roam' && Math.random()<0.006){       // amble over to a nearby critter and say hi (emoji exchange)
         var pals=critters.filter(function(o){ return o!==c && !o.player && o.mode==='roam' && Math.abs(o.x-c.x)<W*0.55; });
         if (pals.length){ c.greetTarget=pals[(Math.random()*pals.length)|0]; c.mode='greet'; c.greeted=false; } }
@@ -1014,7 +1049,7 @@ function loop(ts){
   if (ts - _lastDraw < 32) return;                 // ~30fps cap — gentler on battery, esp. mobile / 120Hz screens
   _lastDraw = ts;
   t0 = ts; var dt = 1/30;
-  if (!hidden && !lowPower){ stepWeather(dt); stepCamera(); drawScene(ts); stepCritters(dt); manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); updateFireworks(dt); demoTick(dt); }
+  if (!hidden && !lowPower){ if(EXPLORE) stepWeather(dt); stepCamera(); drawScene(ts); stepCritters(dt); manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); updateFireworks(dt); demoTick(dt); }
 }
 
 /* ── host state: idle / heat / audio on / volume ── */
