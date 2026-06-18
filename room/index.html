@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Room Composer · xclusivexo.com</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Compose your own little room — pick a backsplash, place props, add critters — and share a link that opens it in the village. Runs entirely in your browser.">
+<meta name="theme-color" content="#02060d">
+<style>
+  :root{--void:#02060d;--panel2:#040b16;--cy:#5ad4ff;--mint:#3df0bb;--amber:#ffb547;--red:#ff5d6c;--tx:#dcefff;--dim:#6c8aa6;
+    --line:rgba(86,206,255,.4);--hair:rgba(86,206,255,.22);
+    --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;}
+  *{box-sizing:border-box} body{margin:0;background:var(--void);color:var(--tx);font:15px/1.6 var(--sans);min-height:100vh;}
+  .wrap{max-width:780px;margin:0 auto;padding:14px 18px 80px;}
+  nav#top{display:flex;gap:6px;flex-wrap:wrap;font:12.5px var(--mono);margin-bottom:14px;}
+  nav#top a{color:var(--dim);text-decoration:none;border:1px solid var(--hair);border-radius:8px;padding:6px 11px;}
+  nav#top a:hover{color:var(--cy);border-color:var(--line);}
+  h1{font:600 24px/1.2 var(--mono);color:var(--cy);text-shadow:0 0 12px rgba(86,206,255,.35);margin:0 0 4px;}
+  .kick{font:12px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0 0 16px;}
+  #stage{width:100%;aspect-ratio:16/10;background:#04060d;border:1px solid var(--hair);border-radius:12px;display:block;touch-action:none;cursor:crosshair;}
+  label{display:block;font:12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:16px 0 7px;}
+  input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--hair);border-radius:8px;color:var(--tx);font:14px var(--sans);padding:9px 12px;}
+  input[type=text]:focus{outline:none;border-color:var(--line);}
+  .grid{display:flex;flex-wrap:wrap;gap:7px;align-items:center;}
+  .chip{background:var(--panel2);border:1px solid var(--hair);border-radius:8px;padding:7px 11px;cursor:pointer;font:12px var(--mono);color:var(--tx);}
+  .chip:hover{border-color:var(--line);} .chip.on{border-color:var(--cy);color:var(--cy);box-shadow:0 0 10px rgba(86,206,255,.25);}
+  .sw{width:28px;height:28px;border-radius:7px;border:1px solid var(--hair);cursor:pointer;} .sw.on{box-shadow:0 0 0 2px var(--cy);}
+  input[type=color]{width:40px;height:30px;background:none;border:1px solid var(--hair);border-radius:7px;cursor:pointer;padding:0;}
+  .btn{display:inline-block;font:13px var(--mono);color:var(--cy);text-shadow:0 0 8px rgba(86,206,255,.5);border:1px solid var(--line);
+    border-radius:8px;padding:10px 15px;background:rgba(6,16,30,.7);cursor:pointer;text-decoration:none;margin:16px 7px 0 0;}
+  .btn:hover{border-color:rgba(86,206,255,.9);} .btn.go{color:var(--mint);border-color:rgba(61,240,187,.5);text-shadow:0 0 8px rgba(61,240,187,.5);}
+  .btn.del{color:var(--red);border-color:rgba(255,93,108,.4);text-shadow:none;}
+  #link{width:100%;margin-top:12px;background:var(--panel2);border:1px solid var(--hair);border-radius:8px;color:var(--dim);font:12px var(--mono);padding:9px 12px;}
+  .muted{color:var(--dim);font-size:13px;} .ok{color:var(--mint);}
+  .myroom{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--panel2);border:1px solid var(--hair);
+    border-radius:8px;padding:8px 11px;margin-top:7px;font:13px var(--mono);}
+  .myroom a{color:var(--cy);text-decoration:none;} .myroom .x{color:var(--red);cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav id="top"><a href="/">home</a><a href="/village/">village</a><a href="/create/">create a critter</a><a href="/room/">compose a room</a></nav>
+  <h1>Room Composer</h1>
+  <p class="kick">backsplash &middot; props &middot; critters &middot; share</p>
+
+  <canvas id="stage"></canvas>
+  <p class="muted" id="hint">Pick a backsplash, click a prop to drop it, then drag it on the canvas. Click a placed item to select; Remove deletes it.</p>
+
+  <label for="rname">Room name</label>
+  <input id="rname" type="text" maxlength="28" placeholder="name your room">
+
+  <label>Backsplash</label>
+  <div class="grid" id="bgs"></div>
+
+  <label>Props <span class="muted">— click to add, drag to place</span></label>
+  <div class="grid" id="props"></div>
+  <div class="grid" style="margin-top:7px"><button class="btn del" id="remove" type="button" style="margin-top:0">Remove selected</button></div>
+
+  <label>Add a critter</label>
+  <div class="grid" id="animals"></div>
+  <div class="grid" id="eyes" style="margin-top:7px"></div>
+  <div class="grid" style="margin-top:7px">
+    <input id="cname" type="text" maxlength="20" placeholder="critter name (optional)" style="flex:1;min-width:160px">
+    <button class="btn" id="addc" type="button" style="margin-top:0">+ add critter</button>
+  </div>
+
+  <div>
+    <a class="btn go" id="open" href="#">&#9654; Open in the village</a>
+    <button class="btn" id="copy" type="button">&#10209; Copy link</button>
+    <button class="btn" id="save" type="button">&#9733; Save to my rooms</button>
+    <button class="btn" id="dl" type="button">&#10515; Download .room.json</button>
+  </div>
+  <input id="link" readonly>
+  <p class="muted" id="note" style="margin-top:10px">Everything runs in your browser — no account, nothing uploaded. The link carries the room's design.</p>
+
+  <label>My rooms <span class="muted">— saved in this browser</span></label>
+  <div id="myrooms"></div>
+
+  <nav id="top" style="margin-top:30px"><a href="/feedback/">feedback</a><a href="/report/">report a bug</a><a href="/diagnostics/">diagnostics</a></nav>
+</div>
+<script>
+"use strict";
+var SENT=[255,0,255];
+var EYE = ['#5ad4ff','#3df0bb','#ffb547','#ff7a9c','#9b8cff','#ffd23f','#ff5d6c','#7CFC98'];
+var ACCENT=['#ff5d6c','#5ad4ff','#3df0bb','#ffd23f','#9b8cff','#ff7a9c','#e8f0f6','#ff9f43'];
+function aTopHat(g,c){ g.fillStyle='#1b1720'; g.fillRect(10,5,12,2); g.fillRect(13,0,6,5); g.fillStyle=c; g.fillRect(13,3,6,1); }
+function aParty(g,c){ g.fillStyle=c; g.beginPath(); g.moveTo(16,0); g.lineTo(11,8); g.lineTo(21,8); g.closePath(); g.fill(); g.fillStyle='#fff'; g.fillRect(15,0,2,2); }
+function aCap(g,c){ g.fillStyle=c; g.fillRect(11,3,10,4); g.fillRect(19,5,6,2); }
+function aBeanie(g,c){ g.fillStyle=c; g.fillRect(10,2,12,5); g.fillStyle='#fff'; g.fillRect(15,0,2,2); }
+function aCrown(g,c){ g.fillStyle=c; g.beginPath(); g.moveTo(11,5); g.lineTo(12,1); g.lineTo(14,4); g.lineTo(16,0); g.lineTo(18,4); g.lineTo(20,1); g.lineTo(21,5); g.closePath(); g.fill(); }
+function aGlasses(g,c){ g.strokeStyle=c; g.lineWidth=1; g.strokeRect(9,17,5,4); g.strokeRect(18,17,5,4); g.beginPath(); g.moveTo(14,19); g.lineTo(18,19); g.stroke(); }
+function aShades(g,c){ g.fillStyle='#15171c'; g.fillRect(9,17,6,4); g.fillRect(17,17,6,4); g.fillRect(15,18,2,1); }
+function aBowtie(g,c){ g.fillStyle=c; g.beginPath(); g.moveTo(13,25); g.lineTo(16,27); g.lineTo(13,29); g.closePath(); g.fill(); g.beginPath(); g.moveTo(19,25); g.lineTo(16,27); g.lineTo(19,29); g.closePath(); g.fill(); g.fillStyle='#fff'; g.fillRect(15,26,2,2); }
+function aScarf(g,c){ g.fillStyle=c; g.fillRect(9,25,13,3); g.fillRect(18,27,3,5); }
+function aFlower(g,c){ g.fillStyle=c; g.fillRect(5,8,1,1); g.fillRect(8,8,1,1); g.fillRect(5,11,1,1); g.fillRect(8,11,1,1); g.fillStyle='#ffd23f'; g.fillRect(6,9,2,2); }
+function aHeadphones(g,c){ g.strokeStyle=c; g.lineWidth=2; g.beginPath(); g.arc(16,11,8,Math.PI,2*Math.PI); g.stroke(); g.fillStyle=c; g.fillRect(7,10,3,5); g.fillRect(22,10,3,5); }
+var HATS=[aTopHat,aParty,aCap,aBeanie,aCrown,aHeadphones], FACE=[aGlasses,aShades], NECK=[aBowtie,aScarf];
+function recolor(dataUri, hex, outfit){
+  return new Promise(function(resolve){
+    var img = new Image();
+    img.onload = function(){
+      var c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+      var g = c.getContext('2d'); g.drawImage(img,0,0);
+      var d = g.getImageData(0,0,c.width,c.height), p = d.data;
+      var R = parseInt(hex.slice(1,3),16), G = parseInt(hex.slice(3,5),16), B = parseInt(hex.slice(5,7),16);
+      for (var i=0;i<p.length;i+=4){ if(p[i]===SENT[0]&&p[i+1]===SENT[1]&&p[i+2]===SENT[2]&&p[i+3]>0){ p[i]=R;p[i+1]=G;p[i+2]=B; } }
+      g.putImageData(d,0,0);
+      if (outfit) outfit.forEach(function(a){ try{ a.fn(g, a.c); }catch(e){} });   // bake the outfit pieces on top
+      resolve(c.toDataURL());
+    };
+    img.src = dataUri;
+  });
+}
+/* name-moderation (first-pass, client-side): blocks offensive critter names. Normalizes leetspeak +
+   spacing so 'f u c k' / 'f0ck' are caught, then substring-matches a slur/profanity stem list. This is
+   a first line of defense, NOT a substitute for server-side moderation + human review (Phase 2). A hand-
+   crafted link can still carry any string, so the village RE-FILTERS every name at render. */
+var NAME_BLOCK = ["fuck","fock","phuck","shit","shyt","bitch","biatch","bastard","asshole","azzhole","cunt",
+  "whore","slut","faggot","fagg","nigg","chink","kike","wetback","gook","beaner","tranny","retard","rapist",
+  "molest","pedo","nazi","hitler","cocksuck","dickhead","blowjob","handjob","porn","penis"];
+function normName(s){ return String(s||'').toLowerCase()
+  .replace(/[4@]/g,'a').replace(/3/g,'e').replace(/[1!|]/g,'i').replace(/0/g,'o').replace(/[5$]/g,'s').replace(/7/g,'t')
+  .replace(/[^a-z]/g,''); }
+function nameBlocked(s){ var n=normName(s); if(!n) return false; for(var i=0;i<NAME_BLOCK.length;i++){ if(n.indexOf(NAME_BLOCK[i])>=0) return true; } return false; }
+function cleanName(s){ var t=String(s||'').replace(/[<>]/g,'').slice(0,24); return nameBlocked(t)?'':t; }
+/* end-name-moderation */
+var SPRITES = { bear:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABU0lEQVR4nO1XO3LCMBCVdjgATYYLUACT9C6pqHKCHIGCw7jIEXICKqqU6Z2BzIQLMGlyAxjBiGxAT6uV7TEFr7HZ33uWV1pjzB13dAwrBYyGj3t//7X9FOO1eT2pwOJ5craVS7OXCmrzKPYUvEjodxN5hJ4CJTk7X966eWQ6BnUtwCIHWs5yuRaLorxQE9qYAF6ME6P3jGK8XSUgtq1SwMXEti21Qa7JoTbIL0WgbetgNeRSH+T0AEnqeZHNd2U22+qKTPKrTsJR5DRz6/XQH5xJNP5GTsLx8Mn8/O6O1xx/CJQa6FfFF0cDB/nV4zgEXrSYTU1ns6AA5DmiqC75y+K1lgi6NLi9igYOIk8RgYYRIWUpU++tnP+75tSikNEr1YiQyNFAIpQYEvGxehcF8TiJPCogV4SG3EE8B/5EnD6tY43GmzH1P4RNCeKIjVYN8c3gAAZhz+ctMV9vAAAAAElFTkSuQmCC', bird:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABPUlEQVR4nGNgGAWjYBSMglEw0gEjOZo0VHT+YxO/cecKyeaxkGOxVds27AqqvP6T6hAmqlmOJIcrhLABRlIsx2YZCByr8kIRR+YTCg1GUiy/fvsyWIemii6KZbjEsQF0BzERcgDMQJhzRQXEGa7fuYzhDXRxXFEF8hAyZmIgAYB8+PrDS4bvMzSxisNCgBgACgkQxhsFIBeCfDLlnRuGXI7QLoYHD56A2c9mpcHFpdJmMSgoyMD5hNIDCzGuBVkGAsgOgVkOsxQZgOSQHYEvITIR4wBkh8AcQwggOxAfYGIgA/h8mkeONuo5gJqACZ8kKO6w5Wfk+MUFQGpAegkVRExEOROHBeTIkeWAYzhKNWwWwcRw6aGoLrDCUxEhA5jlxNSKTMQYCDOIGF+RYjnRDiDWEaRaDgID3iIacAAAxVKTK/EGybIAAAAASUVORK5CYII=', cat:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABOklEQVR4nO1WsQ3CMBD8vDwADUKioEoREDABYzEGY2UCgggSVBRIiIYNQEYxspLYvo+JoOCaFL6/u3fecYj++ANAls4ffdXxJ8W68Bkh5euJxFtUxxIxtCvNQ0MzfRksISO7IOkeDrDanBsmLnNfXRsUCaG708KuENKBVSjR7sZlojmGhwZJEJLpFhW1wx5OuyQqQCYcqnqQUADuyxw9NdyXORpCScRCg4gMKrQDWUv3Wrw8FlSeioZZaN23C0wSJETDwehtIl6PDTBNF3S7X1/PLutRAfLqlRjx+isKrX9kCPOAaJdTo1Cia8Iv+yWNZ9sGL/pTnFUnQSrYFljD9UVUISFjjJ7xtsC+aznxmdtnN2YHfPcB+0RMYZfhMjXRt2HMdRwy14AC2CF8QST/AeIA5AhjAzX9KTwBLYmv5y3wUtgAAAAASUVORK5CYII=', chick:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABFklEQVR4nO2WUQrCMAyG07AD+CJewIcJOnzwAB7A43oAD+CDbIKCXkB88QCCEiFjG12b1Eof3PfSLV3yp2nXFmBgYODfMSFO+XT+stnP16M6XhYiXG6X1v5iAy9tIhhLvNnXVyEbRiruErZRbA6iSuAvxAnykVQCITFGO3oqLdPsc9ldU4GabCnY6VLB6Vq1RPvsElA99wZgPJrUYj67by0gKJlNF3B/3D6txO4DNR9zRViE3/vs0XfCbvDnbl8/l9sVhICQGPzGOVuvWm30BArF7xQ1gVxxmPhGzxsRxbTFRZs4OYSc7S44ZjcJ86vDSHoiIiQGfR/QCEIWo/Q+YGLeiFiYkK4hlCbAAV3V0IoTyW/FyXkDHiuVqucPslYAAAAASUVORK5CYII=', fox:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABX0lEQVR4nO1VO24CQQz1WJQUW4C4AAWRko4DpKSk4igcgqNQUVJygO2IRKRwgQgKbgAyYtAwzOd5yAZFypPQStjj9/zWniX6x1/AoP96bOocNyUCzWckaTmpNNyqc6wphnYleahopieDNcmIC5ruYQGj+eGOJEaeOlcswEWuO+3AtuiX74ZiASPHzliXkmPzUCeMplu0qCv2c/thHhIwUE61LyQngJsiR9fWaMhzcxCLp5zglDq/+OZrTZvt+o4MicfAKusNUbfqXUnQeOpVMCnw0n+j3eH7/CyJP3QPLCfV2VZbvK5XN/F6SjQcvl/j6PC2YKmXop3pIhq3ovazMVyTNQJS5CV5agEhiO3yKwWH/pSd9dco1JVL7Itw83/kHmgKHAuEXPDhboK/Fej3wOQUupeSZrhkE5CPkUGK2Vss1mUIMhM5cgE0A7YQOu0ouQBK8iGOhNxoV52iek/FCXb0seQFlQ/fAAAAAElFTkSuQmCC', frog:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABC0lEQVR4nO2WTQ6CMBCFp40HcGO8AAtMcOdBPALH8DgegUO4dCeJLLiAceMNakqowWpnphQEk36bQvPoe+nPUIBIJDIxgitMk0yZ56ouRajOsOAa74+7V1+Rg7INuDrvAGbQIj873311bNIkU4dTrnTbAKp57vb76L4h2WkEwGq5hmt9GUbnG2CTbOH+uDXtEDqDoAR6+lxra29Cjq5XAOjsbs6msrVBAbBj5oJj3HsGfAiegbRd11CwfSDHNtfocVy1QI5tToWQvzDHQkiYGBkDwNyWoKpLgZVbqhRT39r1QLjE2GkwJu+3n88+yhwNQIXommLGmDkZwISgDKiA//03tMHudwaO8Wx4AhDyzqzsU2RjAAAAAElFTkSuQmCC', hedgehog:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABRElEQVR4nGNgGAWjAA/QUNH5T0s+CDAxDDBgGrQO0FDR+R/iYQIPNmrzCTqAXoCJbjaNOoDUKAjxMKEpjdcBGjQugJD5TAwDDFhI1bBmxxkUGl0cPYgJAUZiFCEHGSELkB12484VguYzEmMxqb5Cdww+hzDRynJkvdhqQbwO0KCC5cQ6gomQRmoAfGYxogvAai1CICrIAUNs2boDBNMEenpgIWgTFkNg9LpZJXDxoLQeskKPiVTLr9++zHD9zmUUS0E0sjh6GUEVB0TBgpyRgUFUQBxuGRygiWOLIqIccOPOFUZ8PtBU0WV4/eElmCZGHF/8Y3UAsgZ0AItzmCUwPi5xfGbBACMuCfSyAFeQguIf3ULkXEGoNGTC5QCYBpgB2LIYciIkx3IQILkyQvctthCAOYjiyogBj2OwBTvIYmIsHVQAAMo3yWJ7dLb0AAAAAElFTkSuQmCC', mouse:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABSElEQVR4nO1WOw7CMAyNow6MLIgLdCgS3IFDdeAIHXoo7lCkIsEFEAsjAxIoiFRuiWOnKQKJvqUfu++9JE5cpUaM+HeAJClLl3d7vz/uYMh8kBAVZdm82+Q5SRyab6B9BrpkrufYfE0FzGjwx+tk0iLF09wnnzWAYckw6VD5Wn0Z4AviaTWj2d6urcJygcqnihA4A5YUi1KF5crhdgH4DGAjXDVTZrhzQH9C3ED6jf6EuGT7sQaySHGpiSSEjCtESaGKZiBzjN6Q14dK1cfqTYyLR5+EDUCp2XTeiATHYw0s0pU6X07Pa594lIHitSSWnOp6VHyQIiwCW7EEELMNcbez574Lrl5gizIJ8+sWt88+E11ha0hTiSbB1/WkwKM34uYezwZIHFNLwS2Brw2LDcR0Q8kfNEgJ8Ukm+R+QiAcZoMxgSEV/Cg9bH9ByPVsvKAAAAABJRU5ErkJggg==', owl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABYUlEQVR4nO1VsU4CQRCdndwH0Bh7QwGJGj/DkhBrKz7DwoLPoLI2htLPMEICiRd6Y+MfaMZkYDlmd9+ykLPgJeRyO7vvvZ2ZG4hOOCGBXvfy55jn+RAkJeeYWgajN8jNAnqWqWVwzmY0CznZqnIM5JIjcPsIjQY35vpk+hYVW9Zzt3cGRgHR0J6UmWQG/Cwg4hbUhHXzZBP2CsX9s7FyVgiBhdvhYGft9WVqcsTK4axFcRwSt4QRI2KiqAmVRG/z/PRITdzdb9bQ0jF6exFefMxoUc92xPTdjzfTLpxWLzDlwBGddc7XItlxA4xs0rr3u1f09f3597TQjCP9wqhTrbmSy/vF+8P6Z8URVKgBhBQVjWZgWc8dOkZX1+OtZwyhz5CpZbhQoPk5Ig0VGkih2wuiGUBLUcLBoYA6VgJrvMYg+4v+DUtMoOKCaNCHP0alN6ye8MdzSjjbABlGLKDC/wa/lOO0yGoTuxwAAAAASUVORK5CYII=', rabbit:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABOElEQVR4nO1WsQrCMBBNQj/ARfyBDhXq4iTi5xfp5KKgQ39A7CDOQiSlkTQkvUtyBRUfSJu+5t6LuV6OsW9DkZcyhU8Wb9uH9IlAPIl42/9sEYj3QYQayepDEh9loMhLWdX7wTM11quE+GQD9up8q4R4ki2ghiCP+Dfw01vw3KwH11A+2sClOfHdZvseq3s91t+6yeuxmgfFztBWDRG76Nh8CDjmJVelg4D9B8QU4mSluIgUDzEhphLHmsh84lCSucyN8SomJieczYVuMDow2d27GhCIZ8mVkDM2ny3YuTnG8akGlvmK3e7X7hrDJxmo+j3VwV0d0BjvA3c91PtF8RWYyelKQuGagM7WgPbLF5OPTaKoBVBJFiGnILU4aCDFBPYw4tiAZiHBHMfYPOJYAz4zJkKS92PwAi/5BZHl0Y7cAAAAAElFTkSuQmCC' };
+var ROOM_REGISTRY = {
+  cozy: { name:'Cozy Room', floor:0.66, w1:'#2a2138', w2:'#181222', f1:'#3c2d25', f2:'#26201c',
+    decor:function(ts){
+      cx.fillStyle='#0e1a26'; cx.fillRect(W*0.12,H*0.16,W*0.18,H*0.30);
+      cx.globalAlpha=0.45; cx.fillStyle='#ffd27a'; cx.shadowColor='#ffbf57'; cx.shadowBlur=26; cx.fillRect(W*0.12,H*0.16,W*0.18,H*0.30); cx.shadowBlur=0; cx.globalAlpha=1;
+      cx.strokeStyle='#3a2f28'; cx.lineWidth=4; cx.strokeRect(W*0.12,H*0.16,W*0.18,H*0.30);
+      cx.fillStyle='#23303c'; cx.fillRect(W*0.64,H*0.20,W*0.11,H*0.15); cx.strokeStyle='#caa05a'; cx.lineWidth=3; cx.strokeRect(W*0.64,H*0.20,W*0.11,H*0.15); } },
+  arcade: { name:'Arcade', floor:0.66, w1:'#0c0a22', w2:'#06060f', f1:'#161232', f2:'#0c0a1c',
+    decor:function(ts){ var cols=['#ff5d6c','#5ad4ff','#3df0bb','#9b8cff'];
+      for(var i=0;i<4;i++){ cx.globalAlpha=0.18+0.18*Math.abs(Math.sin(ts*0.002+i)); cx.fillStyle=cols[i]; cx.fillRect(0,H*(0.10+i*0.05),W,3); } cx.globalAlpha=1; } },
+  kitchen: { name:'Kitchen', floor:0.66, w1:'#16302e', w2:'#0e201e', f1:'#26201c', f2:'#1a1614',
+    decor:function(ts){ cx.fillStyle='#1c3a36'; cx.fillRect(0,H*0.50,W,H*0.16); cx.fillStyle='#2a4a45'; cx.fillRect(0,H*0.50,W,5); } }
+};
+var PROP_REGISTRY = {
+  arcade:{ draw:function(px,py,ts,o){ var c=(o&&o.c)||'#9b8cff';
+    cx.fillStyle='#14121c'; cx.fillRect(px-20,py-58,40,58);
+    cx.globalAlpha=0.3; cx.fillStyle=c; cx.fillRect(px-20,py-58,40,7); cx.globalAlpha=1;
+    cx.fillStyle='#08222e'; cx.fillRect(px-14,py-48,28,20);
+    var lit=0.5+0.5*Math.abs(Math.sin(ts*0.004+px*0.01)); cx.globalAlpha=lit; cx.fillStyle='#5ad4ff'; cx.shadowColor='#5ad4ff'; cx.shadowBlur=10; cx.fillRect(px-12,py-46,24,16); cx.shadowBlur=0; cx.globalAlpha=1;
+    cx.fillStyle='#0e0c14'; cx.fillRect(px-17,py-24,34,22); cx.fillStyle=c; cx.fillRect(px-9,py-18,5,5); } },
+  console:{ draw:function(px,py,ts,o){ cx.fillStyle='#1a1822'; cx.fillRect(px-16,py-12,32,12); cx.fillStyle='#2a2735'; cx.fillRect(px-13,py-9,16,3); var on=(((ts*0.004)|0)%2)===0; cx.fillStyle=on?'#3df0bb':'#173027'; cx.fillRect(px+9,py-9,3,3); } },
+  tv:{ draw:function(px,py,ts,o){ cx.fillStyle='#0e0c14'; cx.fillRect(px-26,py-34,52,34); var lit=0.45+0.4*Math.abs(Math.sin(ts*0.003)); cx.globalAlpha=lit; cx.fillStyle=(o&&o.c)||'#5ad4ff'; cx.shadowColor='#5ad4ff'; cx.shadowBlur=12; cx.fillRect(px-22,py-30,44,26); cx.shadowBlur=0; cx.globalAlpha=1; cx.fillStyle='#1a1822'; cx.fillRect(px-6,py-2,12,3); } },
+  couch:{ draw:function(px,py,ts,o){ var c=(o&&o.c)||'#3a6a8a'; cx.fillStyle=c; cx.fillRect(px-34,py-20,68,16); cx.fillRect(px-34,py-30,11,14); cx.fillRect(px+23,py-30,11,14); cx.fillStyle='rgba(0,0,0,.18)'; cx.fillRect(px-23,py-18,46,5); } },
+  table:{ draw:function(px,py,ts,o){ var c=(o&&o.c)||'#6a4a2e'; cx.fillStyle=c; cx.fillRect(px-22,py-15,44,5); cx.fillRect(px-19,py-10,4,10); cx.fillRect(px+15,py-10,4,10); } },
+  plant:{ draw:function(px,py,ts,o){ cx.fillStyle='#2a1d16'; cx.fillRect(px-7,py-10,14,10); var c=(o&&o.c)||'#3df0bb'; cx.fillStyle=c; cx.beginPath(); cx.arc(px,py-20,11,0,6.28); cx.arc(px-7,py-13,7,0,6.28); cx.arc(px+7,py-13,7,0,6.28); cx.fill(); } },
+  lamp:{ draw:function(px,py,ts,o){ cx.strokeStyle='#3a3430'; cx.lineWidth=3; cx.beginPath(); cx.moveTo(px,py); cx.lineTo(px,py-38); cx.stroke(); cx.globalAlpha=0.6; cx.fillStyle='#ffd27a'; cx.shadowColor='#ffbf57'; cx.shadowBlur=18; cx.beginPath(); cx.moveTo(px-12,py-38); cx.lineTo(px+12,py-38); cx.lineTo(px+7,py-50); cx.lineTo(px-7,py-50); cx.closePath(); cx.fill(); cx.shadowBlur=0; cx.globalAlpha=1; } },
+  rug:{ draw:function(px,py,ts,o){ var c=(o&&o.c)||'#8a4a5a'; cx.globalAlpha=0.7; cx.fillStyle=c; cx.beginPath(); cx.ellipse(px,py,46,12,0,0,6.28); cx.fill(); cx.globalAlpha=0.4; cx.strokeStyle='#fff'; cx.lineWidth=1; cx.beginPath(); cx.ellipse(px,py,38,9,0,0,6.28); cx.stroke(); cx.globalAlpha=1; } }
+};
+var ANIMALS = Object.keys(SPRITES);
+var ROOM_KEYS = Object.keys(ROOM_REGISTRY);
+var PROP_KEYS = Object.keys(PROP_REGISTRY);
+var VILLAGE = location.origin + "/village/";
+var STORE = "xclvxo_rooms_v1", CAP = 12;
+var cv = document.getElementById('stage'), cx = cv.getContext('2d');
+var W = 0, H = 0;   // globals the extracted ROOM_REGISTRY decor() fns expect (canvas dims here, not viewport)
+var room = { name:"", bg: ROOM_KEYS[0], props: [], critters: [] };
+var sel = null;        // selected placed item {kind:'prop'|'critter', ref}
+var critterEye = (typeof EYE!=='undefined'&&EYE[0]) ? EYE[1] || EYE[0] : "#5ad4ff";
+var critterBase = ANIMALS[0];
+var critterImgs = {};  // base+eye -> dataURL cache for preview
+
+function sizeCanvas(){ var w = cv.clientWidth || 600; cv.width = w; cv.height = Math.round(w*10/16); W = cv.width; H = cv.height; }
+function floorY(){ return H * (ROOM_REGISTRY[room.bg].floor || 0.66); }
+
+// ---- preview render loop ----
+function critterImg(base, eye, cb){
+  var k = base+eye; if (critterImgs[k]){ cb(critterImgs[k]); return; }
+  recolor(SPRITES[base], eye, []).then(function(u){ critterImgs[k]=u; var im=new Image(); im.onload=function(){ critterImgs[k+'_img']=im; }; im.src=u; cb(u); });
+}
+function draw(ts){
+  var r = ROOM_REGISTRY[room.bg], fy = floorY();   // uses global W/H (set in sizeCanvas) so decor() works
+  var g = cx.createLinearGradient(0,0,0,fy); g.addColorStop(0,r.w1); g.addColorStop(1,r.w2); cx.fillStyle=g; cx.fillRect(0,0,W,fy);
+  if (r.decor){ try{ r.decor(ts); }catch(e){} }
+  var fg = cx.createLinearGradient(0,fy,0,H); fg.addColorStop(0,r.f1); fg.addColorStop(1,r.f2); cx.fillStyle=fg; cx.fillRect(0,fy,W,H-fy);
+  cx.strokeStyle='rgba(90,212,255,.16)'; cx.lineWidth=1; cx.beginPath(); cx.moveTo(0,fy); cx.lineTo(W,fy); cx.stroke();
+  var ps = room.props.slice().sort(function(a,b){ return a.y-b.y; });
+  ps.forEach(function(p){ var d=PROP_REGISTRY[p.t]; if(d){ try{ d.draw(p.x*W, fy+(H-fy)*p.y, ts, p); }catch(e){} } });
+  room.critters.forEach(function(c){ var k=c.base+c.eye; var im=critterImgs[k+'_img'];
+    var px=c.px*W, py=fy+(H-fy)*c.py; if(im){ var s=38; cx.drawImage(im, px-s/2, py-s, s, s); } });
+  // selection ring
+  if (sel){ var it=sel.ref, px=it.x!=null?it.x*W:it.px*W, py=fy+(H-fy)*(it.y!=null?it.y:it.py);
+    cx.strokeStyle='rgba(90,212,255,.8)'; cx.lineWidth=1.5; cx.strokeRect(px-26, py-44, 52, 48); }
+  requestAnimationFrame(draw);
+}
+
+// ---- spec + link ----
+function spec(){
+  return { v:1, name:room.name, bg:room.bg,
+    props: room.props.map(function(p){ return p.c ? {t:p.t,x:+p.x.toFixed(3),y:+p.y.toFixed(3),c:p.c} : {t:p.t,x:+p.x.toFixed(3),y:+p.y.toFixed(3)}; }),
+    critters: room.critters.map(function(c){ return {v:1,name:c.name,base:c.base,eye:c.eye,outfit:[],scale:1.2}; }) };
+}
+function b64(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))); }
+function link(){ return VILLAGE + "#r=" + encodeURIComponent(b64(spec())); }
+function refreshLink(){ document.getElementById('link').value = link(); document.getElementById('open').href = link(); }
+
+// ---- placement (pointer) ----
+function hit(mx,my){
+  var W=cv.width,H=cv.height,fy=floorY();
+  for (var i=room.critters.length-1;i>=0;i--){ var c=room.critters[i],px=c.px*W,py=fy+(H-fy)*c.py; if(Math.abs(mx-px)<22 && my>py-40 && my<py+6) return {kind:'critter',ref:c}; }
+  var ps=room.props.slice().sort(function(a,b){return b.y-a.y;});
+  for (var j=0;j<ps.length;j++){ var p=ps[j],qx=p.x*W,qy=fy+(H-fy)*p.y; if(Math.abs(mx-qx)<30 && my>qy-58 && my<qy+8) return {kind:'prop',ref:p}; }
+  return null;
+}
+var dragging=null;
+function evtXY(e){ var rct=cv.getBoundingClientRect(); var t=e.touches?e.touches[0]:e; return {x:(t.clientX-rct.left)*cv.width/rct.width, y:(t.clientY-rct.top)*cv.height/rct.height}; }
+cv.addEventListener('pointerdown', function(e){ var m=evtXY(e); var h=hit(m.x,m.y); sel=h; dragging=h; });
+cv.addEventListener('pointermove', function(e){ if(!dragging) return; e.preventDefault(); var m=evtXY(e),W=cv.width,H=cv.height,fy=floorY();
+  var nx=Math.max(0,Math.min(1,m.x/W)), ny=Math.max(0.03,Math.min(0.97,(m.y-fy)/(H-fy)));
+  if(dragging.kind==='prop'){ dragging.ref.x=nx; dragging.ref.y=ny; } else { dragging.ref.px=nx; dragging.ref.py=ny; } refreshLink(); });
+window.addEventListener('pointerup', function(){ dragging=null; });
+
+// ---- backsplash chips ----
+var bgsEl=document.getElementById('bgs');
+ROOM_KEYS.forEach(function(k){ var b=document.createElement('div'); b.className='chip'+(k===room.bg?' on':''); b.textContent=ROOM_REGISTRY[k].name||k;
+  b.addEventListener('click', function(){ room.bg=k; [].forEach.call(bgsEl.children,function(c){c.classList.remove('on');}); b.classList.add('on'); refreshLink(); });
+  bgsEl.appendChild(b); });
+
+// ---- prop palette ----
+var propsEl=document.getElementById('props');
+PROP_KEYS.forEach(function(t){ var b=document.createElement('div'); b.className='chip'; b.textContent=t;
+  b.addEventListener('click', function(){ if(room.props.length>=30) return; var p={t:t,x:0.5,y:0.55}; room.props.push(p); sel={kind:'prop',ref:p}; refreshLink(); });
+  propsEl.appendChild(b); });
+document.getElementById('remove').addEventListener('click', function(){ if(!sel) return;
+  if(sel.kind==='prop'){ var i=room.props.indexOf(sel.ref); if(i>=0) room.props.splice(i,1); }
+  else { var j=room.critters.indexOf(sel.ref); if(j>=0) room.critters.splice(j,1); } sel=null; refreshLink(); });
+
+// ---- animal + eye pickers ----
+var animEl=document.getElementById('animals');
+ANIMALS.forEach(function(a){ var b=document.createElement('div'); b.className='chip'+(a===critterBase?' on':''); b.textContent=a;
+  b.addEventListener('click', function(){ critterBase=a; [].forEach.call(animEl.children,function(c){c.classList.remove('on');}); b.classList.add('on'); });
+  animEl.appendChild(b); });
+var eyesEl=document.getElementById('eyes');
+(typeof EYE!=='undefined'?EYE:["#5ad4ff"]).forEach(function(col,i){ var s=document.createElement('div'); s.className='sw'+(col===critterEye?' on':''); s.style.background=col;
+  s.addEventListener('click', function(){ critterEye=col; [].forEach.call(eyesEl.querySelectorAll('.sw'),function(x){x.classList.remove('on');}); s.classList.add('on'); }); eyesEl.appendChild(s); });
+var ec=document.createElement('input'); ec.type='color'; ec.value=critterEye; ec.addEventListener('input', function(){ critterEye=ec.value; }); eyesEl.appendChild(ec);
+document.getElementById('addc').addEventListener('click', function(){ if(room.critters.length>=6) return;
+  var nm=document.getElementById('cname').value.replace(/[<>]/g,'');
+  if(nm && nameBlocked(nm)){ document.getElementById('note').innerHTML='<span style="color:var(--red)">That critter name isn\'t allowed.</span>'; return; }
+  var c={ base:critterBase, eye:critterEye, name:nameBlocked(nm)?'':nm, px:0.5, py:0.5 };
+  critterImg(c.base, c.eye, function(){}); room.critters.push(c); sel={kind:'critter',ref:c};
+  document.getElementById('cname').value=''; refreshLink(); });
+
+// ---- name ----
+document.getElementById('rname').addEventListener('input', function(){ room.name=this.value.replace(/[<>]/g,''); refreshLink(); });
+
+// ---- actions ----
+document.getElementById('copy').addEventListener('click', function(){ var n=document.getElementById('note');
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(link()).then(function(){ n.innerHTML='<span class="ok">Link copied.</span> Share it — it opens your room in the village.'; }); });
+document.getElementById('dl').addEventListener('click', function(){ var blob=new Blob([JSON.stringify(spec(),null,2)],{type:'application/json'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=((room.name||'room').replace(/[^a-z0-9_-]+/gi,'_'))+'.room.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href);},800); });
+
+// ---- my rooms (localStorage, pruned) ----
+function loadRooms(){ try{ return JSON.parse(localStorage.getItem(STORE))||[]; }catch(e){ return []; } }
+function saveRooms(a){ try{ localStorage.setItem(STORE, JSON.stringify(a)); }catch(e){} }
+function renderRooms(){ var el=document.getElementById('myrooms'); el.innerHTML=''; var a=loadRooms();
+  if(!a.length){ el.innerHTML='<p class="muted">No saved rooms yet — compose one and hit Save.</p>'; return; }
+  a.forEach(function(rm,idx){ var d=document.createElement('div'); d.className='myroom';
+    var left=document.createElement('span'); left.textContent=(rm.name||'untitled')+' · '+(rm.spec.props||[]).length+' props';
+    var act=document.createElement('span');
+    var ed=document.createElement('a'); ed.href='#'; ed.textContent='edit'; ed.style.marginRight='12px'; ed.addEventListener('click', function(ev){ ev.preventDefault(); loadInto(rm.spec); window.scrollTo(0,0); });
+    var op=document.createElement('a'); op.href=VILLAGE+'#r='+encodeURIComponent(b64(rm.spec)); op.target='_blank'; op.textContent='open'; op.style.marginRight='12px';
+    var x=document.createElement('span'); x.className='x'; x.textContent='✕'; x.addEventListener('click', function(){ var arr=loadRooms(); arr.splice(idx,1); saveRooms(arr); renderRooms(); });
+    act.appendChild(ed); act.appendChild(op); act.appendChild(x); d.appendChild(left); d.appendChild(act); el.appendChild(d); });
+}
+document.getElementById('save').addEventListener('click', function(){ var a=loadRooms();
+  a.unshift({ name:room.name||'untitled', spec:spec(), ts:Date.now() });
+  if(a.length>CAP) a=a.slice(0,CAP);                       // prune oldest beyond the cap
+  saveRooms(a); renderRooms(); document.getElementById('note').innerHTML='<span class="ok">Saved to this browser.</span> (kept the newest '+CAP+')'; });
+function loadInto(s){ room={ name:s.name||'', bg:ROOM_REGISTRY[s.bg]?s.bg:ROOM_KEYS[0],
+    props:(s.props||[]).filter(function(p){return PROP_REGISTRY[p.t];}).map(function(p){return {t:p.t,x:p.x,y:p.y,c:p.c||null};}),
+    critters:(s.critters||[]).map(function(c){ critterImg(c.base,c.eye,function(){}); return {base:c.base,eye:c.eye,name:c.name||'',px:0.4+Math.random()*0.2,py:0.4+Math.random()*0.3}; }) };
+  document.getElementById('rname').value=room.name;
+  [].forEach.call(bgsEl.children,function(c){ c.classList.toggle('on', (ROOM_REGISTRY[room.bg].name||room.bg)===c.textContent); });
+  sel=null; refreshLink(); }
+
+// load a room straight from a #r= in the URL (e.g. "edit this shared room")
+(function(){ var m=(location.hash||'').match(/[#&]r=([^&]+)/); if(m){ try{ loadInto(JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))))); }catch(e){} } })();
+
+sizeCanvas(); window.addEventListener('resize', sizeCanvas); refreshLink(); renderRooms(); requestAnimationFrame(draw);
+</script>
+</body>
+</html>
