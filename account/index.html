@@ -35,7 +35,8 @@
   .muted{color:var(--dim);font-size:13px;} .ok{color:var(--mint);}
   .item{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--panel2);border:1px solid var(--hair);
     border-radius:8px;padding:9px 12px;margin-top:7px;font:13px var(--mono);}
-  select{background:var(--panel2);border:1px solid var(--hair);border-radius:7px;color:var(--tx);font:12px var(--mono);padding:5px 7px;}
+  input,select{background:var(--panel2);border:1px solid var(--hair);border-radius:7px;color:var(--tx);font:12px var(--mono);padding:7px 9px;}
+  .field{display:block;width:100%;max-width:320px;margin-bottom:8px;box-sizing:border-box;}
   nav#bottom{margin-top:34px;padding-top:16px;border-top:1px solid var(--hair);font:12.5px var(--mono);}
   nav#bottom a{color:var(--dim);text-decoration:none;margin-right:16px;} nav#bottom a:hover{color:var(--cy);}
 </style>
@@ -69,11 +70,34 @@ if (!SUPABASE_URL || !SUPABASE_ANON){
       });
     }
     function signedOut(){
-      card.innerHTML = '<p>Save your critters and rooms to your account, pick a handle, and control who can see your pages.</p>'
-        + '<button class="btn gh" id="signin">&#63743; Sign in with GitHub</button>'
-        + '<p class="muted" style="margin-top:10px">No passwords — GitHub OAuth only. We store a handle and your GitHub email, nothing more.</p>';
-      document.getElementById('signin').addEventListener('click', function(){
+      card.innerHTML = '<p>Create a profile to save your critters and rooms, pick a handle, and control who can see your pages.</p>'
+        + '<input class="field" type="email" id="email" placeholder="you@email.com" autocomplete="email">'
+        + '<input class="field" type="password" id="pass" placeholder="password (8+ characters)" autocomplete="current-password">'
+        + '<div style="margin-top:2px"><button class="btn" id="login">Sign in</button> <button class="btn" id="signup">Create account</button></div>'
+        + '<div id="authmsg" class="muted" style="margin-top:10px;min-height:16px"></div>'
+        + '<p class="muted" style="margin:14px 0 6px">— or —</p>'
+        + '<button class="btn gh" id="ghsignin">&#63743; Continue with GitHub</button>'
+        + '<p class="muted" style="margin-top:12px">Passwords are handled by Supabase Auth — we never see or store them. We keep a handle and your email, nothing more.</p>';
+      var msg = document.getElementById('authmsg');
+      function showMsg(t, err){ msg.textContent=''; var s=document.createElement('span'); s.style.color = err ? 'var(--red)' : 'var(--mint)'; s.textContent=t; msg.appendChild(s); }
+      function creds(){ return { email:(document.getElementById('email').value||'').trim(), password:document.getElementById('pass').value||'' }; }
+      document.getElementById('ghsignin').addEventListener('click', function(){
         sb.auth.signInWithOAuth({ provider:'github', options:{ redirectTo: location.origin + '/account/' } });
+      });
+      document.getElementById('login').addEventListener('click', function(){
+        var c = creds(); if (!c.email || !c.password){ showMsg('Enter your email and password.', true); return; }
+        showMsg('Signing in…', false);
+        sb.auth.signInWithPassword(c).then(function(res){ if (res.error){ showMsg(res.error.message || 'Sign-in failed.', true); } else render(); })
+          .catch(function(){ showMsg('Sign-in failed — check your connection.', true); });
+      });
+      document.getElementById('signup').addEventListener('click', function(){
+        var c = creds(); if (!c.email || c.password.length < 8){ showMsg('Enter an email and a password of at least 8 characters.', true); return; }
+        showMsg('Creating account…', false);
+        sb.auth.signUp({ email:c.email, password:c.password }).then(function(res){
+          if (res.error){ showMsg(res.error.message || 'Sign-up failed.', true); return; }
+          if (res.data && res.data.session){ render(); }                                   // email-confirmation off → signed in
+          else { showMsg('Account created — check your email to confirm, then sign in.', false); }
+        }).catch(function(){ showMsg('Sign-up failed — check your connection.', true); });
       });
     }
     function signedIn(user){
