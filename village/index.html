@@ -567,7 +567,7 @@ var SKYLINE = [], BUILDINGS = [];                        // town: distant skylin
 var SHOPNAMES = ['BAKERY','FORGE','MARKET','CAFE','BOOKS','INN','ARCADE','CLINIC'], POND = null;
 function buildScene(){
   if (INSIDE){   // resizing while inside a building: resize the canvas + interior only, DON'T regenerate the street (it would orphan INSIDE)
-    W = innerWidth; H = innerHeight; cv.width = W; cv.height = H; INT_W = Math.max(W, 1400); _resizedInside = true;
+    W = innerWidth; H = innerHeight; cv.width = W; cv.height = H; INT_W = INSIDE.studio ? W : Math.max(W, 1400); _resizedInside = true;
     if (player) player.x = clampN(player.x, 8, INT_W-SP-8);
     cameraX = clampN(cameraX, 0, Math.max(0, INT_W-W)); return;
   }
@@ -754,6 +754,7 @@ function generateBuildings(){                             // multi-story shops/a
     for(var fl=0;fl<floors;fl++) for(var co=0;co<cols;co++){ if (fl===0 && co===(cols>>1)) continue;
       rooms.push({ x:x-w/2+pad+(co+0.5)*(span/cols)-ww/2, y:gy-h+16+fl*((h-24)/floors), lit:rng()<0.5, occupant:null, ph:rng()*6.28 }); }
     var shop=rng()<0.5; BUILDINGS.push({ x:x, w:w, h:h, shop:shop, name: shop?SHOPNAMES[(rng()*SHOPNAMES.length)|0]:'', door:{x:x,y:gy}, rooms:rooms }); });
+  if (EXPLORE && BUILDINGS.length){ var st=BUILDINGS[(BUILDINGS.length/2)|0]; st.studio=true; st.shop=true; st.name='DANCE STUDIO'; }   // one building is the dance studio
 }
 function drawBuildings(ts, f){
   var gy=groundY();
@@ -801,8 +802,8 @@ function nearBuilding(){
 function enterBuilding(b){
   if (!b || INSIDE) return;
   if (typeof closeToys==='function') closeToys();         // dismiss any open react/music panel on the room transition
-  INSIDE = b; INT_W = Math.max(W, 1400);
-  if (player){ player.x = INT_W*0.5; player.y = groundY()-2; }
+  INSIDE = b; INT_W = b.studio ? W : Math.max(W, 1400);    // the studio is one screen (no scroll → disco decor stays put); generic interiors are wider
+  if (player){ player.x = INT_W*0.5; player.y = groundY()-2; player.danceX=null; player.dancing=false; }
   cameraX = (INT_W-W)/2; if (stage) stage.classList.add('inside');
 }
 function exitBuilding(){
@@ -811,10 +812,17 @@ function exitBuilding(){
   var bx = INSIDE.door ? INSIDE.door.x : W*0.5; INSIDE = null;
   if (stage) stage.classList.remove('inside');
   if (_resizedInside){ _resizedInside = false; buildScene(); }   // the street was deferred during a resize-while-inside — regenerate it now
-  if (player){ player.x = clampN(bx, 8, WORLD_W-SP-8); player.y = groundY()-2; }
+  if (player){ player.x = clampN(bx, 8, WORLD_W-SP-8); player.y = groundY()-2; player.danceX=null; player.dancing=false; }
   cameraX = clampN(player ? player.x - W/2 : 0, 0, Math.max(0, WORLD_W-W));
 }
 function tryEnterExit(){ if (INSIDE) exitBuilding(); else { var b=nearBuilding(); if (b) enterBuilding(b); } }
+document.addEventListener('click', function(e){   // dance studio: tap a floor tile -> your critter walks there + dances (on document: #stage overlays the canvas)
+  if (!INSIDE || !INSIDE.studio || !STUDIO_FLOOR || !player || !cv) return;
+  var r = cv.getBoundingClientRect();
+  var worldX = (e.clientX - r.left) * (cv.width / (r.width||cv.width)) + cameraX;   // robust to CSS scaling / mid-resize
+  var col = Math.max(0, Math.min(STUDIO_FLOOR.cols-1, Math.floor((worldX - STUDIO_FLOOR.x0)/STUDIO_FLOOR.sq)));
+  player.danceX = STUDIO_FLOOR.x0 + col*STUDIO_FLOOR.sq + STUDIO_FLOOR.sq/2;
+});
 function updateEnterHint(){
   var eh=document.getElementById('enterhint');
   if (!eh){ eh=document.createElement('div'); eh.id='enterhint';
@@ -825,8 +833,38 @@ function updateEnterHint(){
   if (b){ eh.innerHTML='⏎ enter '+(b.name?b.name:'the building'); eh.style.display='block'; }
   else eh.style.display='none';
 }
+var STUDIO_FLOOR = null;
+function drawStudio(ts){                                  // a disco room: ball + moving lights + a prismatic, clickable dance floor
+  var gy=H*0.72, cxw=INT_W*0.5, fy=gy+62;                 // fy = the sprite foot line (measured), so the critter stands ON the tiles
+  cx.fillStyle='#0a0814'; cx.fillRect(0,0,W,H);
+  cx.save(); cx.translate(-cameraX,0);                     // cameraX≈0 for the single-screen studio (no drift)
+  var cols=8, sq=Math.floor(Math.min(58,(W-30)/cols)), fw=cols*sq, fx0=cxw-fw/2;   // floor sized to fit the viewport
+  for (var i=0;i<5;i++){ var a=ts*0.0009 + i*1.25, lx=cxw + Math.cos(a)*fw*0.6, hue=(ts*0.05 + i*70)%360;   // light washes from the ball to the floor
+    cx.globalAlpha=0.10; cx.fillStyle='hsl('+hue+',90%,62%)'; cx.beginPath(); cx.moveTo(cxw,92); cx.lineTo(lx-70,fy); cx.lineTo(lx+70,fy); cx.closePath(); cx.fill(); }
+  cx.globalAlpha=1;
+  for (var c2=0;c2<cols;c2++){ var sx=fx0+c2*sq, hue2=(ts*0.08 + c2*45)%360;       // prismatic tiles, each cycling hue
+    cx.globalAlpha=0.82; cx.fillStyle='hsl('+hue2+',82%,56%)'; cx.fillRect(sx+1, fy+1, sq-2, 26);
+    cx.globalAlpha=0.16; cx.fillStyle='hsl('+hue2+',92%,72%)'; cx.fillRect(sx+1, fy-26, sq-2, 26);
+    cx.globalAlpha=0.5; cx.strokeStyle='rgba(4,6,13,.6)'; cx.lineWidth=1; cx.strokeRect(sx+0.5, fy+1, sq-1, 26); }   // edges so it reads as tiles
+  cx.globalAlpha=1;
+  STUDIO_FLOOR = { x0:fx0, sq:sq, cols:cols, y:fy };
+  var flg=cx.createLinearGradient(0,fy+27,0,H); flg.addColorStop(0,'#14101e'); flg.addColorStop(1,'#0a0814'); cx.fillStyle=flg; cx.fillRect(0,fy+27,INT_W,H-fy-27);
+  var bx=cxw, by=86, br=24;                                // disco ball, hung below the top HUD
+  cx.strokeStyle='#3a3a4a'; cx.lineWidth=1; cx.beginPath(); cx.moveTo(bx,48); cx.lineTo(bx,by-br); cx.stroke();
+  cx.fillStyle='#aeb8cc'; cx.beginPath(); cx.arc(bx,by,br,0,6.28); cx.fill();
+  for (var fct=0;fct<16;fct++){ var fa=ts*0.0022 + fct*0.9, fr=br*(0.25+0.65*((fct*7)%5)/5), ang2=fct*1.4;
+    cx.globalAlpha=0.45+0.5*Math.abs(Math.sin(fa*3)); cx.fillStyle='hsl('+((ts*0.1+fct*40)%360)+',85%,72%)';
+    cx.fillRect(bx+Math.cos(ang2+fa)*fr-3, by+Math.sin(ang2*1.3)*fr*0.8-3, 6, 6); }
+  cx.globalAlpha=1;
+  var sw=140; cx.fillStyle='#0a141a'; cx.fillRect(cxw-sw/2, by+br+8, sw, 22); cx.strokeStyle='rgba(155,224,255,.5)'; cx.lineWidth=1; cx.strokeRect(cxw-sw/2, by+br+8, sw, 22);
+  cx.fillStyle='#9be0ff'; cx.font='13px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('DANCE STUDIO', cxw, by+br+24);
+  cx.globalAlpha=0.55+0.3*Math.sin(ts*0.003); cx.fillStyle='#7fe0ff'; cx.font='11px ui-monospace,monospace'; cx.fillText('tap a tile — your critter dances there', cxw, fy-40); cx.globalAlpha=1; cx.textAlign='left';
+  cx.restore();
+}
 function drawInterior(ts){
   var gy=H*0.74, b=INSIDE||{};
+  if (b.studio){ drawStudio(ts); return; }
+  STUDIO_FLOOR = null;
   var wall=cx.createLinearGradient(0,0,0,gy); wall.addColorStop(0, mix('#161e2c','#13303a',0.5)); wall.addColorStop(1, mix('#101824','#16303a',0.4));
   cx.fillStyle=wall; cx.fillRect(0,0,W,gy);
   var fl=cx.createLinearGradient(0,gy,0,H); fl.addColorStop(0,'#271d16'); fl.addColorStop(1,'#15100c'); cx.fillStyle=fl; cx.fillRect(0,gy,W,H-gy);
@@ -918,8 +956,14 @@ function stepCritters(dt){
     if (EXPLORE && !c.player && !c.resident){ c.age=(c.age||0)+dt; c.scale=0.55+0.45*Math.min(1,c.age/9); }   // life cycle: born small, grow up over ~9s
     if (c.player){                                       // the user-controlled character (EXPLORE mode)
       var pv = (keyL?-1:0) + (keyR?1:0);
-      if (pv){ c.x += pv*2.8; c.face = pv; c.bob += 0.28; moving = true; }
+      if (pv){ c.danceX=null; c.dancing=false; c.x += pv*2.8; c.face = pv; c.bob += 0.28; moving = true; }
+      else if (INSIDE && INSIDE.studio && c.danceX!=null){   // walk to the tapped dance tile, then dance on it
+        var dd = c.danceX - (c.x + SP/2);
+        if (Math.abs(dd) > 6){ c.face = dd<0?-1:1; c.x += c.face*Math.min(2.6, Math.abs(dd)*0.14); c.bob += 0.3; moving = true; c.dancing = false; }
+        else { c.dancing = true; if (Math.random()<0.03) floatNote(c, ['🎵','✨','💃','🕺','🎶'][(Math.random()*5)|0]); }
+      } else c.dancing = false;
       c.x = clampN(c.x, 8, (INSIDE?INT_W:WORLD_W) - SP - 8); c.y = groundY() - 2;
+      if (c.dancing) c.face = Math.sin(t0*0.007) < 0 ? -1 : 1;   // wiggle while dancing
     } else if (c.mode==='leaving'){                       // wander off the nearest edge, then despawn
       var dir = c.x < W/2 ? -1 : 1; c.x += dir*Math.max(2.2, c.speed*1.6); c.bob+=0.3; c.face=dir; moving=true;
       if (c.x < -SP-12 || c.x > W+SP+12){ c.el.remove(); critters.splice(k,1); continue; }
@@ -982,7 +1026,8 @@ function stepCritters(dt){
       if ((c.ttl -= dt) <= 0 && pop >= POP_MAX){ c.mode='leaving'; }    // age out only at the cap (let the scene fill first)
     }
     var dancing = (perfActive || concertActive) && c.mode==='roam' && !reduced;   // audience grooves to the beat
-    var hop = dancing ? -Math.abs(Math.sin(t0/430*Math.PI + c.x*0.02))*7
+    var hop = (c.player && c.dancing) ? -Math.abs(Math.sin(t0*0.013))*13      // dance-floor bounce
+            : dancing ? -Math.abs(Math.sin(t0/430*Math.PI + c.x*0.02))*7
             : moving ? -Math.abs(Math.sin(c.bob))*(1.5+e)
             : (c.mode==='perform' ? -Math.abs(Math.sin(performBob(c)))*3 : 0);
     var rs = c.scale || 1, sx = c.x - cameraX;            // sx = screen-space x (world x minus camera) for DOM sprites
