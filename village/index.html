@@ -26,15 +26,17 @@
     pointer-events: none; will-change: transform, opacity; }
   #tag { position: absolute; bottom: 8px; right: 14px; font: 10px ui-monospace, monospace;
     letter-spacing: .1em; color: rgba(120,205,255,.4); text-shadow: 0 0 5px rgba(0,0,0,.7); }
-  #backlink, #sound { position: fixed; top: 14px; z-index: 9999; font: 12.5px 'SF Mono', ui-monospace, Menlo, monospace;
+  #backlink, #sound, #makeown { position: fixed; top: 14px; z-index: 9999; font: 12.5px 'SF Mono', ui-monospace, Menlo, monospace;
     color: #5ad4ff; text-shadow: 0 0 8px rgba(86,206,255,.5); border: 1px solid rgba(86,206,255,.4);
     border-radius: 8px; padding: 8px 13px; background: rgba(6,16,30,.7); text-decoration: none; cursor: pointer; }
   #backlink { left: 14px; } #sound { right: 14px; }
-  #backlink:hover, #sound:hover { border-color: rgba(86,206,255,.9); }
+  #makeown { left: 14px; bottom: 14px; top: auto; }
+  #backlink:hover, #sound:hover, #makeown:hover { border-color: rgba(86,206,255,.9); }
   @media (max-width: 640px){
     .bubble { max-width: 78vw; font-size: 11.5px; padding: 4px 8px; }
-    #backlink, #sound { font-size: 11px; padding: 7px 11px; top: 10px; }
-    #backlink { left: 10px; } #sound { right: 10px; }
+    #backlink, #sound, #makeown { font-size: 11px; padding: 7px 11px; }
+    #backlink, #sound { top: 10px; }
+    #backlink { left: 10px; } #sound { right: 10px; } #makeown { left: 10px; bottom: 10px; }
     #tag { font-size: 9px; bottom: 6px; right: 8px; }
   }
 </style>
@@ -43,6 +45,7 @@
 <canvas id="scene"></canvas>
 <div id="stage"><div id="tag"></div></div>
 <a id="backlink" href="https://xclusivexo.com/">&#8592; xclusivexo.com</a>
+<a id="makeown" href="/create/">&#10022; make your own</a>
 <button id="sound" type="button">&#9834; sound off</button>
 <script>
 /* The Village (public web edition) — an ambient, self-contained pixel village. Critters roam a themed
@@ -809,6 +812,32 @@ document.addEventListener('visibilitychange', function(){ hidden = document.hidd
 if (navigator.getBattery) navigator.getBattery().then(function(b){
   var upd = function(){ lowPower = (!b.charging && b.level < 0.2); }; upd(); b.onchargingchange = upd; b.onlevelchange = upd; });
 
+// ── a shared critter designed at /create/ (#c=<base64 spec>) walks into the village ──
+var ACC_BY_NAME = { topHat:aTopHat, party:aParty, cap:aCap, beanie:aBeanie, crown:aCrown, glasses:aGlasses,
+                    shades:aShades, bowtie:aBowtie, scarf:aScarf, flower:aFlower, headphones:aHeadphones };
+function spawnGuest(spec){
+  if (!spec || !SPRITES[spec.base]) return;
+  var eye = /^#[0-9a-fA-F]{6}$/.test(spec.eye||'') ? spec.eye : '#5ad4ff';
+  var outfit = (spec.outfit||[]).slice(0,4).map(function(p){ return { fn:ACC_BY_NAME[p&&p.item], c:(/^#[0-9a-fA-F]{6}$/.test(p&&p.color)?p.color:'#ffffff') }; }).filter(function(p){ return p.fn; });
+  var name = String(spec.name||'').replace(/[<>]/g,'').slice(0,24);
+  var scale = Math.max(1, Math.min(2, +spec.scale || 1.4));
+  recolor(SPRITES[spec.base], eye, outfit).then(function(url){
+    var el=document.createElement('img'); el.className='critter'; el.src=url; el.alt=name||'guest';
+    el.style.transformOrigin='50% 92%'; el.style.filter='drop-shadow(0 3px 4px rgba(0,0,0,.45)) drop-shadow(0 0 9px '+eye+')';
+    stage.appendChild(el);
+    var plate=document.createElement('div'); plate.className='plate'; plate.style.color=eye; plate.style.opacity='0.92';
+    plate.textContent=name||'a visitor'; stage.appendChild(plate);
+    var bubble=document.createElement('div'); bubble.className='bubble'; stage.appendChild(bubble);
+    var c={ el:el, plate:plate, bubble:bubble, resident:true, animal:spec.base, persona:persona(spec.base),
+      color:eye, scale:scale, glow:eye, x:W*0.5, y:groundY()-4, angle:Rn(0,6.28), speed:Rn(0.5,1.0), bob:Rn(0,6), face:1, mode:'roam', cooldown:Rn(2,8) };
+    critters.push(c); spawnSparkles(c.x+SP/2, c.y-20, 30); floatNote(c, '\u2726');
+  });
+}
+function spawnGuestFromHash(){
+  var m = (location.hash||'').match(/[#&]c=([^&]+)/); if (!m) return;
+  var raw; try { raw = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1]))))); } catch(e){ return; }
+  spawnGuest(raw);
+}
 function boot(){
   var mob = innerWidth < 640;                             // mobile: fewer, calmer critters so the scene isn't crowded
   if (mob){ POP_MIN = 4; POP_MAX = 7; }
@@ -817,6 +846,7 @@ function boot(){
   var start = reduced ? 4 : (mob ? 6 : 10), shuffled = SPRITE_NAMES.slice().sort(function(){return Math.random()-0.5;});
   for (var i=0;i<start;i++) spawnCritter(shuffled[i % shuffled.length], {});   // initial ambient population
   startContentFeed();                                     // personality layer: quotes + live news + facts
+  spawnGuestFromHash();                                   // a shared critter from a /create/ link, if present
   updateCredits();
   var sb = document.getElementById('sound'); if (sb) sb.addEventListener('click', toggleSound);
   requestAnimationFrame(loop);
