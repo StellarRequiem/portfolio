@@ -812,6 +812,19 @@ document.addEventListener('visibilitychange', function(){ hidden = document.hidd
 if (navigator.getBattery) navigator.getBattery().then(function(b){
   var upd = function(){ lowPower = (!b.charging && b.level < 0.2); }; upd(); b.onchargingchange = upd; b.onlevelchange = upd; });
 
+/* name-moderation (first-pass, client-side): blocks offensive critter names. Normalizes leetspeak +
+   spacing so 'f u c k' / 'f0ck' are caught, then substring-matches a slur/profanity stem list. This is
+   a first line of defense, NOT a substitute for server-side moderation + human review (Phase 2). A hand-
+   crafted link can still carry any string, so the village RE-FILTERS every name at render. */
+var NAME_BLOCK = ["fuck","fock","phuck","shit","shyt","bitch","biatch","bastard","asshole","azzhole","cunt",
+  "whore","slut","faggot","fagg","nigg","chink","kike","wetback","gook","beaner","tranny","retard","rapist",
+  "molest","pedo","nazi","hitler","cocksuck","dickhead","blowjob","handjob","porn","penis"];
+function normName(s){ return String(s||'').toLowerCase()
+  .replace(/[4@]/g,'a').replace(/3/g,'e').replace(/[1!|]/g,'i').replace(/0/g,'o').replace(/[5$]/g,'s').replace(/7/g,'t')
+  .replace(/[^a-z]/g,''); }
+function nameBlocked(s){ var n=normName(s); if(!n) return false; for(var i=0;i<NAME_BLOCK.length;i++){ if(n.indexOf(NAME_BLOCK[i])>=0) return true; } return false; }
+function cleanName(s){ var t=String(s||'').replace(/[<>]/g,'').slice(0,24); return nameBlocked(t)?'':t; }
+/* end-name-moderation */
 // ── a shared critter designed at /create/ (#c=<base64 spec>) walks into the village ──
 var ACC_BY_NAME = { topHat:aTopHat, party:aParty, cap:aCap, beanie:aBeanie, crown:aCrown, glasses:aGlasses,
                     shades:aShades, bowtie:aBowtie, scarf:aScarf, flower:aFlower, headphones:aHeadphones };
@@ -819,7 +832,7 @@ function spawnGuest(spec){
   if (!spec || !SPRITES[spec.base]) return;
   var eye = /^#[0-9a-fA-F]{6}$/.test(spec.eye||'') ? spec.eye : '#5ad4ff';
   var outfit = (spec.outfit||[]).slice(0,4).map(function(p){ return { fn:ACC_BY_NAME[p&&p.item], c:(/^#[0-9a-fA-F]{6}$/.test(p&&p.color)?p.color:'#ffffff') }; }).filter(function(p){ return p.fn; });
-  var name = String(spec.name||'').replace(/[<>]/g,'').slice(0,24);
+  var name = cleanName(spec.name);                        // re-filter offensive names even from hand-crafted links
   var scale = Math.max(1, Math.min(2, +spec.scale || 1.4));
   recolor(SPRITES[spec.base], eye, outfit).then(function(url){
     var el=document.createElement('img'); el.className='critter'; el.src=url; el.alt=name||'guest';
