@@ -64,6 +64,25 @@
   @media (max-width: 640px){ .walkzone { width: 70px; height: 60px; bottom: 14px; } #walkL { left: calc(50% - 76px); } .walkR { right: calc(50% - 76px); } }
   .bubble.emoji { font-size: 30px; line-height: 1; padding: 3px 9px; max-width: none; border-color: rgba(86,206,255,.3); background: rgba(6,16,30,.8); }
   .note { font-size: 22px; }   /* big enough for the emoji reactions critters float at each other */
+  .toybtn { position: fixed; right: 14px; z-index: 9998; display: none; width: 52px; height: 48px;
+    align-items: center; justify-content: center; font-size: 22px; border: 1px solid rgba(86,206,255,.45);
+    border-radius: 12px; background: rgba(6,16,30,.74); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  #reactBtn { bottom: 74px; } #musicBtn { bottom: 16px; }
+  .toybtn:active { background: rgba(86,206,255,.28); border-color: rgba(86,206,255,.9); }
+  #reactWheel { position: fixed; right: 2px; bottom: 130px; width: 220px; height: 220px; z-index: 9999; display: none; }
+  .reactItem { position: absolute; transform: translate(-50%,-50%); width: 44px; height: 44px; font-size: 22px; padding: 0;
+    border: 1px solid rgba(86,206,255,.4); border-radius: 50%; background: rgba(6,16,30,.94); cursor: pointer; }
+  .reactItem:hover { background: rgba(86,206,255,.3); }
+  #musicPanel { position: fixed; right: 14px; bottom: 130px; z-index: 9999; display: none; width: 264px; box-sizing: border-box;
+    background: rgba(6,16,30,.95); border: 1px solid rgba(86,206,255,.4); border-radius: 12px; padding: 11px; }
+  .mpRow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .mpRow:last-child { margin-bottom: 0; }
+  .mpLabel { font: 10px ui-monospace, monospace; color: #6c8aa6; width: 100%; text-transform: uppercase; letter-spacing: .08em; }
+  .mpChip { font: 12px 'SF Mono', ui-monospace, Menlo, monospace; color: #5ad4ff; border: 1px solid rgba(86,206,255,.35);
+    border-radius: 8px; padding: 5px 9px; background: rgba(6,16,30,.6); cursor: pointer; }
+  .mpChip.on { background: rgba(86,206,255,.25); border-color: rgba(86,206,255,.9); }
+  .mpChip.rnd { color: #ffd23f; border-color: rgba(255,210,63,.4); }
+  @media (max-width: 640px){ #musicPanel { right: 8px; width: 236px; } #reactWheel { right: 0; } }
 </style>
 </head>
 <body>
@@ -75,6 +94,10 @@
 <div id="walkL" class="walkzone"><span>&#9664;</span></div>
 <div id="walkR" class="walkzone walkR"><span>&#9654;</span></div>
 <div id="walkhint">&#9664; &#9654; / A D &mdash; walk</div>
+<button id="reactBtn" class="toybtn" type="button" title="react">&#128522;</button>
+<button id="musicBtn" class="toybtn" type="button" title="play music">&#127925;</button>
+<div id="reactWheel"></div>
+<div id="musicPanel"></div>
 <script>
 /* The Village (public web edition) — an ambient, self-contained pixel village. Critters roam a themed
    night town and, at the gazebo, sing procedural 8-bit music. For personality they surface aspirational
@@ -228,6 +251,70 @@ function floatNote(c, glyph){
   requestAnimationFrame(function(){ n.style.opacity = '1';
     n.style.transform = 'translate(' + (c.x-cameraX+30+(Math.random()*16-8)) + 'px,' + (c.y-34) + 'px)'; });
   setTimeout(function(){ n.style.opacity = '0'; setTimeout(function(){ n.remove(); }, 500); }, 900);
+}
+
+/* ── player toys: a reaction wheel + a little musician (EXPLORE only; DOM exists only in the web build) ── */
+var REACTIONS = ['😊','😂','❤️','👍','🙌','😮','😢','😍','🎉','🔥','✨','👋'];
+var TUNES = [   // all public domain (folk / composers d. >100y). [midiNote, beats]
+  { name:'Ode to Joy',    notes:[[64,1],[64,1],[65,1],[67,1],[67,1],[65,1],[64,1],[62,1],[60,1],[60,1],[62,1],[64,1],[64,1.5],[62,0.5],[62,2]] },
+  { name:'Twinkle',       notes:[[60,1],[60,1],[67,1],[67,1],[69,1],[69,1],[67,2],[65,1],[65,1],[64,1],[64,1],[62,1],[62,1],[60,2]] },
+  { name:'Frère Jacques', notes:[[60,1],[62,1],[64,1],[60,1],[60,1],[62,1],[64,1],[60,1],[64,1],[65,1],[67,2],[64,1],[65,1],[67,2]] },
+  { name:'Mary',          notes:[[64,1],[62,1],[60,1],[62,1],[64,1],[64,1],[64,2],[62,1],[62,1],[62,2],[64,1],[67,1],[67,2]] },
+  { name:'Greensleeves',  notes:[[57,1],[60,1],[62,1.5],[64,0.5],[65,1],[64,1],[62,1.5],[59,0.5],[55,1],[57,1],[59,1.5],[60,0.5],[57,2]] },
+  { name:'Scarborough',   notes:[[57,2],[57,1],[64,2],[64,1],[67,1.5],[69,0.5],[67,1],[64,2],[62,1],[60,1],[59,2],[57,3]] }
+];
+var INSTRUMENTS = [
+  { name:'Music box', wave:'sine',     peak:0.32, rel:1.6 },
+  { name:'Chiptune',  wave:'square',   peak:0.16, rel:0.95 },
+  { name:'Strings',   wave:'sawtooth', peak:0.13, rel:1.4 },
+  { name:'Flute',     wave:'triangle', peak:0.22, rel:1.1 }
+];
+var curInstrument = 0, tunePlaying = false;
+function playTune(tuneIdx, instIdx){
+  if (tunePlaying) return;
+  var tune = TUNES[tuneIdx]; if (!tune) return; var inst = INSTRUMENTS[instIdx||0] || INSTRUMENTS[0];
+  ensureAudio(); if (!AC) return;
+  AC.resume().then(function(){
+    audioReady = (AC.state === 'running'); if (!audioReady) return;
+    if (master) master.gain.setTargetAtTime(0.5, AC.currentTime, 0.01);   // audible even if ambient sound is off
+    var beat = 0.34, t0a = AC.currentTime + 0.06, t = t0a, maxEnd = 0;
+    tune.notes.forEach(function(n){ var dur = n[1]*beat, ring = dur*inst.rel*0.92; blip(midi(n[0]), t, ring, inst.wave, inst.peak); maxEnd = Math.max(maxEnd, (t - t0a) + ring); t += dur; });
+    tunePlaying = true; if (player) floatNote(player, '🎵');
+    setTimeout(function(){ tunePlaying = false; if (master && AC) master.gain.setTargetAtTime(audioOn?vol:0, AC.currentTime, 0.06); }, (maxEnd+0.35)*1000);   // restore after the real audio tail, not just the beat sum
+  });
+}
+function closeToys(){ ['reactWheel','musicPanel'].forEach(function(id){ var e=document.getElementById(id); if(e){ e.dataset.open='0'; e.style.display='none'; } }); }
+function openReactWheel(){
+  var w=document.getElementById('reactWheel'); if(!w) return;
+  if (w.dataset.open==='1'){ closeToys(); return; }
+  closeToys(); w.innerHTML=''; w.dataset.open='1'; w.style.display='block';
+  var n=REACTIONS.length, R=88, C=110;
+  REACTIONS.forEach(function(em,i){ var ang=-Math.PI/2 + (i/n)*2*Math.PI;
+    var b=document.createElement('button'); b.type='button'; b.className='reactItem'; b.textContent=em;
+    b.style.left=(C+R*Math.cos(ang))+'px'; b.style.top=(C+R*Math.sin(ang))+'px';
+    b.addEventListener('click', function(e){ e.stopPropagation(); if(player) floatNote(player, em); closeToys(); });
+    w.appendChild(b); });
+}
+function openMusicPanel(){
+  var p=document.getElementById('musicPanel'); if(!p) return;
+  if (p.dataset.open==='1'){ closeToys(); return; }
+  closeToys(); p.innerHTML=''; p.dataset.open='1'; p.style.display='block';
+  var ir=document.createElement('div'); ir.className='mpRow'; ir.innerHTML='<span class="mpLabel">instrument</span>';
+  INSTRUMENTS.forEach(function(inst,i){ var c=document.createElement('button'); c.type='button'; c.className='mpChip'+(i===curInstrument?' on':''); c.textContent=inst.name;
+    c.addEventListener('click', function(e){ e.stopPropagation(); curInstrument=i; [].forEach.call(ir.querySelectorAll('.mpChip'),function(x){x.classList.remove('on');}); c.classList.add('on'); }); ir.appendChild(c); });
+  p.appendChild(ir);
+  var tr=document.createElement('div'); tr.className='mpRow'; tr.innerHTML='<span class="mpLabel">tune</span>';
+  TUNES.forEach(function(tune,i){ var c=document.createElement('button'); c.type='button'; c.className='mpChip'; c.textContent=tune.name;
+    c.addEventListener('click', function(e){ e.stopPropagation(); playTune(i, curInstrument); }); tr.appendChild(c); });
+  var rnd=document.createElement('button'); rnd.type='button'; rnd.className='mpChip rnd'; rnd.textContent='🎲 random';
+  rnd.addEventListener('click', function(e){ e.stopPropagation(); playTune((Math.random()*TUNES.length)|0, curInstrument); }); tr.appendChild(rnd);
+  p.appendChild(tr);
+}
+function setupPlayerUI(){
+  var rb=document.getElementById('reactBtn'), mb=document.getElementById('musicBtn');
+  if(rb){ rb.style.display='flex'; rb.addEventListener('click', function(e){ e.stopPropagation(); openReactWheel(); }); }
+  if(mb){ mb.style.display='flex'; mb.addEventListener('click', function(e){ e.stopPropagation(); openMusicPanel(); }); }
+  document.addEventListener('click', closeToys);
 }
 
 /* ── sprite recolor (sentinel magenta -> the critter's eye color), as in critter.html ── */
@@ -788,7 +875,7 @@ function stepCritters(dt){
     var rs = c.scale || 1, sx = c.x - cameraX;            // sx = screen-space x (world x minus camera) for DOM sprites
     c.el.style.transform = 'translate(' + sx.toFixed(1) + 'px,' + (c.y+hop).toFixed(1) + 'px) scale(' + (c.face*rs).toFixed(3) + ',' + rs.toFixed(3) + ')';
     if (c.resident){                                      // follow the resident with its nameplate + speech bubble
-      var px = (sx + SP*0.5).toFixed(1);
+      var px = Math.max(54, Math.min(W-54, sx + SP*0.5)).toFixed(1);   // clamp so the plate/bubble stay on-screen at world edges
       c.plate.style.transform  = 'translate(' + px + 'px,' + (c.y + SP*0.62).toFixed(1) + 'px) translate(-50%,0)';
       c.bubble.style.transform = 'translate(' + px + 'px,' + (c.y - SP*0.10).toFixed(1) + 'px) translate(-50%,-100%)';
     }
@@ -1107,7 +1194,7 @@ function boot(){
   if (EXPLORE){                                           // you walk AS your critter (from a /create/ #c= link, else a default)
     var pm=(location.hash||'').match(/[#&]c=([^&]+)/), pspec=null;
     if(pm){ try{ pspec=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(pm[1]))))); }catch(e){} }
-    spawnPlayer(pspec); bindExploreControls();
+    spawnPlayer(pspec); bindExploreControls(); setupPlayerUI();
   } else {
     spawnGuestFromHash();                                 // in a room: a single shared critter from a /create/ link, if present
   }
