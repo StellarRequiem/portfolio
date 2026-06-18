@@ -403,7 +403,7 @@ function toggleSound(){                                   // browser autoplay po
   var sb = document.getElementById('sound'); if (sb) sb.textContent = audioOn ? '♪ sound on' : '♪ sound off';
 }
 function Rn(a,b){ return a + Math.random()*(b-a); }
-function groundY(){ return H * 0.72; }                 // critters live along the village ground line
+function groundY(){ return ROOM ? H * ROOM.floor : H * 0.72; }   // a #r= room's floor, else the village ground line
 function gazebo(){ return { x: W*0.5, y: groundY()+8, r: Math.min(150, W*0.12) }; }
 
 /* ── scene backdrop (sky, stars, Bifrost arc, huts, gazebo, ground, rune-rain) ── */
@@ -612,6 +612,7 @@ function drawPond(ts, f){
   cx.strokeStyle='rgba(90,212,255,.3)'; cx.lineWidth=1; cx.beginPath(); cx.ellipse(p.x,p.y,p.rx,p.ry,0,0,6.28); cx.stroke();
 }
 function drawScene(ts){
+  if (ROOM){ drawRoomScene(ts); return; }                // a composed room replaces the night-village backdrop
   var gy = groundY(), gz = gazebo();
   var f = dayFactor();                                  // real clock -> day/night
   var wx = weatherState(), clearness = wx==='clear'?1:wx==='cloudy'?0.55:0.22;   // weather from CI health
@@ -710,7 +711,7 @@ function stepCritters(dt){
       if (c.y<gyTop){c.y=gyTop;c.angle=-c.angle;} if (c.y>gyBot){c.y=gyBot;c.angle=-c.angle;}
       c.bob += 0.22+e*0.05; c.face=Math.cos(c.angle)<0?-1:1; moving=true;
       if ((c.cooldown -= dt) <= 0){ c.cooldown=Rn(5,14); if (audioOn && audioReady && Math.random()<0.5) emote(c); }
-      if (BUILDINGS.length && Math.random()<0.0012){       // occasionally pop into a shop/apartment + show up in a window
+      if (!ROOM && BUILDINGS.length && Math.random()<0.0012){   // occasionally pop into a shop/apartment (village only, not in a room)
         var avb=BUILDINGS.filter(function(b){return b.rooms.some(function(r){return !r.occupant;});});
         if (avb.length){ var bb=avb[(Math.random()*avb.length)|0]; c.mode='enterBldg'; c.targetB=bb; c.target={ x:bb.door.x-SP/2, y:groundY()-SP*0.4 }; } }
       if ((c.ttl -= dt) <= 0 && pop > POP_MIN){ c.mode='leaving'; }    // lifespan up -> turnover
@@ -735,6 +736,7 @@ var perfActive = false, nextPerf = 12, performers = [];
 var BITS = [], groove = 0, concertActive = false;        // composed "bits" accumulate -> groove builds -> a concert
 var PREV = {}, pendingCelebration = null, celebrating = false, banner = null, sparkles = [];
 function schedulePerf(dt){
+  if (ROOM) return;                                      // no gazebo inside a room
   if (pendingCelebration && !perfActive){ startCelebration(pendingCelebration); pendingCelebration = null; return; }
   if (!(idle >= IDLE_WAKE) || reduced) { if (!celebrating) perfActive = false; return; }
   nextPerf -= dt;
@@ -917,15 +919,65 @@ function spawnGuestFromHash(){
   var raw; try { raw = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1]))))); } catch(e){ return; }
   spawnGuest(raw);
 }
+/* ── rooms: a #r= link renders a composed room (backsplash + props + critters) — our art, client-side, no backend ── */
+var ROOM = null, ROOM_PROPS = [], ROOM_CRITTERS = [];
+var ROOM_REGISTRY = {
+  cozy: { name:'Cozy Room', floor:0.66, w1:'#2a2138', w2:'#181222', f1:'#3c2d25', f2:'#26201c',
+    decor:function(ts){
+      cx.fillStyle='#0e1a26'; cx.fillRect(W*0.12,H*0.16,W*0.18,H*0.30);
+      cx.globalAlpha=0.45; cx.fillStyle='#ffd27a'; cx.shadowColor='#ffbf57'; cx.shadowBlur=26; cx.fillRect(W*0.12,H*0.16,W*0.18,H*0.30); cx.shadowBlur=0; cx.globalAlpha=1;
+      cx.strokeStyle='#3a2f28'; cx.lineWidth=4; cx.strokeRect(W*0.12,H*0.16,W*0.18,H*0.30);
+      cx.fillStyle='#23303c'; cx.fillRect(W*0.64,H*0.20,W*0.11,H*0.15); cx.strokeStyle='#caa05a'; cx.lineWidth=3; cx.strokeRect(W*0.64,H*0.20,W*0.11,H*0.15); } },
+  arcade: { name:'Arcade', floor:0.66, w1:'#0c0a22', w2:'#06060f', f1:'#161232', f2:'#0c0a1c',
+    decor:function(ts){ var cols=['#ff5d6c','#5ad4ff','#3df0bb','#9b8cff'];
+      for(var i=0;i<4;i++){ cx.globalAlpha=0.18+0.18*Math.abs(Math.sin(ts*0.002+i)); cx.fillStyle=cols[i]; cx.fillRect(0,H*(0.10+i*0.05),W,3); } cx.globalAlpha=1; } },
+  kitchen: { name:'Kitchen', floor:0.66, w1:'#16302e', w2:'#0e201e', f1:'#26201c', f2:'#1a1614',
+    decor:function(ts){ cx.fillStyle='#1c3a36'; cx.fillRect(0,H*0.50,W,H*0.16); cx.fillStyle='#2a4a45'; cx.fillRect(0,H*0.50,W,5); } }
+};
+function drawRoomScene(ts){
+  var fy=groundY(), r=ROOM;
+  var g=cx.createLinearGradient(0,0,0,fy); g.addColorStop(0,r.w1); g.addColorStop(1,r.w2); cx.fillStyle=g; cx.fillRect(0,0,W,fy);
+  if (r.decor){ try{ r.decor(ts); }catch(e){} }
+  var fg=cx.createLinearGradient(0,fy,0,H); fg.addColorStop(0,r.f1); fg.addColorStop(1,r.f2); cx.fillStyle=fg; cx.fillRect(0,fy,W,H-fy);
+  cx.strokeStyle='rgba(90,212,255,.16)'; cx.lineWidth=1; cx.beginPath(); cx.moveTo(0,fy); cx.lineTo(W,fy); cx.stroke();
+  var ps=ROOM_PROPS.slice().sort(function(a,b){ return a.y-b.y; });   // nearer props (higher y) drawn last = in front
+  for (var i=0;i<ps.length;i++){ var p=ps[i], d=PROP_REGISTRY[p.t]; if(!d) continue; try{ d.draw(p.x*W, fy+(H-fy)*p.y, ts, p); }catch(e){} }
+}
+var PROP_REGISTRY = {
+  arcade:{ draw:function(px,py,ts,o){ var c=(o&&o.c)||'#9b8cff';
+    cx.fillStyle='#14121c'; cx.fillRect(px-20,py-58,40,58);
+    cx.globalAlpha=0.3; cx.fillStyle=c; cx.fillRect(px-20,py-58,40,7); cx.globalAlpha=1;
+    cx.fillStyle='#08222e'; cx.fillRect(px-14,py-48,28,20);
+    var lit=0.5+0.5*Math.abs(Math.sin(ts*0.004+px*0.01)); cx.globalAlpha=lit; cx.fillStyle='#5ad4ff'; cx.shadowColor='#5ad4ff'; cx.shadowBlur=10; cx.fillRect(px-12,py-46,24,16); cx.shadowBlur=0; cx.globalAlpha=1;
+    cx.fillStyle='#0e0c14'; cx.fillRect(px-17,py-24,34,22); cx.fillStyle=c; cx.fillRect(px-9,py-18,5,5); } },
+  console:{ draw:function(px,py,ts,o){ cx.fillStyle='#1a1822'; cx.fillRect(px-16,py-12,32,12); cx.fillStyle='#2a2735'; cx.fillRect(px-13,py-9,16,3); var on=(((ts*0.004)|0)%2)===0; cx.fillStyle=on?'#3df0bb':'#173027'; cx.fillRect(px+9,py-9,3,3); } },
+  tv:{ draw:function(px,py,ts,o){ cx.fillStyle='#0e0c14'; cx.fillRect(px-26,py-34,52,34); var lit=0.45+0.4*Math.abs(Math.sin(ts*0.003)); cx.globalAlpha=lit; cx.fillStyle=(o&&o.c)||'#5ad4ff'; cx.shadowColor='#5ad4ff'; cx.shadowBlur=12; cx.fillRect(px-22,py-30,44,26); cx.shadowBlur=0; cx.globalAlpha=1; cx.fillStyle='#1a1822'; cx.fillRect(px-6,py-2,12,3); } },
+  couch:{ draw:function(px,py,ts,o){ var c=(o&&o.c)||'#3a6a8a'; cx.fillStyle=c; cx.fillRect(px-34,py-20,68,16); cx.fillRect(px-34,py-30,11,14); cx.fillRect(px+23,py-30,11,14); cx.fillStyle='rgba(0,0,0,.18)'; cx.fillRect(px-23,py-18,46,5); } },
+  table:{ draw:function(px,py,ts,o){ var c=(o&&o.c)||'#6a4a2e'; cx.fillStyle=c; cx.fillRect(px-22,py-15,44,5); cx.fillRect(px-19,py-10,4,10); cx.fillRect(px+15,py-10,4,10); } },
+  plant:{ draw:function(px,py,ts,o){ cx.fillStyle='#2a1d16'; cx.fillRect(px-7,py-10,14,10); var c=(o&&o.c)||'#3df0bb'; cx.fillStyle=c; cx.beginPath(); cx.arc(px,py-20,11,0,6.28); cx.arc(px-7,py-13,7,0,6.28); cx.arc(px+7,py-13,7,0,6.28); cx.fill(); } },
+  lamp:{ draw:function(px,py,ts,o){ cx.strokeStyle='#3a3430'; cx.lineWidth=3; cx.beginPath(); cx.moveTo(px,py); cx.lineTo(px,py-38); cx.stroke(); cx.globalAlpha=0.6; cx.fillStyle='#ffd27a'; cx.shadowColor='#ffbf57'; cx.shadowBlur=18; cx.beginPath(); cx.moveTo(px-12,py-38); cx.lineTo(px+12,py-38); cx.lineTo(px+7,py-50); cx.lineTo(px-7,py-50); cx.closePath(); cx.fill(); cx.shadowBlur=0; cx.globalAlpha=1; } },
+  rug:{ draw:function(px,py,ts,o){ var c=(o&&o.c)||'#8a4a5a'; cx.globalAlpha=0.7; cx.fillStyle=c; cx.beginPath(); cx.ellipse(px,py,46,12,0,0,6.28); cx.fill(); cx.globalAlpha=0.4; cx.strokeStyle='#fff'; cx.lineWidth=1; cx.beginPath(); cx.ellipse(px,py,38,9,0,0,6.28); cx.stroke(); cx.globalAlpha=1; } }
+};
+function parseRoomFromHash(){
+  var m=(location.hash||'').match(/[#&]r=([^&]+)/); if(!m) return;
+  var spec; try{ spec=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1]))))); }catch(e){ return; }
+  if(!spec || !ROOM_REGISTRY[spec.bg]) return;
+  ROOM = ROOM_REGISTRY[spec.bg];
+  ROOM_PROPS = (spec.props||[]).slice(0,30).filter(function(p){ return p && PROP_REGISTRY[p.t]; }).map(function(p){
+    return { t:p.t, x:Math.max(0,Math.min(1,+p.x||0.5)), y:Math.max(0.05,Math.min(0.95,(p.y!=null?+p.y:0.6))), c:(/^#[0-9a-fA-F]{6}$/.test(p.c)?p.c:null) }; });
+  ROOM_CRITTERS = (spec.critters||[]).slice(0,6);
+}
 function boot(){
   var mob = innerWidth < 640;                             // mobile: fewer, calmer critters so the scene isn't crowded
   if (mob){ POP_MIN = 4; POP_MAX = 7; }
+  parseRoomFromHash();                                    // a composed room from a /room/ link (#r=) — before buildScene so the floor is room-aware
   buildScene();
   SPRITE_NAMES = Object.keys(SPRITES); if (!SPRITE_NAMES.length) return;
-  var start = reduced ? 4 : (mob ? 6 : 10), shuffled = SPRITE_NAMES.slice().sort(function(){return Math.random()-0.5;});
-  for (var i=0;i<start;i++) spawnCritter(shuffled[i % shuffled.length], {});   // initial ambient population
-  startContentFeed();                                     // personality layer: quotes + live news + facts
-  spawnGuestFromHash();                                   // a shared critter from a /create/ link, if present
+  var start = ROOM ? (mob ? 3 : 5) : (reduced ? 4 : (mob ? 6 : 10)), shuffled = SPRITE_NAMES.slice().sort(function(){return Math.random()-0.5;});
+  for (var i=0;i<start;i++) spawnCritter(shuffled[i % shuffled.length], {});   // ambient critters (fewer inside a room)
+  startContentFeed();                                     // personality layer: quotes + curated trivia + live news
+  spawnGuestFromHash();                                   // a single shared critter from a /create/ link, if present
+  ROOM_CRITTERS.forEach(spawnGuest);                      // the room's composed critters
   updateCredits();
   var sb = document.getElementById('sound'); if (sb) sb.addEventListener('click', toggleSound);
   requestAnimationFrame(loop);
