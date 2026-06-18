@@ -62,6 +62,24 @@
   .dockdiv { width: 1px; height: 32px; background: rgba(86,206,255,.22); margin: 0 3px; }
   .bubble.emoji { font-size: 30px; line-height: 1; padding: 3px 9px; max-width: none; border-color: rgba(86,206,255,.3); background: rgba(6,16,30,.8); }
   .note { font-size: 22px; }   /* big enough for the emoji reactions critters float at each other */
+  #live b { color: #eafaff; font-weight: 600; }
+  #rswitch { pointer-events: auto; cursor: pointer; color: #8fd0ff; text-decoration: underline; margin-left: 7px; }
+  #realmpick { position: fixed; inset: 0; z-index: 10000; display: none; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(2,6,13,.88); padding: 22px; box-sizing: border-box; }
+  #rp-h { text-align: center; color: #dcefff; max-width: 470px; margin-bottom: 18px; }
+  #rp-h h2 { font: 600 22px 'SF Mono', ui-monospace, Menlo, monospace; color: #5ad4ff; text-shadow: 0 0 12px rgba(86,206,255,.35); margin: 0 0 6px; }
+  #rp-h p { font: 13px ui-monospace, monospace; color: #8fb0c8; margin: 0; line-height: 1.55; }
+  #rp-grid { display: grid; grid-template-columns: repeat(2, minmax(140px, 180px)); gap: 10px; }
+  @media (min-width: 580px){ #rp-grid { grid-template-columns: repeat(5, 140px); } }
+  .realmcard { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 15px 10px; cursor: pointer;
+    border: 1px solid; border-radius: 13px; background: rgba(8,18,32,.82); color: inherit; transition: transform .1s, background .15s; }
+  .realmcard:hover { background: rgba(86,206,255,.15); transform: translateY(-2px); }
+  .rdot { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 11px currentColor; }
+  .rname { font: 600 15px 'SF Mono', ui-monospace, monospace; color: #eafaff; }
+  .rcount { font: 11px ui-monospace, monospace; color: #8fb0c8; }
+  #rp-skip { margin-top: 18px; font: 12.5px 'SF Mono', ui-monospace, monospace; color: #8fd0ff; cursor: pointer;
+    background: none; border: 1px solid rgba(86,206,255,.3); border-radius: 9px; padding: 8px 14px; }
+  #rp-skip:hover { background: rgba(86,206,255,.14); border-color: rgba(86,206,255,.7); }
   #reactWheel { position: fixed; left: 50%; bottom: 86px; transform: translateX(-50%); width: 220px; height: 220px; z-index: 9999; display: none; }
   .reactItem { position: absolute; transform: translate(-50%,-50%); width: 44px; height: 44px; font-size: 22px; padding: 0;
     border: 1px solid rgba(86,206,255,.4); border-radius: 50%; background: rgba(6,16,30,.94); cursor: pointer; }
@@ -1118,6 +1136,7 @@ function spawnPlayer(spec){                               // EXPLORE: the user-c
 function bindExploreControls(){
   function set(dir,on){ if(dir<0) keyL=on; else keyR=on; if(on) taken=true; }
   addEventListener('keydown', function(e){ var k=e.key;
+    var pk=document.getElementById('realmpick'); if (pk && pk.style.display!=='none') return;   // don't walk behind the open realm picker
     if(k==='ArrowLeft'||k==='a'||k==='A'){ set(-1,true); e.preventDefault(); }
     else if(k==='ArrowRight'||k==='d'||k==='D'){ set(1,true); e.preventDefault(); } });
   addEventListener('keyup', function(e){ var k=e.key;
@@ -1141,25 +1160,102 @@ function spawnGuestFromHash(){
    Count = real connected clients (unique per-browser key), or nothing — never a fabricated number.
    supabase-js loads on demand only when configured, so the page stays self-contained otherwise. ── */
 var SUPABASE_URL = "https://bhrwgygqpahtclwnrjmp.supabase.co", SUPABASE_ANON = "sb_publishable_xZG4n38G2cMtQjTCUKRarw_SUBtP9mK";
-var liveCount = 0, presenceEl = null;
+var REALMS = [
+  { id:'aurora', name:'Aurora', c:'#5ad4ff' }, { id:'ember',  name:'Ember',  c:'#ff8a5a' },
+  { id:'tide',   name:'Tide',   c:'#3df0bb' }, { id:'grove',  name:'Grove',  c:'#7bd86b' },
+  { id:'lumen',  name:'Lumen',  c:'#ffd23f' }, { id:'mist',   name:'Mist',   c:'#9fb4d6' },
+  { id:'cinder', name:'Cinder', c:'#ff5d6c' }, { id:'drift',  name:'Drift',  c:'#9b8cff' },
+  { id:'vale',   name:'Vale',   c:'#3aa0ff' }, { id:'nova',   name:'Nova',   c:'#ff7ac6' }
+];
+var REALM_CAP = 20;
+var liveCount = 0, presenceEl = null, _sb = null, _realm = null, _realmCh = null, _chans = {}, _counts = {};
+function realmById(id){ for (var i=0;i<REALMS.length;i++) if (REALMS[i].id===id) return REALMS[i]; return null; }
+function chosenRealm(){                                    // ?realm= (shareable) > localStorage (return visit) > none
+  var m=(location.search||'').match(/[?&]realm=([a-z0-9]+)/i); if (m && realmById(m[1].toLowerCase())) return m[1].toLowerCase();
+  try { var k=localStorage.getItem('xclvxo_realm'); if (k && realmById(k)) return k; } catch(e){}
+  return null;
+}
+function presenceKey(){ try { var k=localStorage.getItem('xclvxo_pid'); if(!k){ k='p'+Math.random().toString(36).slice(2); localStorage.setItem('xclvxo_pid',k); } return k; } catch(e){ return 'p'+Math.random().toString(36).slice(2); } }
 function showLive(n){
   if (!presenceEl){ presenceEl = document.createElement('div'); presenceEl.id = 'live'; stage.appendChild(presenceEl); }
-  presenceEl.textContent = '\u25cf ' + n + ' here now';
+  var rn = _realm ? ((realmById(_realm)||{}).name||'') : '';
+  presenceEl.innerHTML = (rn?'<b>'+rn+'</b> &middot; ':'') + '\u25cf ' + n + ' here now' + (rn?' <span id="rswitch">&#8646; switch</span>':'');
   presenceEl.style.opacity = '1';
-  if (!ROOM){ var mob = innerWidth < 640;                 // dynamic population scales to the real headcount (wider in EXPLORE)
+  var rsw=document.getElementById('rswitch'); if (rsw) rsw.onclick=function(e){ e.stopPropagation(); openPicker(); };
+  if (!ROOM){ var mob = innerWidth < 640;                  // dynamic population scales to the real headcount (wider in EXPLORE)
     var base = EXPLORE ? (mob?7:11) : (mob?3:4), cap = EXPLORE ? (mob?12:20) : (mob?8:14);
     POP_MAX = Math.min(cap, base + n); }
 }
 function hideLive(){ if (presenceEl) presenceEl.style.opacity = '0'; }
-function presenceKey(){ try { var k=localStorage.getItem('xclvxo_pid'); if(!k){ k='p'+Math.random().toString(36).slice(2); localStorage.setItem('xclvxo_pid',k); } return k; } catch(e){ return 'p'+Math.random().toString(36).slice(2); } }
-function connectPresence(){
-  if (!SUPABASE_URL || !SUPABASE_ANON) return;             // disabled until the Supabase project is configured
-  import('https://esm.sh/@supabase/supabase-js@2').then(function(m){
-    var sb = m.createClient(SUPABASE_URL, SUPABASE_ANON);
-    var ch = sb.channel('village', { config: { presence: { key: presenceKey() } } });   // tabs of one browser share a key -> counted once
-    ch.on('presence', { event: 'sync' }, function(){ var n = Object.keys(ch.presenceState()).length; if (n > 0){ liveCount = n; showLive(n); } });
-    ch.subscribe(function(status){ if (status === 'SUBSCRIBED') ch.track({ t: Date.now() }); });
-  }).catch(function(){});                                   // offline / blocked -> no counter, never a fake number
+function withSB(cb){                                       // import supabase-js once, reuse the client (channels multiplex on one connection)
+  if (!SUPABASE_URL || !SUPABASE_ANON) return;
+  if (_sb){ cb(_sb); return; }
+  import('https://esm.sh/@supabase/supabase-js@2').then(function(m){ _sb = m.createClient(SUPABASE_URL, SUPABASE_ANON); cb(_sb); }).catch(function(){});
+}
+function connectPresence(){                                // non-realm (a #r= room): one shared presence channel
+  withSB(function(sb){
+    var ch = sb.channel('village', { config: { presence: { key: presenceKey() } } });
+    ch.on('presence', { event: 'sync' }, function(){ var n = Object.keys(ch.presenceState()).length; if (n>0){ liveCount=n; showLive(n); } });
+    ch.subscribe(function(s){ if (s==='SUBSCRIBED') ch.track({ t: Date.now() }); });
+  });
+}
+function realmChan(id){                                     // ONE persistent channel per realm topic, subscribed once + reused (no remove/recreate races)
+  var topic='realm:'+id, ch=_chans[topic];
+  if (ch) return ch;
+  ch=_sb.channel(topic, { config: { presence: { key: presenceKey() } } });
+  ch._wantTrack=false; ch._tracking=false;
+  ch.on('presence', { event: 'sync' }, function(){
+    var n=Object.keys(ch.presenceState()).length; _counts[id]=n;
+    if (_realm===id){ liveCount=Math.max(1,n); showLive(liveCount); }
+    var pk=document.getElementById('realmpick'); if (pk && pk.style.display!=='none') updatePickerCounts();
+  });
+  ch.subscribe(function(s){ if (s==='SUBSCRIBED' && ch._wantTrack && !ch._tracking){ ch._tracking=true; ch.track({ t: Date.now() }); } });
+  _chans[topic]=ch; return ch;
+}
+function setTrack(ch, on){                                  // present (track) in a realm or not — without tearing the channel down
+  if (!ch) return;
+  if (on){ ch._wantTrack=true; if (ch.state==='joined' && !ch._tracking){ ch._tracking=true; ch.track({ t: Date.now() }); } }
+  else { ch._wantTrack=false; if (ch._tracking){ ch._tracking=false; try { ch.untrack(); } catch(e){} } }
+}
+function joinRealm(id){                                     // EXPLORE: present in exactly one realm (track it, untrack the last)
+  var r = realmById(id); if (!r) return;
+  var prev=_realm; _realm=id; liveCount=1; try { localStorage.setItem('xclvxo_realm', id); } catch(e){}
+  var ov=document.getElementById('realmpick'); if (ov) ov.style.display='none';
+  showLive(1);
+  withSB(function(){
+    if (prev && prev!==id) setTrack(_chans['realm:'+prev], false);   // leave the old realm's presence (its channel stays for counts)
+    _realmCh = realmChan(id); setTrack(_realmCh, true);
+  });
+}
+function quietestRealm(){ var best=REALMS[0]; for (var i=1;i<REALMS.length;i++) if ((_counts[REALMS[i].id]||0)<(_counts[best.id]||0)) best=REALMS[i]; return best.id; }
+function updatePickerCounts(){
+  REALMS.forEach(function(r){ var el=document.getElementById('rc-'+r.id); if (!el) return;
+    var n=_counts[r.id]||0, full=n>=REALM_CAP;
+    el.textContent = n+' / '+REALM_CAP+(full?' \u00b7 full':'');
+    var card=document.getElementById('card-'+r.id); if (card){ card.style.opacity=full?'0.6':'1'; } });   // busy = dimmed but still joinable (soft cap; no dead-end)
+}
+function buildPicker(){
+  var ov=document.createElement('div'); ov.id='realmpick';
+  var h=document.createElement('div'); h.id='rp-h';
+  h.innerHTML='<h2>Choose a realm</h2><p>Each realm is its own little world, aiming for ~'+REALM_CAP+' at once \u2014 busy ones are dimmed. Your critter comes with you.</p>';
+  ov.appendChild(h);
+  var grid=document.createElement('div'); grid.id='rp-grid';
+  REALMS.forEach(function(r){
+    var card=document.createElement('button'); card.type='button'; card.className='realmcard'; card.id='card-'+r.id; card.style.borderColor=r.c;
+    card.innerHTML='<span class="rdot" style="background:'+r.c+'"></span><span class="rname">'+r.name+'</span><span class="rcount" id="rc-'+r.id+'">\u2026</span>';
+    card.addEventListener('click', function(e){ e.stopPropagation(); joinRealm(r.id); });   // soft cap: busy realms join as overflow rather than dead-ending the user
+    grid.appendChild(card);
+  });
+  ov.appendChild(grid);
+  var skip=document.createElement('button'); skip.id='rp-skip'; skip.type='button'; skip.textContent='\u2192 drop me in the quietest realm';
+  skip.addEventListener('click', function(e){ e.stopPropagation(); joinRealm(quietestRealm()); });   // always-available escape (no modal trap)
+  ov.appendChild(skip);
+  (stage.parentNode||document.body).appendChild(ov); return ov;
+}
+function openPicker(){
+  var ov=document.getElementById('realmpick'); if (!ov) ov=buildPicker();
+  ov.style.display='flex'; updatePickerCounts();
+  withSB(function(){ REALMS.forEach(function(r){ realmChan(r.id); }); });   // ensure every realm is subscribed for live counts (reused; only _realm tracks itself)
 }
 /* ── rooms: a #r= link renders a composed room (backsplash + props + critters) — our art, client-side, no backend ── */
 var ROOM = null, ROOM_PROPS = [], ROOM_CRITTERS = [];
@@ -1230,7 +1326,8 @@ function boot(){
   }
   ROOM_CRITTERS.forEach(spawnGuest);                      // the room's composed critters
   updateCredits();
-  connectPresence();                                      // live "● N here now" counter (no-op until the Supabase keys are set)
+  if (EXPLORE){ var _rr=chosenRealm(); if (_rr) joinRealm(_rr); else openPicker(); }   // realms: pick one, or rejoin your last / a ?realm= link
+  else connectPresence();                                 // a #r= room keeps the single shared "● N here now" counter
   var sb = document.getElementById('sound'); if (sb) sb.addEventListener('click', toggleSound);
   requestAnimationFrame(loop);
 }
