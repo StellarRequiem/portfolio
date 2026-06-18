@@ -51,29 +51,22 @@
     #backlink { left: 10px; } #sound { right: 10px; } #makeown { left: 10px; bottom: 10px; }
     #tag { font-size: 9px; bottom: 6px; right: 8px; }
   }
-  .walkzone { position: fixed; bottom: 16px; z-index: 9998; display: none; width: 62px; height: 56px;
-    align-items: center; justify-content: center; border: 1px solid rgba(86,206,255,.45); border-radius: 13px;
-    background: rgba(6,16,30,.74); -webkit-tap-highlight-color: transparent; touch-action: none; user-select: none; cursor: pointer; }
-  #walkL { left: calc(50% - 68px); } .walkR { right: calc(50% - 68px); }
-  .walkzone span { font: 26px ui-monospace, monospace; color: #5ad4ff; text-shadow: 0 0 8px rgba(86,206,255,.55); line-height: 1; }
-  .walkzone:active { background: rgba(86,206,255,.28); border-color: rgba(86,206,255,.9); }
-  #walkhint { position: fixed; bottom: 82px; left: 50%; transform: translateX(-50%); z-index: 60; display: none;
-    font: 11.5px 'SF Mono', ui-monospace, Menlo, monospace; color: #8fd0ff; text-shadow: 0 0 8px rgba(0,0,0,.75);
-    pointer-events: none; white-space: nowrap; animation: hintfade 6s ease forwards; }
-  @keyframes hintfade { 0%,66%{ opacity: 1; } 100%{ opacity: 0; } }
-  @media (max-width: 640px){ .walkzone { width: 70px; height: 60px; bottom: 14px; } #walkL { left: calc(50% - 76px); } .walkR { right: calc(50% - 76px); } }
+  #dock { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 9998; display: none;
+    align-items: center; gap: 7px; padding: 6px; border-radius: 16px; background: rgba(6,16,30,.55);
+    border: 1px solid rgba(86,206,255,.18); -webkit-tap-highlight-color: transparent; }
+  .dockbtn { display: flex; align-items: center; justify-content: center; width: 54px; height: 50px;
+    font-size: 23px; color: #5ad4ff; text-shadow: 0 0 8px rgba(86,206,255,.5); border: 1px solid rgba(86,206,255,.4);
+    border-radius: 11px; background: rgba(6,16,30,.7); cursor: pointer; touch-action: none; user-select: none; }
+  .dockbtn:active { background: rgba(86,206,255,.28); border-color: rgba(86,206,255,.9); }
+  .dockbtn.walk span { font: 23px ui-monospace, monospace; line-height: 1; }
+  .dockdiv { width: 1px; height: 32px; background: rgba(86,206,255,.22); margin: 0 3px; }
   .bubble.emoji { font-size: 30px; line-height: 1; padding: 3px 9px; max-width: none; border-color: rgba(86,206,255,.3); background: rgba(6,16,30,.8); }
   .note { font-size: 22px; }   /* big enough for the emoji reactions critters float at each other */
-  .toybtn { position: fixed; right: 14px; z-index: 9998; display: none; width: 52px; height: 48px;
-    align-items: center; justify-content: center; font-size: 22px; border: 1px solid rgba(86,206,255,.45);
-    border-radius: 12px; background: rgba(6,16,30,.74); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-  #reactBtn { bottom: 74px; } #musicBtn { bottom: 16px; }
-  .toybtn:active { background: rgba(86,206,255,.28); border-color: rgba(86,206,255,.9); }
-  #reactWheel { position: fixed; right: 2px; bottom: 130px; width: 220px; height: 220px; z-index: 9999; display: none; }
+  #reactWheel { position: fixed; left: 50%; bottom: 86px; transform: translateX(-50%); width: 220px; height: 220px; z-index: 9999; display: none; }
   .reactItem { position: absolute; transform: translate(-50%,-50%); width: 44px; height: 44px; font-size: 22px; padding: 0;
     border: 1px solid rgba(86,206,255,.4); border-radius: 50%; background: rgba(6,16,30,.94); cursor: pointer; }
   .reactItem:hover { background: rgba(86,206,255,.3); }
-  #musicPanel { position: fixed; right: 14px; bottom: 130px; z-index: 9999; display: none; width: 264px; box-sizing: border-box;
+  #musicPanel { position: fixed; left: 50%; bottom: 80px; transform: translateX(-50%); z-index: 9999; display: none; width: 280px; box-sizing: border-box;
     background: rgba(6,16,30,.95); border: 1px solid rgba(86,206,255,.4); border-radius: 12px; padding: 11px; }
   .mpRow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
   .mpRow:last-child { margin-bottom: 0; }
@@ -82,7 +75,7 @@
     border-radius: 8px; padding: 5px 9px; background: rgba(6,16,30,.6); cursor: pointer; }
   .mpChip.on { background: rgba(86,206,255,.25); border-color: rgba(86,206,255,.9); }
   .mpChip.rnd { color: #ffd23f; border-color: rgba(255,210,63,.4); }
-  @media (max-width: 640px){ #musicPanel { right: 8px; width: 236px; } #reactWheel { right: 0; } }
+  @media (max-width: 640px){ .dockbtn { width: 50px; height: 48px; font-size: 21px; } #musicPanel { width: 252px; } }
 </style>
 </head>
 <body>
@@ -91,11 +84,13 @@
 <a id="backlink" href="https://xclusivexo.com/">&#8592; xclusivexo.com</a>
 <a id="makeown" href="/create/">&#10022; make your own</a>
 <button id="sound" type="button">&#9834; sound off</button>
-<div id="walkL" class="walkzone"><span>&#9664;</span></div>
-<div id="walkR" class="walkzone walkR"><span>&#9654;</span></div>
-<div id="walkhint">&#9664; &#9654; / A D &mdash; walk</div>
-<button id="reactBtn" class="toybtn" type="button" title="react">&#128522;</button>
-<button id="musicBtn" class="toybtn" type="button" title="play music">&#127925;</button>
+<div id="dock">
+  <div id="walkL" class="dockbtn walk"><span>&#9664;</span></div>
+  <div id="walkR" class="dockbtn walk"><span>&#9654;</span></div>
+  <div class="dockdiv"></div>
+  <button id="reactBtn" class="dockbtn" type="button" title="react">&#128522;</button>
+  <button id="musicBtn" class="dockbtn" type="button" title="play music">&#127925;</button>
+</div>
 <div id="reactWheel"></div>
 <div id="musicPanel"></div>
 <script>
@@ -312,8 +307,8 @@ function openMusicPanel(){
 }
 function setupPlayerUI(){
   var rb=document.getElementById('reactBtn'), mb=document.getElementById('musicBtn');
-  if(rb){ rb.style.display='flex'; rb.addEventListener('click', function(e){ e.stopPropagation(); openReactWheel(); }); }
-  if(mb){ mb.style.display='flex'; mb.addEventListener('click', function(e){ e.stopPropagation(); openMusicPanel(); }); }
+  if(rb){ rb.addEventListener('click', function(e){ e.stopPropagation(); openReactWheel(); }); }   // visibility handled by #dock
+  if(mb){ mb.addEventListener('click', function(e){ e.stopPropagation(); openMusicPanel(); }); }
   document.addEventListener('click', closeToys);
 }
 
@@ -1093,13 +1088,13 @@ function bindExploreControls(){
   addEventListener('keyup', function(e){ var k=e.key;
     if(k==='ArrowLeft'||k==='a'||k==='A') set(-1,false);
     else if(k==='ArrowRight'||k==='d'||k==='D') set(1,false); });
-  var zL=document.getElementById('walkL'), zR=document.getElementById('walkR');   // mobile: hold a side to walk
-  function bindZone(z,dir){ if(!z) return; z.style.display='flex';
+  var zL=document.getElementById('walkL'), zR=document.getElementById('walkR');   // hold a dock arrow to walk (tap/click/touch)
+  function bindZone(z,dir){ if(!z) return;
     var down=function(e){ set(dir,true); e.preventDefault(); }, up=function(){ set(dir,false); };
     z.addEventListener('touchstart',down,{passive:false}); z.addEventListener('touchend',up); z.addEventListener('touchcancel',up);
     z.addEventListener('pointerdown',down); z.addEventListener('pointerup',up); z.addEventListener('pointerleave',up); }
   bindZone(zL,-1); bindZone(zR,1);
-  var h=document.getElementById('walkhint'); if(h) h.style.display='block';   // brief "← → / A D — walk" cue, fades out
+  var dock=document.getElementById('dock'); if(dock) dock.style.display='flex';   // reveal the control dock (movement + tools)
 }
 function spawnGuestFromHash(){
   var m = (location.hash||'').match(/[#&]c=([^&]+)/); if (!m) return;
