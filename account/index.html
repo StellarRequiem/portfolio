@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Account · xclusivexo.com</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Sign in to save your critters and rooms, set a handle, and control who can see your pages.">
+<meta name="theme-color" content="#02060d">
+<style>
+  :root{--void:#02060d;--panel2:#040b16;--cy:#5ad4ff;--mint:#3df0bb;--amber:#ffb547;--red:#ff5d6c;--tx:#dcefff;--dim:#6c8aa6;
+    --line:rgba(86,206,255,.4);--hair:rgba(86,206,255,.22);
+    --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;}
+  *{box-sizing:border-box} body{margin:0;background:var(--void);color:var(--tx);font:15px/1.6 var(--sans);min-height:100vh;}
+  .wrap{max-width:680px;margin:0 auto;padding:14px 18px 80px;}
+  nav#top{display:flex;gap:6px;flex-wrap:wrap;font:12.5px var(--mono);margin-bottom:16px;}
+  nav#top a{color:var(--dim);text-decoration:none;border:1px solid var(--hair);border-radius:8px;padding:6px 11px;}
+  nav#top a:hover{color:var(--cy);border-color:var(--line);}
+  h1{font:600 25px/1.2 var(--mono);color:var(--cy);text-shadow:0 0 12px rgba(86,206,255,.35);margin:0 0 6px;}
+  .kick{font:12px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0 0 22px;}
+  .card{background:var(--panel2);border:1px solid var(--hair);border-radius:12px;padding:20px;}
+  .btn{display:inline-block;font:13px var(--mono);color:var(--cy);text-shadow:0 0 8px rgba(86,206,255,.5);border:1px solid var(--line);
+    border-radius:8px;padding:11px 16px;background:rgba(6,16,30,.7);cursor:pointer;text-decoration:none;margin:6px 8px 0 0;}
+  .btn:hover{border-color:rgba(86,206,255,.9);} .btn.gh{color:#fff;border-color:rgba(255,255,255,.3);}
+  .btn.del{color:var(--red);border-color:rgba(255,93,108,.4);text-shadow:none;}
+  input[type=text]{background:var(--panel2);border:1px solid var(--hair);border-radius:8px;color:var(--tx);font:14px var(--sans);padding:9px 12px;}
+  input[type=text]:focus{outline:none;border-color:var(--line);}
+  .muted{color:var(--dim);font-size:13px;} .ok{color:var(--mint);}
+  .item{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--panel2);border:1px solid var(--hair);
+    border-radius:8px;padding:9px 12px;margin-top:7px;font:13px var(--mono);}
+  select{background:var(--panel2);border:1px solid var(--hair);border-radius:7px;color:var(--tx);font:12px var(--mono);padding:5px 7px;}
+  nav#bottom{margin-top:34px;padding-top:16px;border-top:1px solid var(--hair);font:12.5px var(--mono);}
+  nav#bottom a{color:var(--dim);text-decoration:none;margin-right:16px;} nav#bottom a:hover{color:var(--cy);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav id="top"><a href="/">home</a><a href="/village/">village</a><a href="/create/">create a critter</a><a href="/room/">compose a room</a><a href="/forum/">forum</a></nav>
+  <h1>Account</h1>
+  <p class="kick">sign in &middot; profile &middot; your creations</p>
+  <div class="card" id="card"><p class="muted">Loading…</p></div>
+  <nav id="bottom"><a href="/feedback/">feedback</a><a href="/report/">report a bug</a><a href="/diagnostics/">diagnostics</a></nav>
+</div>
+<script>
+"use strict";
+var SUPABASE_URL = "", SUPABASE_ANON = "";   // set when the Supabase project is connected; empty = dormant
+var card = document.getElementById('card');
+function esc(s){ var d=document.createElement('div'); d.textContent=String(s==null?'':s); return d.innerHTML; }
+
+if (!SUPABASE_URL || !SUPABASE_ANON){
+  card.innerHTML = '<p>Accounts are almost here. Sign-in lights up the moment the backend is connected — '
+    + 'you\'ll be able to save your critters &amp; rooms, pick a handle, and choose who can see your pages '
+    + '(private, invite-only, or public).</p><p class="muted" style="margin-top:10px">No passwords ever — '
+    + 'sign-in will be GitHub only.</p>';
+} else {
+  import('https://esm.sh/@supabase/supabase-js@2').then(function(m){
+    var sb = m.createClient(SUPABASE_URL, SUPABASE_ANON);
+    function render(){
+      sb.auth.getSession().then(function(r){
+        var session = r.data && r.data.session;
+        if (!session){ signedOut(); } else { signedIn(session.user); }
+      });
+    }
+    function signedOut(){
+      card.innerHTML = '<p>Save your critters and rooms to your account, pick a handle, and control who can see your pages.</p>'
+        + '<button class="btn gh" id="signin">&#63743; Sign in with GitHub</button>'
+        + '<p class="muted" style="margin-top:10px">No passwords — GitHub OAuth only. We store a handle and your GitHub email, nothing more.</p>';
+      document.getElementById('signin').addEventListener('click', function(){
+        sb.auth.signInWithOAuth({ provider:'github', options:{ redirectTo: location.origin + '/account/' } });
+      });
+    }
+    function signedIn(user){
+      sb.from('profiles').select('handle').eq('id', user.id).single().then(function(p){
+        var handle = p.data && p.data.handle;
+        var html = '<p>Signed in' + (handle ? ' as <strong>@' + esc(handle) + '</strong>' : '') + '. '
+          + '<button class="btn" id="signout" style="margin:0">sign out</button></p>';
+        if (!handle){
+          html += '<p style="margin-top:14px">Pick a handle:</p><input type="text" id="handle" maxlength="20" placeholder="yourname"> '
+            + '<button class="btn" id="sethandle">set handle</button>';
+        }
+        html += '<h3 style="font:600 15px var(--mono);color:var(--cy);margin:22px 0 4px">Your creations</h3><div id="creations"><p class="muted">Loading…</p></div>'
+          + '<p class="muted" style="margin-top:8px">Save buttons land in the creator &amp; composer next — this is where they\'ll show up.</p>';
+        card.innerHTML = html;
+        document.getElementById('signout').addEventListener('click', function(){ sb.auth.signOut().then(render); });
+        var sh = document.getElementById('sethandle');
+        if (sh) sh.addEventListener('click', function(){
+          var h = (document.getElementById('handle').value||'').trim().replace(/[^a-z0-9_]/gi,'').slice(0,20);
+          if (!h) return;
+          sb.from('profiles').update({ handle:h }).eq('id', user.id).then(function(res){
+            if (res.error){ alert('That handle may be taken — try another.'); } else render();
+          });
+        });
+        loadCreations(user);
+      });
+    }
+    function loadCreations(user){
+      sb.from('creations').select('id,kind,name,visibility,approved,created_at').eq('owner', user.id)
+        .order('created_at', { ascending:false }).then(function(res){
+          var el = document.getElementById('creations'); if (!el) return;
+          var rows = res.data || [];
+          if (!rows.length){ el.innerHTML = '<p class="muted">No saved creations yet.</p>'; return; }
+          el.innerHTML = '';
+          rows.forEach(function(c){
+            var d = document.createElement('div'); d.className='item';
+            d.innerHTML = '<span>'+esc(c.name||'(untitled)')+' &middot; <span class="muted">'+esc(c.kind)+'</span></span>';
+            var sel = document.createElement('select');
+            ['private','unlisted','public'].forEach(function(v){ var o=document.createElement('option'); o.value=v; o.textContent=v; if(v===c.visibility)o.selected=true; sel.appendChild(o); });
+            sel.addEventListener('change', function(){ sb.from('creations').update({ visibility: sel.value }).eq('id', c.id); });
+            var x = document.createElement('button'); x.className='btn del'; x.style.margin='0'; x.textContent='delete';
+            x.addEventListener('click', function(){ sb.from('creations').delete().eq('id', c.id).then(function(){ loadCreations(user); }); });
+            var right=document.createElement('span'); right.appendChild(sel); right.appendChild(x); d.appendChild(right); el.appendChild(d);
+          });
+        });
+    }
+    sb.auth.onAuthStateChange(function(){ render(); });
+    render();
+  }).catch(function(){ card.innerHTML = '<p class="muted">Could not load the sign-in module. Check your connection and refresh.</p>'; });
+}
+</script>
+</body>
+</html>
