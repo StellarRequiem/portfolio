@@ -43,6 +43,9 @@
   <h1>Room Composer</h1>
   <p class="kick">backsplash &middot; props &middot; critters &middot; share</p>
 
+  <label style="margin-top:0">Start from a template <span class="muted">— or build from scratch below</span></label>
+  <div class="grid" id="starters" style="margin-bottom:12px"></div>
+
   <canvas id="stage"></canvas>
   <p class="muted" id="hint">Pick a backsplash, click a prop to drop it, then drag it on the canvas. Click a placed item to select; Remove deletes it.</p>
 
@@ -283,6 +286,15 @@ function loadInto(s){ room={ name:s.name||'', bg:ROOM_REGISTRY[s.bg]?s.bg:ROOM_K
 // load a room straight from a #r= in the URL (e.g. "edit this shared room")
 (function(){ var m=(location.hash||'').match(/[#&]r=([^&]+)/); if(m){ try{ loadInto(JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))))); }catch(e){} } })();
 
+// stock starter rooms (our art) — click to load + remix
+var STARTERS = [
+  { name:'Cozy Den', bg:'cozy', props:[{t:'rug',x:0.5,y:0.82},{t:'couch',x:0.32,y:0.5},{t:'lamp',x:0.13,y:0.55},{t:'tv',x:0.52,y:0.36},{t:'plant',x:0.86,y:0.6}], critters:[{base:'cat',eye:'#ffd23f',name:'Pip'}] },
+  { name:'Arcade', bg:'arcade', props:[{t:'arcade',x:0.25,y:0.55},{t:'arcade',x:0.45,y:0.55},{t:'arcade',x:0.65,y:0.55},{t:'console',x:0.85,y:0.7},{t:'rug',x:0.5,y:0.88}], critters:[{base:'fox',eye:'#5ad4ff',name:'Byte'}] },
+  { name:'Kitchen', bg:'kitchen', props:[{t:'table',x:0.5,y:0.6},{t:'plant',x:0.85,y:0.62},{t:'console',x:0.2,y:0.66}], critters:[{base:'mouse',eye:'#3df0bb',name:'Crumb'}] }
+];
+var stEl = document.getElementById('starters');
+STARTERS.forEach(function(s){ var b=document.createElement('div'); b.className='chip'; b.textContent='⌂ '+s.name;
+  b.addEventListener('click', function(){ loadInto({ v:1, name:s.name, bg:s.bg, props:s.props, critters:s.critters }); }); stEl.appendChild(b); });
 sizeCanvas(); window.addEventListener('resize', sizeCanvas); refreshLink(); renderRooms(); requestAnimationFrame(draw);
 </script>
 </body>
