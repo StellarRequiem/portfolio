@@ -31,6 +31,10 @@
     border-radius: 8px; padding: 8px 13px; background: rgba(6,16,30,.7); text-decoration: none; cursor: pointer; }
   #backlink { left: 14px; } #sound { right: 14px; }
   #makeown { left: 14px; bottom: 14px; top: auto; }
+  #live { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 9999;
+    font: 12px 'SF Mono', ui-monospace, Menlo, monospace; color: #3df0bb; text-shadow: 0 0 8px rgba(61,240,187,.5);
+    border: 1px solid rgba(61,240,187,.4); border-radius: 20px; padding: 5px 13px; background: rgba(6,16,30,.7);
+    opacity: 0; transition: opacity .6s; pointer-events: none; }
   #backlink:hover, #sound:hover, #makeown:hover { border-color: rgba(86,206,255,.9); }
   @media (max-width: 640px){
     .bubble { max-width: 78vw; font-size: 11.5px; padding: 4px 8px; }
@@ -918,6 +922,26 @@ function spawnGuestFromHash(){
   var raw; try { raw = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1]))))); } catch(e){ return; }
   spawnGuest(raw);
 }
+/* ── live presence: a "● N here now" counter + dynamic population from the REAL headcount.
+   Set PRESENCE_URL to the deployed Cloudflare Worker (presence/) — empty = disabled (per-session only).
+   The count is real live connections by unique IP, or nothing — never a fabricated number. ── */
+var PRESENCE_URL = "";
+var liveCount = 0, presenceTries = 0, presenceEl = null;
+function showLive(n){
+  if (!presenceEl){ presenceEl = document.createElement('div'); presenceEl.id = 'live'; stage.appendChild(presenceEl); }
+  presenceEl.textContent = '\u25cf ' + n + ' here now';
+  presenceEl.style.opacity = '1';
+  if (!ROOM){ var mob = innerWidth < 640; POP_MAX = Math.min(mob?8:14, (mob?3:4) + n); }   // dynamic population scales to the real headcount
+}
+function hideLive(){ if (presenceEl) presenceEl.style.opacity = '0'; }
+function connectPresence(){
+  if (!PRESENCE_URL || presenceTries > 4) return;          // disabled until the backend URL is set; give up quietly if unreachable
+  presenceTries++;
+  var ws; try { ws = new WebSocket(PRESENCE_URL); } catch(e){ return; }
+  ws.onmessage = function(ev){ try { var d = JSON.parse(ev.data); if (typeof d.count === 'number'){ liveCount = d.count; presenceTries = 0; showLive(d.count); } }catch(e){} };
+  ws.onclose = function(){ hideLive(); setTimeout(connectPresence, 4000 + Math.random()*5000); };
+  ws.onerror = function(){ try { ws.close(); }catch(e){} };
+}
 /* ── rooms: a #r= link renders a composed room (backsplash + props + critters) — our art, client-side, no backend ── */
 var ROOM = null, ROOM_PROPS = [], ROOM_CRITTERS = [];
 var ROOM_REGISTRY = {
@@ -979,6 +1003,7 @@ function boot(){
   spawnGuestFromHash();                                   // a single shared critter from a /create/ link, if present
   ROOM_CRITTERS.forEach(spawnGuest);                      // the room's composed critters
   updateCredits();
+  connectPresence();                                      // live "● N here now" counter (no-op until PRESENCE_URL is set)
   var sb = document.getElementById('sound'); if (sb) sb.addEventListener('click', toggleSound);
   requestAnimationFrame(loop);
 }
