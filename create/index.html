@@ -67,11 +67,12 @@
 
   <div>
     <a class="btn go" id="open" href="#">▶ Open in the village</a>
+    <button class="btn" id="saveacct" type="button">★ Sign in to save</button>
     <button class="btn" id="copy" type="button">⧉ Copy shareable link</button>
     <button class="btn" id="dl" type="button">⤓ Download .critter.json</button>
   </div>
   <input id="link" readonly>
-  <p class="muted" id="note" style="margin-top:12px">Everything runs in your browser — no account, nothing stored. The link carries your critter's design; anyone who opens it sees your critter walk into the village.</p>
+  <p class="muted" id="note" style="margin-top:12px">Runs in your browser — the link carries your critter's design, and anyone who opens it sees your critter walk into the village. Sign in to save it to your account.</p>
 
   <nav>
     <a href="/">home</a><a href="/village/">village</a><a href="/room/">compose a room</a><a href="/forum/">forum</a><a href="/feedback/">feedback</a><a href="/report/">report a bug</a>
@@ -182,7 +183,7 @@ ACC_NAMES.forEach(function(item){
   acb.appendChild(b);
 });
 // name + scale
-var nameBad=false, OKNOTE="Everything runs in your browser — no account, nothing stored. The link carries your critter's design; anyone who opens it sees your critter walk into the village.";
+var nameBad=false, OKNOTE="Runs in your browser — the link carries your critter's design, and anyone who opens it sees your critter walk into the village. Sign in to save it to your account.";
 document.getElementById('name').addEventListener('input', function(){
   var v=this.value; nameBad=nameBlocked(v);
   cur.name = nameBad ? '' : v.replace(/[<>]/g,'').slice(0,24);
@@ -203,6 +204,28 @@ document.getElementById('dl').addEventListener('click', function(){
   var blob=new Blob([JSON.stringify(spec(),null,2)],{type:'application/json'});
   var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=((cur.name||'critter').replace(/[^a-z0-9_-]+/gi,'_'))+'.critter.json';
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+});
+// save to account — wired to the same Supabase project the account page uses.
+// publishable key (browser-safe public key, not the secret key); writes are gated by row-level security.
+var SB_URL="https://bhrwgygqpahtclwnrjmp.supabase.co", SB_ANON="sb_publishable_xZG4n38G2cMtQjTCUKRarw_SUBtP9mK";
+var _sb=null, _user=null, _saveBtn=document.getElementById('saveacct');
+function setSaveLabel(){ if(_saveBtn) _saveBtn.textContent = _user ? '★ Save to my account' : '★ Sign in to save'; }
+import('https://esm.sh/@supabase/supabase-js@2').then(function(m){
+  _sb=m.createClient(SB_URL, SB_ANON);
+  _sb.auth.getSession().then(function(r){ _user=(r && r.data && r.data.session) ? r.data.session.user : null; setSaveLabel(); });
+  _sb.auth.onAuthStateChange(function(_e,s){ _user = s ? s.user : null; setSaveLabel(); });
+}).catch(function(){ /* offline / blocked — save button just links to the account page */ });
+if (_saveBtn) _saveBtn.addEventListener('click', function(){
+  var note=document.getElementById('note');
+  if (!_user || !_sb){ location.href='/account/'; return; }
+  if (cur.name && nameBlocked(cur.name)){ note.innerHTML='<span style="color:var(--red)">That name isn\'t allowed — please choose another.</span>'; return; }
+  _saveBtn.disabled=true; note.textContent='Saving…';
+  _sb.from('creations').insert({ owner:_user.id, kind:'critter', name:(cur.name||'critter'), spec:spec(), visibility:'private' }).then(function(res){
+    _saveBtn.disabled=false;
+    note.innerHTML = res.error
+      ? '<span style="color:var(--red)">Save failed: '+res.error.message+'</span>'
+      : '<span class="ok">Saved ✓</span> — private to you. Manage it on your <a href="/account/" style="color:var(--cy)">account</a> page.';
+  });
 });
 renderPreview();
 </script>

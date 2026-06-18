@@ -71,11 +71,12 @@
   <div>
     <a class="btn go" id="open" href="#">&#9654; Open in the village</a>
     <button class="btn" id="copy" type="button">&#10209; Copy link</button>
-    <button class="btn" id="save" type="button">&#9733; Save to my rooms</button>
+    <button class="btn" id="save" type="button">&#9733; Save to this browser</button>
+    <button class="btn" id="saveacct" type="button">&#9733; Sign in to save to account</button>
     <button class="btn" id="dl" type="button">&#10515; Download .room.json</button>
   </div>
   <input id="link" readonly>
-  <p class="muted" id="note" style="margin-top:10px">Everything runs in your browser — no account, nothing uploaded. The link carries the room's design.</p>
+  <p class="muted" id="note" style="margin-top:10px">Runs in your browser — the link carries the room's design. Sign in to save it to your account, or keep a copy in this browser.</p>
 
   <label>My rooms <span class="muted">— saved in this browser</span></label>
   <div id="myrooms"></div>
@@ -296,6 +297,28 @@ var STARTERS = [
 var stEl = document.getElementById('starters');
 STARTERS.forEach(function(s){ var b=document.createElement('div'); b.className='chip'; b.textContent='⌂ '+s.name;
   b.addEventListener('click', function(){ loadInto({ v:1, name:s.name, bg:s.bg, props:s.props, critters:s.critters }); }); stEl.appendChild(b); });
+// save to account — same Supabase project as the account page.
+// publishable key (browser-safe public key, not the secret key); writes are gated by row-level security.
+var SB_URL="https://bhrwgygqpahtclwnrjmp.supabase.co", SB_ANON="sb_publishable_xZG4n38G2cMtQjTCUKRarw_SUBtP9mK";
+var _sb=null, _user=null, _saveBtn=document.getElementById('saveacct');
+function setSaveLabel(){ if(_saveBtn) _saveBtn.textContent = _user ? '★ Save to my account' : '★ Sign in to save to account'; }
+import('https://esm.sh/@supabase/supabase-js@2').then(function(m){
+  _sb=m.createClient(SB_URL, SB_ANON);
+  _sb.auth.getSession().then(function(r){ _user=(r && r.data && r.data.session) ? r.data.session.user : null; setSaveLabel(); });
+  _sb.auth.onAuthStateChange(function(_e,s){ _user = s ? s.user : null; setSaveLabel(); });
+}).catch(function(){ /* offline / blocked — save button just links to the account page */ });
+if (_saveBtn) _saveBtn.addEventListener('click', function(){
+  var note=document.getElementById('note');
+  if (!_user || !_sb){ location.href='/account/'; return; }
+  if (room.name && nameBlocked(room.name)){ note.innerHTML='<span style="color:var(--red)">That room name isn\'t allowed — please choose another.</span>'; return; }
+  _saveBtn.disabled=true; note.textContent='Saving…';
+  _sb.from('creations').insert({ owner:_user.id, kind:'room', name:(room.name||'room'), spec:spec(), visibility:'private' }).then(function(res){
+    _saveBtn.disabled=false;
+    note.innerHTML = res.error
+      ? '<span style="color:var(--red)">Save failed: '+res.error.message+'</span>'
+      : '<span class="ok">Saved ✓</span> — private to you. Manage it on your <a href="/account/" style="color:var(--cy)">account</a> page.';
+  });
+});
 sizeCanvas(); window.addEventListener('resize', sizeCanvas); refreshLink(); renderRooms(); requestAnimationFrame(draw);
 </script>
 </body>
