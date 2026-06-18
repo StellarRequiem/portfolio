@@ -1,0 +1,17 @@
+<svg viewBox="0 0 320 72" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="xclusivexo">
+  <g transform="translate(4,4)">
+    <rect width="64" height="64" rx="14" fill="#04060d"/>
+    <rect x="15" y="17" width="34" height="31" rx="11" fill="#4caf6e"/>
+    <circle cx="25" cy="26" r="8" fill="#eaf6ff"/>
+    <circle cx="39" cy="26" r="8" fill="#eaf6ff"/>
+    <circle cx="25" cy="26" r="5" fill="#5ad4ff"/>
+    <circle cx="39" cy="26" r="5" fill="#5ad4ff"/>
+    <circle cx="25" cy="26" r="1.8" fill="#02060d"/>
+    <circle cx="39" cy="26" r="1.8" fill="#02060d"/>
+    <circle cx="23.4" cy="24.4" r="1.1" fill="#ffffff"/>
+    <circle cx="37.4" cy="24.4" r="1.1" fill="#ffffff"/>
+    <path d="M24 38 Q32 45 40 38" stroke="#163a26" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  </g>
+  <text x="82" y="38" fill="#5ad4ff" font-family="'SF Mono',ui-monospace,Menlo,monospace" font-size="26">xclusivexo</text>
+  <text x="83" y="56" fill="#3df0bb" font-family="'SF Mono',ui-monospace,Menlo,monospace" font-size="10.5" letter-spacing="3">A LIVING VILLAGE</text>
+</svg>
