@@ -922,11 +922,12 @@ function spawnGuestFromHash(){
   var raw; try { raw = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1]))))); } catch(e){ return; }
   spawnGuest(raw);
 }
-/* ── live presence: a "● N here now" counter + dynamic population from the REAL headcount.
-   Set PRESENCE_URL to the deployed Cloudflare Worker (presence/) — empty = disabled (per-session only).
-   The count is real live connections by unique IP, or nothing — never a fabricated number. ── */
-var PRESENCE_URL = "";
-var liveCount = 0, presenceTries = 0, presenceEl = null;
+/* ── live presence (Supabase Realtime): a "● N here now" counter + dynamic population from the REAL headcount.
+   Set SUPABASE_URL + SUPABASE_ANON (the project's PUBLIC anon key) — empty = disabled (per-session only).
+   Count = real connected clients (unique per-browser key), or nothing — never a fabricated number.
+   supabase-js loads on demand only when configured, so the page stays self-contained otherwise. ── */
+var SUPABASE_URL = "", SUPABASE_ANON = "";
+var liveCount = 0, presenceEl = null;
 function showLive(n){
   if (!presenceEl){ presenceEl = document.createElement('div'); presenceEl.id = 'live'; stage.appendChild(presenceEl); }
   presenceEl.textContent = '\u25cf ' + n + ' here now';
@@ -934,13 +935,15 @@ function showLive(n){
   if (!ROOM){ var mob = innerWidth < 640; POP_MAX = Math.min(mob?8:14, (mob?3:4) + n); }   // dynamic population scales to the real headcount
 }
 function hideLive(){ if (presenceEl) presenceEl.style.opacity = '0'; }
+function presenceKey(){ try { var k=localStorage.getItem('xclvxo_pid'); if(!k){ k='p'+Math.random().toString(36).slice(2); localStorage.setItem('xclvxo_pid',k); } return k; } catch(e){ return 'p'+Math.random().toString(36).slice(2); } }
 function connectPresence(){
-  if (!PRESENCE_URL || presenceTries > 4) return;          // disabled until the backend URL is set; give up quietly if unreachable
-  presenceTries++;
-  var ws; try { ws = new WebSocket(PRESENCE_URL); } catch(e){ return; }
-  ws.onmessage = function(ev){ try { var d = JSON.parse(ev.data); if (typeof d.count === 'number'){ liveCount = d.count; presenceTries = 0; showLive(d.count); } }catch(e){} };
-  ws.onclose = function(){ hideLive(); setTimeout(connectPresence, 4000 + Math.random()*5000); };
-  ws.onerror = function(){ try { ws.close(); }catch(e){} };
+  if (!SUPABASE_URL || !SUPABASE_ANON) return;             // disabled until the Supabase project is configured
+  import('https://esm.sh/@supabase/supabase-js@2').then(function(m){
+    var sb = m.createClient(SUPABASE_URL, SUPABASE_ANON);
+    var ch = sb.channel('village', { config: { presence: { key: presenceKey() } } });   // tabs of one browser share a key -> counted once
+    ch.on('presence', { event: 'sync' }, function(){ var n = Object.keys(ch.presenceState()).length; if (n > 0){ liveCount = n; showLive(n); } });
+    ch.subscribe(function(status){ if (status === 'SUBSCRIBED') ch.track({ t: Date.now() }); });
+  }).catch(function(){});                                   // offline / blocked -> no counter, never a fake number
 }
 /* ── rooms: a #r= link renders a composed room (backsplash + props + critters) — our art, client-side, no backend ── */
 var ROOM = null, ROOM_PROPS = [], ROOM_CRITTERS = [];
@@ -1003,7 +1006,7 @@ function boot(){
   spawnGuestFromHash();                                   // a single shared critter from a /create/ link, if present
   ROOM_CRITTERS.forEach(spawnGuest);                      // the room's composed critters
   updateCredits();
-  connectPresence();                                      // live "● N here now" counter (no-op until PRESENCE_URL is set)
+  connectPresence();                                      // live "● N here now" counter (no-op until the Supabase keys are set)
   var sb = document.getElementById('sound'); if (sb) sb.addEventListener('click', toggleSound);
   requestAnimationFrame(loop);
 }
