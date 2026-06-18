@@ -51,18 +51,19 @@
     #backlink { left: 10px; } #sound { right: 10px; } #makeown { left: 10px; bottom: 10px; }
     #tag { font-size: 9px; bottom: 6px; right: 8px; }
   }
-  .walkzone { position: fixed; bottom: 0; width: 26vw; height: 58%; z-index: 50; display: none;
-    align-items: flex-end; justify-content: center; padding-bottom: 11vh; box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent; touch-action: none; user-select: none; }
-  #walkL { left: 0; } .walkR { right: 0; }
-  .walkzone span { font: 30px ui-monospace, monospace; color: rgba(90,212,255,.32); text-shadow: 0 0 10px rgba(0,0,0,.7);
-    opacity: 0; transition: opacity .15s; }
-  .walkzone:active span { opacity: 1; }
-  #walkhint { position: fixed; bottom: 56px; left: 50%; transform: translateX(-50%); z-index: 60; display: none;
-    font: 12px 'SF Mono', ui-monospace, Menlo, monospace; color: #5ad4ff; text-shadow: 0 0 8px rgba(0,0,0,.7);
-    border: 1px solid rgba(86,206,255,.3); border-radius: 16px; padding: 5px 12px; background: rgba(6,16,30,.66);
-    pointer-events: none; animation: hintfade 6s ease forwards; }
-  @keyframes hintfade { 0%,68%{ opacity: 1; } 100%{ opacity: 0; } }
+  .walkzone { position: fixed; bottom: 16px; z-index: 9998; display: none; width: 62px; height: 56px;
+    align-items: center; justify-content: center; border: 1px solid rgba(86,206,255,.45); border-radius: 13px;
+    background: rgba(6,16,30,.74); -webkit-tap-highlight-color: transparent; touch-action: none; user-select: none; cursor: pointer; }
+  #walkL { left: calc(50% - 68px); } .walkR { right: calc(50% - 68px); }
+  .walkzone span { font: 26px ui-monospace, monospace; color: #5ad4ff; text-shadow: 0 0 8px rgba(86,206,255,.55); line-height: 1; }
+  .walkzone:active { background: rgba(86,206,255,.28); border-color: rgba(86,206,255,.9); }
+  #walkhint { position: fixed; bottom: 82px; left: 50%; transform: translateX(-50%); z-index: 60; display: none;
+    font: 11.5px 'SF Mono', ui-monospace, Menlo, monospace; color: #8fd0ff; text-shadow: 0 0 8px rgba(0,0,0,.75);
+    pointer-events: none; white-space: nowrap; animation: hintfade 6s ease forwards; }
+  @keyframes hintfade { 0%,66%{ opacity: 1; } 100%{ opacity: 0; } }
+  @media (max-width: 640px){ .walkzone { width: 70px; height: 60px; bottom: 14px; } #walkL { left: calc(50% - 76px); } .walkR { right: calc(50% - 76px); } }
+  .bubble.emoji { font-size: 30px; line-height: 1; padding: 3px 9px; max-width: none; border-color: rgba(86,206,255,.3); background: rgba(6,16,30,.8); }
+  .note { font-size: 22px; }   /* big enough for the emoji reactions critters float at each other */
 </style>
 </head>
 <body>
@@ -392,16 +393,14 @@ var TRIVIA = {
 var TOPIC_META = { quote:'', news:'· 📰 Hacker News', history:'· 📜 history', popculture:'· 🎬 pop culture', nature:'· 🌿 nature', trivia:'· 💡 did you know' };
 var POOL = [], feedBubble = null, feedTarget = null, feedT = 5, feedIdx = -1, liveLoaded = { news:false };
 function shuffle(a){ for (var i=a.length-1;i>0;i--){ var j=(Math.random()*(i+1))|0, t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
-function updateCredits(){
-  tag.textContent = 'quotes & trivia · curated' + (liveLoaded.news ? '   ·   live: Hacker News' : '');
+function updateCredits(){ tag.textContent = 'a living village · xclusivexo'; }
+function startContentFeed(){                              // critters express with emoji bubbles (not text), ambient + playful
+  feedBubble = document.createElement('div'); feedBubble.className = 'bubble emoji'; stage.appendChild(feedBubble);
 }
-function startContentFeed(){
-  POOL = QUOTES.map(function(q){ return { type:'quote', text:'\u201c'+q.t+'\u201d', meta:'\u2014 '+q.a }; });
-  Object.keys(TRIVIA).forEach(function(cat){ TRIVIA[cat].forEach(function(line){ POOL.push({ type:cat, text:line, meta:TOPIC_META[cat]||'' }); }); });
-  shuffle(POOL);
-  feedBubble = document.createElement('div'); feedBubble.className = 'bubble'; stage.appendChild(feedBubble);
-  fetchNews();   // the one live feed; curated trivia carries the rest
-}
+var EMOJI = { history:['📜','🏛️','⏳','🗿'], news:['📰','💡','🔭','⚡'], popculture:['🎬','🎮','🎤','🌟'],
+  nature:['🍃','🌙','🌸','🐚','🦋','🌿'], quote:['✨','💭','📖','🕊️'], trivia:['❓','🎲','🧩','💡'],
+  social:['👋','😊','💬','❤️','🎵','✨','😄','🙌','🥰','👍','😺','🌟'] };
+function pickEmoji(c){ var t=(c&&ANIMAL_TOPIC[c.animal])||'social'; var set=(Math.random()<0.45)?EMOJI.social:(EMOJI[t]||EMOJI.social); return set[(Math.random()*set.length)|0]; }
 function fetchNews(){                                     // live general/tech headlines — Hacker News (key-less, CORS ok)
   fetch('https://hacker-news.firebaseio.com/v0/topstories.json').then(function(r){ return r.json(); }).then(function(ids){
     return Promise.all((ids||[]).slice(0,12).map(function(id){
@@ -421,18 +420,17 @@ function pickItem(pref){
   for (var i=0;i<POOL.length;i++){ feedIdx = (feedIdx+1) % POOL.length; if (POOL[feedIdx].type === pref) return POOL[feedIdx]; }
   feedIdx = (feedIdx+1) % POOL.length; return POOL[feedIdx];   // fall back to the next item of any type
 }
-function stepContentFeed(dt){                            // one critter at a time raises a speech bubble; ambient, not noisy
-  if (feedTarget && feedBubble){ var half = (feedBubble.offsetWidth||160)/2 + 8, cxp = feedTarget.x + SP*0.5;
-    cxp = Math.max(half, Math.min(W - half, cxp));   // clamp so the bubble stays fully on-screen (mobile-safe)
+function stepContentFeed(dt){                            // one critter at a time pops an emoji over its head; ambient
+  if (feedTarget && feedBubble){ var half = (feedBubble.offsetWidth||44)/2 + 8, cxp = feedTarget.x - cameraX + SP*0.5;
+    cxp = Math.max(half, Math.min(W - half, cxp));   // camera-aware + clamp so the bubble stays on-screen (mobile-safe)
     feedBubble.style.transform = 'translate('+cxp.toFixed(1)+'px,'+(feedTarget.y - SP*0.10).toFixed(1)+'px) translate(-50%,-100%)'; }
   feedT -= dt; if (feedT > 0) return;
   if (feedBubble) feedBubble.style.opacity = '0';
-  var avail = critters.filter(function(c){ return c.mode === 'roam'; });
-  if (!avail.length || !POOL.length){ feedT = 2; return; }
-  var c = avail[(Math.random()*avail.length)|0], item = pickItem(prefType(c.animal));
-  if (!item){ feedT = 2; return; }
-  feedTarget = c; feedBubble.textContent = item.text + (item.meta ? '  ' + item.meta : '');
-  feedBubble.style.opacity = '0.96'; feedT = Rn(8, 12);
+  var avail = critters.filter(function(c){ return c.mode === 'roam' && !c.player; });
+  if (!avail.length){ feedT = 2; return; }
+  var c = avail[(Math.random()*avail.length)|0];
+  feedTarget = c; feedBubble.textContent = pickEmoji(c);
+  feedBubble.style.opacity = '0.98'; feedT = Rn(4.5, 8);
 }
 function toggleSound(){                                   // browser autoplay policy: AudioContext must start inside a user gesture
   audioOn = !audioOn;
@@ -694,10 +692,18 @@ function drawScene(ts){
   drawGazebo(gz, ts);
   drawInstruments(ts, gz);
   drawSignpost(gz);
+  drawSpawnPad(gz);                                       // EXPLORE: the glowing load-in pad at the plaza
   if (EXPLORE){ cx.restore(); }                           // --- end camera world layer (weather/celebration stay screen-space) ---
   drawWeatherFront(ts, wx);
   if (celebrating || concertActive || sparkles.length) drawCelebration(ts);
   drawEndCard();
+}
+function drawSpawnPad(gz){                                // EXPLORE: a glowing pad marking where you load into the village (the plaza)
+  if (!EXPLORE) return; var x=gz.x, y=groundY()+7, p=0.5+0.5*Math.sin(t0*0.003);
+  cx.save();
+  cx.globalAlpha=0.10+0.10*p; cx.fillStyle='#3df0bb'; cx.beginPath(); cx.ellipse(x, y, 48, 13, 0, 0, 6.28); cx.fill();
+  cx.globalAlpha=0.28+0.22*p; cx.strokeStyle='#3df0bb'; cx.lineWidth=2; cx.beginPath(); cx.ellipse(x, y, 48, 13, 0, 0, 6.28); cx.stroke();
+  cx.restore();
 }
 function drawGazebo(gz, ts){                             // the central square's gazebo — the singing stage
   var baseY = gz.y, w = gz.r*1.5, x = gz.x - w/2;
@@ -750,6 +756,15 @@ function stepCritters(dt){
       var gzA=gazebo(), ax2=gzA.x-(c.x+SP/2), ay2=gzA.y-c.y, dd=Math.hypot(ax2,ay2);
       if (dd > gzA.r*1.5){ c.angle=Math.atan2(ay2,ax2); var ms=c.speed*1.3; c.x+=Math.cos(c.angle)*ms; c.y+=Math.sin(c.angle)*ms*0.4; moving=true; }
       c.face = ax2<0?-1:1;
+    } else if (c.mode==='greet'){                         // walk up to a friend, face them, exchange an emoji reaction
+      var go=c.greetTarget;
+      if (!go || critters.indexOf(go)<0 || go.mode==='leaving' || go.mode==='inside'){ c.mode='roam'; c.greetTarget=null; }
+      else { var ggx=go.x-c.x, ggd=Math.abs(ggx);
+        if (ggd > SP*1.25){ c.face=ggx<0?-1:1; c.x += c.face*Math.min(2.2, ggd*0.08); c.bob+=0.26; moving=true; }
+        else { c.face=ggx<0?-1:1;
+          if (!c.greeted){ c.greeted=true; c.greetT=Rn(1.6,3.0);
+            if (typeof pickEmoji==='function'){ floatNote(c, pickEmoji(c)); go.face=-c.face; if(go.mode==='roam') floatNote(go, pickEmoji(go)); } }
+          if ((c.greetT-=dt)<=0){ c.mode='roam'; c.greeted=false; c.greetTarget=null; } } }
     } else if (awake && e>0){                             // free roam along the ground
       c.angle += Rn(-0.12,0.12); var sp=c.speed*e;
       c.x += Math.cos(c.angle)*sp; c.y += Math.sin(c.angle)*sp*0.3;
@@ -761,6 +776,9 @@ function stepCritters(dt){
       if (!ROOM && BUILDINGS.length && Math.random()<0.0012){   // occasionally pop into a shop/apartment (village only, not in a room)
         var avb=BUILDINGS.filter(function(b){return b.rooms.some(function(r){return !r.occupant;});});
         if (avb.length){ var bb=avb[(Math.random()*avb.length)|0]; c.mode='enterBldg'; c.targetB=bb; c.target={ x:bb.door.x-SP/2, y:groundY()-SP*0.4 }; } }
+      if (EXPLORE && c.mode==='roam' && Math.random()<0.006){       // amble over to a nearby critter and say hi (emoji exchange)
+        var pals=critters.filter(function(o){ return o!==c && !o.player && o.mode==='roam' && Math.abs(o.x-c.x)<W*0.55; });
+        if (pals.length){ c.greetTarget=pals[(Math.random()*pals.length)|0]; c.mode='greet'; c.greeted=false; } }
       if ((c.ttl -= dt) <= 0 && pop >= POP_MAX){ c.mode='leaving'; }    // age out only at the cap (let the scene fill first)
     }
     var dancing = (perfActive || concertActive) && c.mode==='roam' && !reduced;   // audience grooves to the beat
@@ -989,7 +1007,7 @@ function bindExploreControls(){
     if(k==='ArrowLeft'||k==='a'||k==='A') set(-1,false);
     else if(k==='ArrowRight'||k==='d'||k==='D') set(1,false); });
   var zL=document.getElementById('walkL'), zR=document.getElementById('walkR');   // mobile: hold a side to walk
-  function bindZone(z,dir){ if(!z) return; z.style.display='block';
+  function bindZone(z,dir){ if(!z) return; z.style.display='flex';
     var down=function(e){ set(dir,true); e.preventDefault(); }, up=function(){ set(dir,false); };
     z.addEventListener('touchstart',down,{passive:false}); z.addEventListener('touchend',up); z.addEventListener('touchcancel',up);
     z.addEventListener('pointerdown',down); z.addEventListener('pointerup',up); z.addEventListener('pointerleave',up); }
