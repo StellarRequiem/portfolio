@@ -79,7 +79,7 @@ if (!SUPABASE_URL || !SUPABASE_ANON){
             + '<button class="btn" id="sethandle">set handle</button>';
         }
         html += '<h3 style="font:600 15px var(--mono);color:var(--cy);margin:22px 0 4px">Your creations</h3><div id="creations"><p class="muted">Loading…</p></div>'
-          + '<p class="muted" style="margin-top:8px">Save buttons land in the creator &amp; composer next — this is where they\'ll show up.</p>';
+          + '<p class="muted" style="margin-top:8px">Make one in the <a href="/create/" style="color:var(--cy)">creator</a> or <a href="/room/" style="color:var(--cy)">composer</a>, then hit &ldquo;Save to my account.&rdquo; <strong>Private</strong> stays just yours; <strong>unlisted</strong> is shareable by its link.</p>';
         card.innerHTML = html;
         document.getElementById('signout').addEventListener('click', function(){ sb.auth.signOut().then(render); });
         var sh = document.getElementById('sethandle');
@@ -104,7 +104,7 @@ if (!SUPABASE_URL || !SUPABASE_ANON){
             var d = document.createElement('div'); d.className='item';
             d.innerHTML = '<span>'+esc(c.name||'(untitled)')+' &middot; <span class="muted">'+esc(c.kind)+'</span></span>';
             var sel = document.createElement('select');
-            ['private','unlisted','public'].forEach(function(v){ var o=document.createElement('option'); o.value=v; o.textContent=v; if(v===c.visibility)o.selected=true; sel.appendChild(o); });
+            [['private','private — only you'],['unlisted','unlisted — anyone with the link']].forEach(function(v){ var o=document.createElement('option'); o.value=v[0]; o.textContent=v[1]; if(v[0]===c.visibility)o.selected=true; sel.appendChild(o); });
             sel.addEventListener('change', function(){ sb.from('creations').update({ visibility: sel.value }).eq('id', c.id); });
             var x = document.createElement('button'); x.className='btn del'; x.style.margin='0'; x.textContent='delete';
             x.addEventListener('click', function(){ sb.from('creations').delete().eq('id', c.id).then(function(){ loadCreations(user); }); });

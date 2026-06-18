@@ -197,9 +197,9 @@ function draw(ts){
 
 // ---- spec + link ----
 function spec(){
-  return { v:1, name:room.name, bg:room.bg,
+  return { v:1, name:String(room.name||'').slice(0,40), bg:room.bg,
     props: room.props.map(function(p){ return p.c ? {t:p.t,x:+p.x.toFixed(3),y:+p.y.toFixed(3),c:p.c} : {t:p.t,x:+p.x.toFixed(3),y:+p.y.toFixed(3)}; }),
-    critters: room.critters.map(function(c){ return {v:1,name:c.name,base:c.base,eye:c.eye,outfit:[],scale:1.2}; }) };
+    critters: room.critters.map(function(c){ var nm=(c.name&&nameBlocked(c.name))?'':String(c.name||'').replace(/[<>]/g,'').slice(0,24); return {v:1,name:nm,base:c.base,eye:c.eye,outfit:[],scale:1.2}; }) };
 }
 function b64(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))); }
 function link(){ return VILLAGE + "#r=" + encodeURIComponent(b64(spec())); }
@@ -253,7 +253,7 @@ document.getElementById('addc').addEventListener('click', function(){ if(room.cr
   document.getElementById('cname').value=''; refreshLink(); });
 
 // ---- name ----
-document.getElementById('rname').addEventListener('input', function(){ room.name=this.value.replace(/[<>]/g,''); refreshLink(); });
+document.getElementById('rname').addEventListener('input', function(){ room.name=this.value.replace(/[<>]/g,'').slice(0,40); refreshLink(); });
 
 // ---- actions ----
 document.getElementById('copy').addEventListener('click', function(){ var n=document.getElementById('note');
@@ -300,8 +300,9 @@ STARTERS.forEach(function(s){ var b=document.createElement('div'); b.className='
 // save to account — same Supabase project as the account page.
 // publishable key (browser-safe public key, not the secret key); writes are gated by row-level security.
 var SB_URL="https://bhrwgygqpahtclwnrjmp.supabase.co", SB_ANON="sb_publishable_xZG4n38G2cMtQjTCUKRarw_SUBtP9mK";
-var _sb=null, _user=null, _saveBtn=document.getElementById('saveacct');
+var _sb=null, _user=null, _lastSaved=null, _saveBtn=document.getElementById('saveacct');
 function setSaveLabel(){ if(_saveBtn) _saveBtn.textContent = _user ? '★ Save to my account' : '★ Sign in to save to account'; }
+function noteErr(t){ var note=document.getElementById('note'); note.textContent=''; var s=document.createElement('span'); s.style.color='var(--red)'; s.textContent=t; note.appendChild(s); }
 import('https://esm.sh/@supabase/supabase-js@2').then(function(m){
   _sb=m.createClient(SB_URL, SB_ANON);
   _sb.auth.getSession().then(function(r){ _user=(r && r.data && r.data.session) ? r.data.session.user : null; setSaveLabel(); });
@@ -310,14 +311,16 @@ import('https://esm.sh/@supabase/supabase-js@2').then(function(m){
 if (_saveBtn) _saveBtn.addEventListener('click', function(){
   var note=document.getElementById('note');
   if (!_user || !_sb){ location.href='/account/'; return; }
-  if (room.name && nameBlocked(room.name)){ note.innerHTML='<span style="color:var(--red)">That room name isn\'t allowed — please choose another.</span>'; return; }
+  if (room.name && nameBlocked(room.name)){ noteErr('That room name isn\'t allowed — please choose another.'); return; }
+  var snap=JSON.stringify(spec());
+  if (snap===_lastSaved){ note.innerHTML='<span class="ok">Already saved ✓</span> — change something to save a new copy.'; return; }
   _saveBtn.disabled=true; note.textContent='Saving…';
-  _sb.from('creations').insert({ owner:_user.id, kind:'room', name:(room.name||'room'), spec:spec(), visibility:'private' }).then(function(res){
+  _sb.from('creations').insert({ owner:_user.id, kind:'room', name:(room.name||'room').slice(0,40), spec:spec(), visibility:'private' }).then(function(res){
     _saveBtn.disabled=false;
-    note.innerHTML = res.error
-      ? '<span style="color:var(--red)">Save failed: '+res.error.message+'</span>'
-      : '<span class="ok">Saved ✓</span> — private to you. Manage it on your <a href="/account/" style="color:var(--cy)">account</a> page.';
-  });
+    if (res.error){ noteErr('Save failed — please try again.'); return; }
+    _lastSaved=snap;
+    note.innerHTML='<span class="ok">Saved ✓</span> — private to you. Manage it on your <a href="/account/" style="color:var(--cy)">account</a> page.';
+  }).catch(function(){ _saveBtn.disabled=false; noteErr('Save failed — check your connection and try again.'); });
 });
 sizeCanvas(); window.addEventListener('resize', sizeCanvas); refreshLink(); renderRooms(); requestAnimationFrame(draw);
 </script>

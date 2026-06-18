@@ -208,8 +208,9 @@ document.getElementById('dl').addEventListener('click', function(){
 // save to account — wired to the same Supabase project the account page uses.
 // publishable key (browser-safe public key, not the secret key); writes are gated by row-level security.
 var SB_URL="https://bhrwgygqpahtclwnrjmp.supabase.co", SB_ANON="sb_publishable_xZG4n38G2cMtQjTCUKRarw_SUBtP9mK";
-var _sb=null, _user=null, _saveBtn=document.getElementById('saveacct');
+var _sb=null, _user=null, _lastSaved=null, _saveBtn=document.getElementById('saveacct');
 function setSaveLabel(){ if(_saveBtn) _saveBtn.textContent = _user ? '★ Save to my account' : '★ Sign in to save'; }
+function noteErr(t){ var note=document.getElementById('note'); note.textContent=''; var s=document.createElement('span'); s.style.color='var(--red)'; s.textContent=t; note.appendChild(s); }
 import('https://esm.sh/@supabase/supabase-js@2').then(function(m){
   _sb=m.createClient(SB_URL, SB_ANON);
   _sb.auth.getSession().then(function(r){ _user=(r && r.data && r.data.session) ? r.data.session.user : null; setSaveLabel(); });
@@ -218,14 +219,16 @@ import('https://esm.sh/@supabase/supabase-js@2').then(function(m){
 if (_saveBtn) _saveBtn.addEventListener('click', function(){
   var note=document.getElementById('note');
   if (!_user || !_sb){ location.href='/account/'; return; }
-  if (cur.name && nameBlocked(cur.name)){ note.innerHTML='<span style="color:var(--red)">That name isn\'t allowed — please choose another.</span>'; return; }
+  if (cur.name && nameBlocked(cur.name)){ noteErr('That name isn\'t allowed — please choose another.'); return; }
+  var snap=JSON.stringify(spec());
+  if (snap===_lastSaved){ note.innerHTML='<span class="ok">Already saved ✓</span> — change something to save a new copy.'; return; }
   _saveBtn.disabled=true; note.textContent='Saving…';
   _sb.from('creations').insert({ owner:_user.id, kind:'critter', name:(cur.name||'critter'), spec:spec(), visibility:'private' }).then(function(res){
     _saveBtn.disabled=false;
-    note.innerHTML = res.error
-      ? '<span style="color:var(--red)">Save failed: '+res.error.message+'</span>'
-      : '<span class="ok">Saved ✓</span> — private to you. Manage it on your <a href="/account/" style="color:var(--cy)">account</a> page.';
-  });
+    if (res.error){ noteErr('Save failed — please try again.'); return; }
+    _lastSaved=snap;
+    note.innerHTML='<span class="ok">Saved ✓</span> — private to you. Manage it on your <a href="/account/" style="color:var(--cy)">account</a> page.';
+  }).catch(function(){ _saveBtn.disabled=false; noteErr('Save failed — check your connection and try again.'); });
 });
 renderPreview();
 </script>
