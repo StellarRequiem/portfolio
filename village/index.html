@@ -277,10 +277,12 @@ function spawnCritter(animal, opts){                    // generate one critter;
   var outfit = pickOutfit();                              // a simple multi-piece outfit per critter
   recolor(dataUri, color, outfit).then(function(url){
     var el = document.createElement('img'); el.className = 'critter'; el.src = url; el.alt = animal; stage.appendChild(el);
-    var y = groundY()+Rn(-10,20), x = opts.enter ? (Math.random()<0.5? -SP : W+SP) : Rn(40, Math.max(60, W-SP-40));
+    var y = groundY()+Rn(-10,20);
+    var x = opts.enter ? (EXPLORE ? (Math.random()<0.5 ? cameraX-SP : cameraX+W+SP) : (Math.random()<0.5 ? -SP : W+SP))
+                       : (EXPLORE ? Rn(40, WORLD_W-SP-40) : Rn(40, Math.max(60, W-SP-40)));   // EXPLORE: across the world / into view
     critters.push({ el:el, animal:animal, persona:persona(animal), color:color,
       x:x, y:y, angle:Rn(0,6.28), speed:Rn(0.7,1.4), bob:Rn(0,6), face:1,
-      mode: opts.enter?'arriving':'roam', target: opts.enter?{ x:Rn(W*0.12,W*0.88), y:y }:null, cooldown:Rn(2,8), ttl:Rn(70,180) });
+      mode: opts.enter?'arriving':'roam', target: opts.enter?{ x:(EXPLORE?Rn(cameraX+W*0.12,cameraX+W*0.88):Rn(W*0.12,W*0.88)), y:y }:null, cooldown:Rn(2,8), ttl:Rn(70,180) });
   });
 }
 function introduce(){ if (critters.length < POP_MAX+2) spawnCritter(SPRITE_NAMES[(Math.random()*SPRITE_NAMES.length)|0], {enter:true}); }
@@ -542,8 +544,8 @@ function drawWeatherFront(ts, wx){                        // rain + the odd ligh
   if (flash>0.02){ cx.globalAlpha=flash*0.22; cx.fillStyle='#cfe6ff'; cx.fillRect(0,0,W,groundY()); cx.globalAlpha=1; }
 }
 function buildLights(){                                   // posts with hanging string-lights across the village
-  POSTS=[]; LIGHTS=[]; var gy=groundY(), n=Math.max(3, Math.floor(W/440)), xs=[];
-  for(var i=0;i<=n;i++) xs.push((i/n)*(W-40)+20);
+  POSTS=[]; LIGHTS=[]; var gy=groundY(), LW=EXPLORE?WORLD_W:W, n=Math.max(3, Math.floor(LW/440)), xs=[];
+  for(var i=0;i<=n;i++) xs.push((i/n)*(LW-40)+20);
   for(var k=0;k<xs.length;k++) POSTS.push({ x:xs[k], top:gy-92-(rng()*18) });
   for(var s=0;s<POSTS.length-1;s++){ var a=POSTS[s], b=POSTS[s+1], bulbs=[];
     for(var t=0;t<=8;t++){ var u=t/8, x=a.x+(b.x-a.x)*u, y=a.top+(b.top-a.top)*u+Math.sin(u*Math.PI)*34;
@@ -605,8 +607,10 @@ function drawSkyline(f){
     cx.globalAlpha=a; cx.fillStyle=winCol; b.wins.forEach(function(wn){ cx.fillRect(wn.x, wn.y, 3, 5); }); cx.globalAlpha=1; });
 }
 function generateBuildings(){                             // multi-story shops/apartments (doors + window grid + rooms)
-  BUILDINGS=[]; var gy=groundY(), gz=gazebo(), spots=[0.08,0.22,0.78,0.92];
-  spots.forEach(function(fx){ if (rng()<0.25) return; var x=fx*W; if (Math.abs(x-gz.x)<gz.r*1.25) return;
+  BUILDINGS=[]; var gy=groundY(), gz=gazebo(), WW=EXPLORE?WORLD_W:W, spots;
+  if (EXPLORE){ var ns=Math.max(4,Math.round(4*WW/W)); spots=[]; for(var si=0;si<ns;si++) spots.push((si+0.5)/ns); }
+  else spots=[0.08,0.22,0.78,0.92];                       // local village: original layout untouched
+  spots.forEach(function(fx){ if (rng()<0.25) return; var x=fx*WW; if (Math.abs(x-gz.x)<gz.r*1.25) return;
     var floors=2+(rng()*3|0), cols=2+(rng()*2|0), w=cols*44+24, h=floors*52+28, pad=14, span=w-2*pad, ww=18, rooms=[];
     for(var fl=0;fl<floors;fl++) for(var co=0;co<cols;co++){ if (fl===0 && co===(cols>>1)) continue;
       rooms.push({ x:x-w/2+pad+(co+0.5)*(span/cols)-ww/2, y:gy-h+16+fl*((h-24)/floors), lit:rng()<0.5, occupant:null, ph:rng()*6.28 }); }
@@ -632,7 +636,7 @@ function drawBuildings(ts, f){
   });
 }
 function generatePond(){                                  // a little reflecting pond off to one side
-  var gy=groundY(), gz=gazebo(); var x=(rng()<0.5?0.24:0.76)*W; if (Math.abs(x-gz.x)<gz.r) x=0.2*W;
+  var gy=groundY(), gz=gazebo(), PW=EXPLORE?WORLD_W:W; var x=(rng()<0.5?0.24:0.76)*PW; if (Math.abs(x-gz.x)<gz.r) x=0.2*PW;
   POND={ x:x, y:gy+(H-gy)*0.5, rx:70+rng()*46, ry:16+rng()*10 };
 }
 function drawPond(ts, f){
@@ -1007,7 +1011,9 @@ function showLive(n){
   if (!presenceEl){ presenceEl = document.createElement('div'); presenceEl.id = 'live'; stage.appendChild(presenceEl); }
   presenceEl.textContent = '\u25cf ' + n + ' here now';
   presenceEl.style.opacity = '1';
-  if (!ROOM){ var mob = innerWidth < 640; POP_MAX = Math.min(mob?8:14, (mob?3:4) + n); }   // dynamic population scales to the real headcount
+  if (!ROOM){ var mob = innerWidth < 640;                 // dynamic population scales to the real headcount (wider in EXPLORE)
+    var base = EXPLORE ? (mob?7:11) : (mob?3:4), cap = EXPLORE ? (mob?12:20) : (mob?8:14);
+    POP_MAX = Math.min(cap, base + n); }
 }
 function hideLive(){ if (presenceEl) presenceEl.style.opacity = '0'; }
 function presenceKey(){ try { var k=localStorage.getItem('xclvxo_pid'); if(!k){ k='p'+Math.random().toString(36).slice(2); localStorage.setItem('xclvxo_pid',k); } return k; } catch(e){ return 'p'+Math.random().toString(36).slice(2); } }
@@ -1073,6 +1079,7 @@ function boot(){
   POP_MIN = 1; POP_MAX = mob ? 6 : 9;                     // sparse start that fills as a visitor lingers, then caps
   parseRoomFromHash();                                    // a composed room from a /room/ link (#r=) — before buildScene so the floor is room-aware
   EXPLORE = !ROOM;                                        // the open village is walkable; a composed room stays a single cozy screen
+  if (EXPLORE){ POP_MIN = mob ? 3 : 5; POP_MAX = mob ? 10 : 16; }   // a wider world wants more life around the player
   if (ROOM) POP_MAX = mob ? 4 : 6;                        // rooms stay cozier
   buildScene();
   SPRITE_NAMES = Object.keys(SPRITES); if (!SPRITE_NAMES.length) return;
