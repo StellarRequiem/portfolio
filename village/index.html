@@ -238,6 +238,11 @@ function sfx(kind){                                   // small action noises (ve
   else if (kind==='jump'){ var o=AC.createOscillator(), g=AC.createGain(); o.type='square'; o.frequency.setValueAtTime(300,t); o.frequency.exponentialRampToValueAtTime(700,t+0.16);
     g.gain.setValueAtTime(0.06,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.2); o.connect(g); g.connect(master); o.start(t); o.stop(t+0.22); }   // boing
   else if (kind==='pop'){ blip(560, t, 0.05, 'sine', 0.05, master); blip(740, t+0.05, 0.05, 'sine', 0.04, master); }
+  else if (kind==='play'){ blip(523, t, 0.05, 'square', 0.04, master); blip(659, t+0.05, 0.05, 'square', 0.035, master); blip(784, t+0.1, 0.06, 'square', 0.03, master); }   // arcade cabinet: a little rising game arpeggio
+  else if (kind==='art'){ blip(880, t, 0.18, 'sine', 0.03, master); blip(1320, t+0.02, 0.16, 'sine', 0.02, master); }                                                       // gallery: a soft chime
+  else if (kind==='water'){ blip(440, t, 0.08, 'sine', 0.038, master); blip(300, t+0.06, 0.11, 'sine', 0.028, master); }                                                    // garden pond: a droplet plip
+  else if (kind==='leaf'){ blip(200, t, 0.07, 'triangle', 0.02, master); blip(170, t+0.06, 0.07, 'triangle', 0.016, master); }                                              // garden tree: a soft rustle
+  else if (kind==='clink'){ blip(1175, t, 0.12, 'sine', 0.028, master); blip(1568, t+0.03, 0.1, 'sine', 0.02, master); }                                                    // lounge bar: a glassy clink
 }
 var ambT = 1;
 function ambienceTick(dt){                            // day = occasional birds, night = crickets (village only; soft, on top of the air bed)
@@ -930,6 +935,7 @@ function enterBuilding(b){
   if (typeof closeToys==='function') closeToys();         // dismiss any open react/music panel on the room transition
   INSIDE = b; INT_W = (b.studio||b.cafe||b.room) ? W : Math.max(W, 1400);    // studio/café/authored rooms are one screen (contained — everyone shares the framing); generic interiors are wider
   if (player){ player.x = INT_W*0.5; player.y = groundY()-2; player.danceX=null; player.dancing=false; }
+  _roomActiveKey = '';                                     // fresh fixture-proximity state per room entry (so the first walk-up always reacts)
   cameraX = (INT_W-W)/2; if (stage) stage.classList.add('inside');
   if (b.studio){ stopLoop(); startClub(); }                // the club plays its own beat (replaces the ambient loop) while inside the studio
   if (typeof pushPresenceNow==='function') pushPresenceNow();   // tell the realm I changed rooms (so others show/hide me correctly)
@@ -950,11 +956,11 @@ function exitBuilding(){
 function tryEnterExit(){ if (INSIDE) exitBuilding(); else { var b=nearBuilding(); if (b) enterBuilding(b); } }
 document.addEventListener('click', function(e){   // inside a building: tap to interact (on document: #stage overlays the canvas; dock buttons stopPropagation)
   if (!INSIDE || !player || !cv) return;
-  if (INSIDE.cafe){ floatNote(player, '☕'); return; }   // café: tap → your critter sips a coffee (☕)
-  if (INSIDE.room){ floatNote(player, '✨'); return; }   // authored room: tap → a little sparkle
-  if (!INSIDE.studio || !STUDIO_FLOOR) return;               // dance studio: tap a floor tile → walk there + dance
   var r = cv.getBoundingClientRect();
   var worldX = (e.clientX - r.left) * (W / (r.width||W)) + cameraX;   // CSS-px (context is DPR-scaled); robust to CSS scaling / mid-resize
+  if (INSIDE.cafe){ floatNote(player, '☕'); return; }   // café: tap → your critter sips a coffee (☕)
+  if (INSIDE.room){ player.danceX = clampN(worldX, 8, INT_W-SP-8); return; }   // authored room: tap → walk over to a fixture; proximity lights it + plays its sound
+  if (!INSIDE.studio || !STUDIO_FLOOR) return;               // dance studio: tap a floor tile → walk there + dance
   if (BOOTH && worldX >= BOOTH.stairX0) return;               // taps over the booth/stairs don't set a dance target — walk up manually
   var col = Math.max(0, Math.min(STUDIO_FLOOR.cols-1, Math.floor((worldX - STUDIO_FLOOR.x0)/STUDIO_FLOOR.sq)));
   player.danceX = STUDIO_FLOOR.x0 + col*STUDIO_FLOOR.sq + STUDIO_FLOOR.sq/2;
@@ -1110,21 +1116,38 @@ var ROOMSPEC = {
     structures:[ {xf:0.16,kind:'tree'}, {xf:0.32,kind:'tree'}, {xf:0.68,kind:'tree'}, {xf:0.84,kind:'tree'}, {xf:0.5,kind:'pond',w:230} ],
     events:['bloom','aurora'], prompt:'MOON GARDEN — wander + relax ✨' }
 };
-function drawRoomStruct(s, cxc, gy, spec, now){            // render one authored structure by kind, centred at cxc on the floor line gy
+/* per-room INTERACTIONS: a fixture reacts (glow + sound + emoji) when the player walks up to it — local feedback on the shared static layout */
+var ROOM_SFX = { cabinet:'play', frame:'art', pond:'water', tree:'leaf', bar:'clink' };
+var ROOM_EMOJI = { cabinet:'🕹️', frame:'🖼️', pond:'💧', tree:'🍃', bar:'🥤' };
+var _roomActiveKey = '';
+function drawRoomStruct(s, cxc, gy, spec, now, active){    // render one authored structure by kind, centred at cxc on the floor line gy; `active` = the player is standing at it
   var k=s.kind||'bar';
   if (k==='cabinet'){ var w=44,h=92,x=cxc-w/2,y=gy-h; cx.fillStyle=s.c||'#1a2a3a'; cx.fillRect(x,y,w,h);
-    cx.globalAlpha=0.5+0.4*Math.abs(Math.sin(now*2+cxc)); cx.fillStyle=s.screen||spec.accent; cx.fillRect(x+7,y+10,w-14,26); cx.globalAlpha=1;
+    if(active){ cx.globalAlpha=0.16; cx.fillStyle=s.screen||spec.accent; cx.beginPath(); cx.arc(cxc,y+48,58,0,6.28); cx.fill(); cx.globalAlpha=1; }   // glow halo while someone's at the controls
+    cx.globalAlpha = active ? (0.85+0.15*Math.abs(Math.sin(now*9))) : (0.5+0.4*Math.abs(Math.sin(now*2+cxc))); cx.fillStyle=s.screen||spec.accent; cx.fillRect(x+7,y+10,w-14,26);
+    if(active){ cx.fillStyle='#0a0a14'; for(var bi=0;bi<3;bi++){ cx.fillRect(x+11+((Math.floor(now*7)+bi)%3)*9, y+16, 5, 5); } }   // a little game animating on the screen
+    cx.globalAlpha=1;
     cx.fillStyle='#0a0a14'; cx.fillRect(x+11,y+46,w-22,9); cx.strokeStyle='rgba(0,0,0,.5)'; cx.lineWidth=1; cx.strokeRect(x,y,w,h); return; }
   if (k==='frame'){ var fw=58,fh=46,fx=cxc-fw/2,fy=H*0.30; cx.fillStyle='#15111c'; cx.fillRect(fx-5,fy-5,fw+10,fh+10);
-    cx.globalAlpha=0.75; cx.fillStyle=s.art||spec.accent; cx.fillRect(fx,fy,fw,fh); cx.globalAlpha=1; cx.strokeStyle=spec.accent; cx.lineWidth=2; cx.strokeRect(fx-5,fy-5,fw+10,fh+10); return; }
+    cx.globalAlpha=active?1:0.75; cx.fillStyle=s.art||spec.accent; cx.fillRect(fx,fy,fw,fh);
+    if(active){ cx.globalAlpha=0.45; cx.fillStyle='hsl('+(((now*40)%360)|0)+',70%,60%)'; cx.fillRect(fx,fy,fw,fh); }   // the piece comes alive: a slow cycling wash
+    cx.globalAlpha=1; cx.strokeStyle=spec.accent; cx.lineWidth=active?3:2; cx.strokeRect(fx-5,fy-5,fw+10,fh+10);
+    if(active){ cx.globalAlpha=0.4+0.4*Math.abs(Math.sin(now*4)); cx.lineWidth=1; cx.strokeRect(fx-8,fy-8,fw+16,fh+16); cx.globalAlpha=1; }   // a soft glow ring
+    return; }
   if (k==='tree'){ cx.fillStyle='#2a1d12'; cx.fillRect(cxc-4,gy-48,8,48);
-    cx.fillStyle=mix('#1e4a2a','#356a40',0.5); cx.beginPath(); cx.arc(cxc,gy-56,26,0,6.28); cx.arc(cxc-17,gy-46,18,0,6.28); cx.arc(cxc+17,gy-46,18,0,6.28); cx.fill(); return; }
+    var sway=active?Math.sin(now*3)*3:0;   // a gentle rustle when someone's by the tree
+    cx.fillStyle=mix('#1e4a2a','#356a40',0.5); cx.beginPath(); cx.arc(cxc+sway,gy-56,26,0,6.28); cx.arc(cxc-17+sway,gy-46,18,0,6.28); cx.arc(cxc+17+sway,gy-46,18,0,6.28); cx.fill();
+    if(active){ for(var li=0;li<3;li++){ var lp=((now*0.5+li/3)%1); cx.globalAlpha=(1-lp)*0.7; cx.fillStyle='#6aae5a'; cx.fillRect(cxc-12+li*11+sway, gy-56+lp*46, 2.5, 2.5); } cx.globalAlpha=1; }   // a few drifting leaves
+    return; }
   if (k==='pond'){ var pw=s.w||200; cx.fillStyle='rgba(90,180,220,.38)'; cx.beginPath(); cx.ellipse(cxc,gy+24,pw/2,22,0,0,6.28); cx.fill();
-    cx.strokeStyle='rgba(150,220,255,.3)'; cx.lineWidth=1; cx.beginPath(); cx.ellipse(cxc,gy+24,pw/2,22,0,0,6.28); cx.stroke(); return; }
+    cx.strokeStyle='rgba(150,220,255,.3)'; cx.lineWidth=1; cx.beginPath(); cx.ellipse(cxc,gy+24,pw/2,22,0,0,6.28); cx.stroke();
+    if(active){ for(var ri=0;ri<3;ri++){ var rp=((now*0.6+ri/3)%1); cx.globalAlpha=(1-rp)*0.5; cx.strokeStyle='rgba(180,235,255,.9)'; cx.lineWidth=1.5; cx.beginPath(); cx.ellipse(cxc,gy+24,(pw/2)*rp,22*rp,0,0,6.28); cx.stroke(); } cx.globalAlpha=1; }   // ripples spread from where you stand
+    return; }
   if (k==='board'){ var bw=s.w||160,bh=s.h||44,bx=cxc-bw/2,by=(s.top!=null?H*s.top:gy-120); cx.fillStyle='#0a0a14'; cx.fillRect(bx,by,bw,bh);
     cx.strokeStyle=spec.accent; cx.lineWidth=1; cx.strokeRect(bx,by,bw,bh); cx.fillStyle=spec.accent; cx.font='10px ui-monospace,monospace'; cx.textAlign='center'; if(s.label)cx.fillText(s.label,cxc,by+15); cx.fillText('1. CRITTER  9999',cxc,by+31); cx.textAlign='left'; return; }
   var w2=s.w||120,h2=s.h||50,x2=cxc-w2/2,y2=(s.top!=null?H*s.top:gy-h2);   // 'bar' / default rect
   cx.fillStyle=s.c||'#33244e'; cx.fillRect(x2,y2,w2,h2); if(s.edge){ cx.fillStyle=s.edge; cx.fillRect(x2,y2,w2,8); } cx.strokeStyle='rgba(0,0,0,.4)'; cx.lineWidth=1; cx.strokeRect(x2,y2,w2,h2);
+  if(active){ cx.globalAlpha=0.4+0.4*Math.abs(Math.sin(now*5)); cx.fillStyle=spec.accent; for(var gi=0;gi<3;gi++) cx.fillRect(x2+w2*0.32+gi*w2*0.18, y2-7, 3, 7); cx.globalAlpha=1; }   // a little something poured on the bar
   if(s.label){ cx.fillStyle=spec.accent; cx.font='11px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText(s.label,cxc,y2+h2*0.62); cx.textAlign='left'; }
 }
 function drawAuthoredRoom(spec, ts){                       // render a room from its spec, in layers (wall-clock animation = synced across clients)
@@ -1143,7 +1166,12 @@ function drawAuthoredRoom(spec, ts){                       // render a room from
     cx.fillStyle=spec.accent; cx.beginPath(); cx.arc(lx,ly+4,5,0,6.28); cx.fill(); });
   if (spec.fireflies){ for(var ff=0;ff<14;ff++){ var ffx=(((ff*97+SEED)%100)/100)*W + Math.sin(now*0.6+ff)*9, ffy=gy-18-(((ff*53+(SEED>>>3))%100)/100)*(gy*0.42) + Math.cos(now*0.5+ff)*6;
     cx.globalAlpha=0.25+0.55*Math.abs(Math.sin(now*1.6+ff*1.3)); cx.fillStyle='#d8ffa0'; cx.fillRect(ffx, ffy, 2.5, 2.5); } cx.globalAlpha=1; }
-  (spec.structures||[]).forEach(function(s){ drawRoomStruct(s, INT_W*s.xf, gy, spec, now); });
+  var _px=(player&&INSIDE&&INSIDE.room)?(player.x+SP/2):null, _act=-1, _ad=66;   // the interactive fixture nearest the player's CENTRE (within ~66px) lights up + reacts
+  if(_px!=null) (spec.structures||[]).forEach(function(s,i){ var k=s.kind||'bar'; if(k==='cabinet'||k==='frame'||k==='pond'||k==='tree'||k==='bar'){ var d=Math.abs(INT_W*s.xf-_px); if(d<_ad){ _ad=d; _act=i; } } });
+  var _ak=(_act>=0 && INSIDE)?(INSIDE.room+':'+_act):'';
+  if(_ak && _ak!==_roomActiveKey){ _roomActiveKey=_ak; var _k=(spec.structures[_act].kind||'bar'); sfx(ROOM_SFX[_k]||'pop'); if(player) floatNote(player, ROOM_EMOJI[_k]||'✨'); }   // one-shot when you newly walk up to a fixture
+  else if(!_ak){ _roomActiveKey=''; }
+  (spec.structures||[]).forEach(function(s,i){ drawRoomStruct(s, INT_W*s.xf, gy, spec, now, i===_act); });
   (spec.seats||[]).forEach(function(sf){ var sx=INT_W*sf, sy=gy-4; cx.fillStyle='#3a2a52'; cx.fillRect(sx-12,sy-14,24,14); cx.fillStyle='#4a3568'; cx.fillRect(sx-12,sy-22,24,8); });
   if(spec.name){ var nw=spec.name.length*12+28; cx.fillStyle='#140c22'; cx.fillRect(cxw-nw/2,42,nw,32); cx.strokeStyle=spec.accent; cx.lineWidth=1; cx.strokeRect(cxw-nw/2,42,nw,32);
     cx.fillStyle=spec.accent; cx.font='18px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText(spec.name, cxw, 64); cx.textAlign='left'; }
@@ -1286,10 +1314,11 @@ function stepCritters(dt){
       var pv = (keyL?-1:0) + (keyR?1:0);
       if (pv){ c.danceX=null; c.dancing=false; c.x += pv*2.8; c.face = pv; c.bob += 0.28; moving = true;
         var stp=Math.floor(c.bob/Math.PI); if (stp!==c._step){ c._step=stp; sfx('step'); } }   // soft footstep on each stride
-      else if (INSIDE && INSIDE.studio && c.danceX!=null){   // walk to the tapped dance tile, then dance on it
+      else if (INSIDE && (INSIDE.studio||INSIDE.room) && c.danceX!=null){   // walk to the tapped spot (studio: a dance tile; authored room: up to a fixture)
         var dd = c.danceX - (c.x + SP/2);
         if (Math.abs(dd) > 6){ c.face = dd<0?-1:1; c.x += c.face*Math.min(2.6, Math.abs(dd)*0.14); c.bob += 0.3; moving = true; c.dancing = false; }
-        else { c.dancing = true; if (Math.random()<0.03) floatNote(c, ['🎵','✨','💃','🕺','🎶'][(Math.random()*5)|0]); }
+        else if (INSIDE.studio){ c.dancing = true; if (Math.random()<0.03) floatNote(c, ['🎵','✨','💃','🕺','🎶'][(Math.random()*5)|0]); }
+        else { c.danceX = null; c.dancing = false; }       // authored room: arrived at the fixture -> stop; proximity lights it + plays its sound
       } else c.dancing = (c.anim==='dance');               // idle: dance if the animation wheel asked for it
       c.x = clampN(c.x, 8, (INSIDE?INT_W:WORLD_W) - SP - 8);
       c.y = groundY() - 2 - ((INSIDE && INSIDE.studio) ? boothLift(c.x + SP/2) : 0);   // climb the DJ-booth staircase (pure fn of x)
