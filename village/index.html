@@ -1241,6 +1241,10 @@ function spawnPlayer(spec){                               // EXPLORE: the user-c
     player={ el:el, plate:plate, bubble:bubble, resident:true, player:true, animal:base, persona:persona(base),
       color:eye, scale:scale, glow:eye, x:WORLD_W*0.5, y:groundY()-2, angle:0, speed:1, bob:0, face:1, mode:'roam', cooldown:99 };
     critters.push(player);
+    floatNote(player, '\u2726');                          // arrival sparkle (camera-aware float)
+    player.bubble.textContent = 'a new friend joined the village!';   // brief welcome moment on load / shared-link open
+    player.bubble.style.opacity = '0.95';
+    setTimeout(function(){ if (player && player.bubble) player.bubble.style.opacity = '0'; }, 4500);
   });
 }
 function bindExploreControls(){
