@@ -1206,11 +1206,19 @@ function cleanName(s){ var t=String(s||'').replace(/[<>]/g,'').slice(0,24); retu
 // ── a shared critter designed at /create/ (#c=<base64 spec>) walks into the village ──
 var ACC_BY_NAME = { topHat:aTopHat, party:aParty, cap:aCap, beanie:aBeanie, crown:aCrown, glasses:aGlasses,
                     shades:aShades, bowtie:aBowtie, scarf:aScarf, flower:aFlower, headphones:aHeadphones };
+function genName(c){                                      // a friendly fallback name for an unnamed guest (deterministic, matches /create/)
+  var cap = c.base ? c.base.charAt(0).toUpperCase()+c.base.slice(1) : 'Critter';
+  var ADJ = { topHat:'Dapper', party:'Party', cap:'Sporty', beanie:'Cozy', crown:'Royal', glasses:'Clever', shades:'Cool', bowtie:'Fancy', scarf:'Snug', flower:'Sunny', headphones:'Groovy' };
+  if (c.outfit && c.outfit[0] && ADJ[c.outfit[0].item]) return ADJ[c.outfit[0].item]+' '+cap;
+  var fb=['Wandering','Curious','Merry','Gentle','Brave','Cosmic'], s=(c.eye||'')+(c.base||''), h=0;
+  for (var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0;
+  return fb[Math.abs(h)%fb.length]+' '+cap;
+}
 function spawnGuest(spec){
   if (!spec || !SPRITES[spec.base]) return;
   var eye = /^#[0-9a-fA-F]{6}$/.test(spec.eye||'') ? spec.eye : '#5ad4ff';
   var outfit = (spec.outfit||[]).slice(0,4).map(function(p){ return { fn:ACC_BY_NAME[p&&p.item], c:(/^#[0-9a-fA-F]{6}$/.test(p&&p.color)?p.color:'#ffffff') }; }).filter(function(p){ return p.fn; });
-  var name = cleanName(spec.name);                        // re-filter offensive names even from hand-crafted links
+  var name = cleanName(spec.name) || genName(spec);      // re-filter offensive names; generate a friendly one if blank
   var scale = Math.max(1, Math.min(2, +spec.scale || 1.4));
   recolor(SPRITES[spec.base], eye, outfit).then(function(url){
     var el=document.createElement('img'); el.className='critter'; el.src=url; el.alt=name||'guest';
