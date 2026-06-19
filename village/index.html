@@ -13,7 +13,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="xclusivexo">
-<script>if("serviceWorker" in navigator){addEventListener("load",function(){navigator.serviceWorker.register("/sw.js").catch(function(){});});}</script>
+<script>if("serviceWorker" in navigator){addEventListener("load",function(){navigator.serviceWorker.register("/sw.js").catch(function(){});});}
+window.__deferredInstall=null; addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__deferredInstall=e;var r=document.getElementById("sp-install-row"),c=document.getElementById("spaceCard");if(r&&c&&c.style.display!=="none")r.style.display="flex";}); addEventListener("appinstalled",function(){window.__deferredInstall=null;});</script>
 <style>
   html, body { margin: 0; height: 100%; background: #04060d; overflow: hidden;
     -webkit-user-select: none; user-select: none; }
@@ -121,7 +122,16 @@
   #stage.inside .pico { display: none !important; }
   #profileCard, #spaceCard { position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 10003; width: 300px; max-width: 88vw; box-sizing: border-box;
     background: rgba(8,14,24,.97); border: 1px solid rgba(86,206,255,.5); border-radius: 14px; padding: 16px; display: none; }
-  #spaceCard { width: 320px; max-width: 90vw; }
+  #spaceCard { width: 340px; max-width: 92vw; max-height: 86vh; overflow-y: auto; }
+  #spaceCard h3 #sp-x { float: right; cursor: pointer; color: #6c8aa6; font-weight: 400; font-size: 18px; line-height: 1; padding: 0 2px; }
+  #spaceCard h3 #sp-x:hover { color: #cfe; }
+  #spaceCard .hub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 3px; }
+  #spaceCard .hubchip { display: flex; align-items: center; gap: 6px; background: rgba(6,16,30,.6); border: 1px solid rgba(86,206,255,.3); border-radius: 8px; color: #cfe; font: 11px ui-monospace,monospace; padding: 7px 8px; cursor: pointer; text-align: left; overflow: hidden; }
+  #spaceCard .hubchip:hover { background: rgba(86,206,255,.16); }
+  #spaceCard .hubdot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+  #spaceCard .hubname { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #spaceCard .hubcount { flex: 0 0 auto; color: #6c8aa6; font-size: 10px; }
+  #spaceCard h3 { position: sticky; top: -16px; margin: -16px -16px 6px; padding: 14px 16px 6px; background: rgba(8,14,24,.98); z-index: 2; border-radius: 14px 14px 0 0; }   /* close X stays reachable while the tall hub scrolls */
   #profileCard h3, #spaceCard h3 { margin: 0 0 4px; color: #9be0ff; font: 600 16px ui-monospace,monospace; word-break: break-word; }
   #profileCard .pf-mood { font: 13px ui-monospace,monospace; color: #ffd23f; margin-bottom: 8px; }
   #profileCard .pf-bio, #spaceCard .pf-bio { font: 12px ui-monospace,monospace; color: #c8d8e8; white-space: pre-wrap; word-break: break-word; min-height: 16px; }
@@ -1711,9 +1721,13 @@ var REALMS = [
   { id:'tide',   name:'Tide',   c:'#3df0bb' }, { id:'grove',  name:'Grove',  c:'#7bd86b' },
   { id:'lumen',  name:'Lumen',  c:'#ffd23f' }, { id:'mist',   name:'Mist',   c:'#9fb4d6' },
   { id:'cinder', name:'Cinder', c:'#ff5d6c' }, { id:'drift',  name:'Drift',  c:'#9b8cff' },
-  { id:'vale',   name:'Vale',   c:'#3aa0ff' }, { id:'nova',   name:'Nova',   c:'#ff7ac6' }
+  { id:'vale',   name:'Vale',   c:'#3aa0ff' }, { id:'nova',   name:'Nova',   c:'#ff7ac6' },
+  { id:'cafehours',   name:'\u2615 Caf\u00e9 Hours',  c:'#ffb74d', hub:true },   // curated PUBLIC gathering spaces (hub:true -> joined as public via realmById, hidden from the boot lobby)
+  { id:'nightmarket', name:'\ud83c\udfee Night Market', c:'#ff7a9c', hub:true },
+  { id:'stargazers',  name:'\u2728 Stargazers',     c:'#9b8cff', hub:true }
 ];
 var REALM_CAP = 20;
+var PUBLISH_ENABLED = false;   // BEAT 7: the "make my space public" affordance is built but GATED OFF (publishing user spaces = a moderation surface — operator enables with moderation)
 var liveCount = 0, presenceEl = null, _sb = null, _realm = null, _realmCh = null, _chans = {}, _counts = {};
 function realmById(id){ for (var i=0;i<REALMS.length;i++) if (REALMS[i].id===id) return REALMS[i]; return null; }
 function chosenRealm(){                                    // ?realm= (shareable) > localStorage (return visit) > none
@@ -1738,7 +1752,7 @@ function showLive(n){
   presenceEl.innerHTML = (rn?'<b>'+(priv?'\ud83d\udd12 ':'')+pesc(rn)+'</b> &middot; ':'') + '\u25cf ' + n + ' here now'
     + (priv ? ' <span id="rswitch">&#8634; invite</span>' : (rn?' <span id="rswitch">&#8646; switch</span>':''));
   presenceEl.style.opacity = '1';
-  var rsw=document.getElementById('rswitch'); if (rsw) rsw.onclick=function(e){ e.stopPropagation(); if (priv) openSpaces(); else openPicker(); };
+  var rsw=document.getElementById('rswitch'); if (rsw) rsw.onclick=function(e){ e.stopPropagation(); openSpaces(); };   // the unified Spaces hub is the single in-world switcher (realms + curated + private + install)
   if (!ROOM){ var mob = innerWidth < 640;                  // ambient filler scales to headcount MINUS the real players we already render (no double-count)
     var base = EXPLORE ? (mob?6:9) : (mob?3:4), cap = EXPLORE ? (mob?12:20) : (mob?8:14);   // a touch fewer ambient extras now that real players render
     var rem = 0; for (var rp in _remotes){ if (_remotes[rp] && _remotes[rp].el) rem++; }
@@ -1766,6 +1780,7 @@ function realmChan(id){                                     // ONE persistent ch
     var n=Object.keys(ch.presenceState()).length; _counts[id]=n;
     if (_realm===id){ liveCount=Math.max(1,n); showLive(liveCount); syncRemotes(ch.presenceState()); }   // render the other real players in my realm
     var pk=document.getElementById('realmpick'); if (pk && pk.style.display!=='none') updatePickerCounts();
+    var hb=document.getElementById('spaceCard'); if (hb && hb.style.display!=='none' && typeof updateHubCounts==='function') updateHubCounts();   // live counts in the Spaces hub too
   });
   ch.on('broadcast', { event:'club' }, function(m){ if (_realm===id && m && m.payload && typeof m.payload.track==='number' && typeof applyClubTrack==='function') applyClubTrack(m.payload.track); });   // DJ sync: follow the realm's club track
   ch.subscribe(function(s){ if (s==='SUBSCRIBED' && ch._wantTrack && !ch._tracking){ ch._tracking=true; ch.track(myState()); } });
@@ -1792,7 +1807,9 @@ function joinRealm(id, opts){                               // EXPLORE: present 
   });
   return true;   // success -> boot uses this to decide picker-fallback
 }
-function quietestRealm(){ var best=REALMS[0]; for (var i=1;i<REALMS.length;i++) if ((_counts[REALMS[i].id]||0)<(_counts[best.id]||0)) best=REALMS[i]; return best.id; }
+function coreRealms(){ return REALMS.filter(function(r){ return !r.hub; }); }     // the 10 first-run realms (curated hub spaces excluded)
+function hubSpaces(){ return REALMS.filter(function(r){ return r.hub; }); }        // the curated public gathering spaces
+function quietestRealm(){ var cr=coreRealms(), best=cr[0]; for (var i=1;i<cr.length;i++) if ((_counts[cr[i].id]||0)<(_counts[best.id]||0)) best=cr[i]; return best.id; }
 function updatePickerCounts(){
   REALMS.forEach(function(r){ var el=document.getElementById('rc-'+r.id); if (!el) return;
     var n=_counts[r.id]||0, full=n>=REALM_CAP;
@@ -1805,7 +1822,7 @@ function buildPicker(){
   h.innerHTML='<h2>Choose a realm</h2><p>Each realm is its own little world, aiming for ~'+REALM_CAP+' at once \u2014 busy ones are dimmed. Your critter comes with you.</p>';
   ov.appendChild(h);
   var grid=document.createElement('div'); grid.id='rp-grid';
-  REALMS.forEach(function(r){
+  coreRealms().forEach(function(r){
     var card=document.createElement('button'); card.type='button'; card.className='realmcard'; card.id='card-'+r.id; card.style.borderColor=r.c;
     card.innerHTML='<span class="rdot" style="background:'+r.c+'"></span><span class="rname">'+r.name+'</span><span class="rcount" id="rc-'+r.id+'">\u2026</span>';
     card.addEventListener('click', function(e){ e.stopPropagation(); joinRealm(r.id); });   // soft cap: busy realms join as overflow rather than dead-ending the user
@@ -1905,39 +1922,54 @@ function openProfile(c){
   card.style.display='block';
 }
 function spaceLink(id){ try { return location.origin+location.pathname+'?space='+id; } catch(e){ return '?space='+id; } }   // a clean, hash-free shareable link
-function openSpaces(){                                       // the private link-space portal: passphrase -> deterministic world + presence channel; invite link to share
+function canInstallPWA(){ return !!window.__deferredInstall; }
+function isStandalonePWA(){ try { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true; } catch(e){ return false; } }
+function isIOS(){ return /iPad|iPhone|iPod/.test(navigator.userAgent||'') && !window.MSStream; }
+function doInstallPWA(btn){ var d=window.__deferredInstall; if(!d) return; window.__deferredInstall=null; if(btn) btn.disabled=true;   // null synchronously -> a fast double-click no-ops (prompt() can only fire once)
+  try { d.prompt(); } catch(_){ return; }
+  d.userChoice.then(function(c){ if(btn){ btn.disabled=false; btn.textContent=(c&&c.outcome==='accepted')?'installing\u2026':'install app'; } var row=document.getElementById('sp-install-row'); if(row) row.style.display='none'; }).catch(function(){}); }
+function hubChip(r){ return '<button type="button" class="hubchip" data-sp="'+r.id+'" style="border-color:'+(r.c||'#3a6ea5')+'">'
+  + '<span class="hubdot" style="background:'+(r.c||'#3a6ea5')+'"></span><span class="hubname">'+pesc(r.name)+'</span><span class="hubcount" id="hc-'+r.id+'">\u2026</span></button>'; }
+function updateHubCounts(){ REALMS.forEach(function(r){ var el=document.getElementById('hc-'+r.id); if(!el) return; var n=_counts[r.id]||0;
+  el.textContent = r.hub ? (n>0?(''+n):'\u2014') : (n+' / '+REALM_CAP);
+  var chip=el.parentNode; if(chip && !r.hub) chip.style.opacity=(n>=REALM_CAP)?'0.6':'1'; }); }
+function openSpaces(){                                       // BEAT 7: the unified "Spaces" hub — public realms + curated spaces + a private passphrase room + install
   var card=document.getElementById('spaceCard');
   if(!card){ card=document.createElement('div'); card.id='spaceCard'; card.addEventListener('click', function(e){ e.stopPropagation(); }); (stage.parentNode||document.body).appendChild(card); }
   var inPriv=_priv, link=inPriv?spaceLink(_realm):'';
-  card.innerHTML = '<h3>\ud83c\udf00 Private space</h3>'
-    + (inPriv
-       ? '<div class="pf-bio">You\u2019re in a private space. Share this link \u2014 anyone who opens it lands in the same world as you.</div>'
-         + '<label>invite link</label><input id="sp-link" readonly value="'+pesc(link)+'">'
-         + '<div class="pf-row"><button id="sp-copy">copy invite</button><button id="sp-leave">back to realms</button></div>'
-       : '<div class="pf-bio">Enter a passphrase to make or join a private space. The same passphrase \u2014 or the link \u2014 always lands everyone in the same world.</div>'
-         + '<label>passphrase</label><input id="sp-pass" maxlength="40" placeholder="e.g. moonlit garden">'
-         + '<div class="pf-row"><button id="sp-go">enter</button><button id="sp-close">close</button></div>')
-    + '<div class="sp-note">Unlisted link + passphrase \u2014 private like a shared link, not bulletproof. There are no accounts yet: anyone with the link or passphrase can join, and everyone here can see each other. Use a long, unusual passphrase, and don\u2019t share anything here you wouldn\u2019t put in a link.</div>';
+  var html='<h3>\ud83c\udf00 Spaces<span id="sp-x" title="close">\u2715</span></h3>';
+  if(inPriv){ html+='<div class="pf-bio">You\u2019re in a private space. Share this link \u2014 anyone who opens it lands in the same world as you.</div>'
+    + '<label>invite link</label><input id="sp-link" readonly value="'+pesc(link)+'">'
+    + '<div class="pf-row"><button id="sp-copy">copy invite</button><button id="sp-leave">leave to a realm</button></div>'; }
+  html+='<label>realms \u00b7 public worlds</label><div class="hub-grid">'+coreRealms().map(hubChip).join('')+'</div>';
+  html+='<label>gather \u00b7 themed spaces</label><div class="hub-grid">'+hubSpaces().map(hubChip).join('')+'</div>';
+  html+='<label>private \u00b7 by passphrase</label><div class="pf-row" style="gap:6px"><input id="sp-pass" maxlength="40" placeholder="a passphrase\u2026" style="flex:2"><button id="sp-go" style="flex:1">enter</button></div>';
+  if(PUBLISH_ENABLED && inPriv){ html+='<div class="pf-row"><button id="sp-publish">make this space public</button></div>'; }   // GATED OFF: publishing a user space is a moderation surface (operator enables)
+  html+='<div id="sp-install-row" class="pf-row" style="display:'+((canInstallPWA()||(isIOS()&&!isStandalonePWA()))?'flex':'none')+'"><button id="sp-install">\ud83d\udcf2 Install app</button></div>';
+  html+='<div class="sp-note">Realms + themed spaces are public \u2014 anyone can join. A private space is an unlisted link + passphrase: private like a shared link, not bulletproof; no accounts yet, so anyone with the link or passphrase can join and everyone here can see each other. Use a long, unusual passphrase.</div>';
+  card.innerHTML=html;
+  var x=card.querySelector('#sp-x'); if(x) x.addEventListener('click', function(e){ e.stopPropagation(); card.style.display='none'; });
+  Array.prototype.forEach.call(card.querySelectorAll('.hubchip'), function(ch){ ch.addEventListener('click', function(e){ e.stopPropagation(); var id=ch.getAttribute('data-sp'); card.style.display='none'; try{ history.replaceState(null,'',location.pathname); }catch(_){} joinRealm(id); }); });   // realms + curated join as PUBLIC (clears any ?space=)
   if(inPriv){
     card.querySelector('#sp-copy').addEventListener('click', function(e){ e.stopPropagation();
       var inp=card.querySelector('#sp-link'); try { inp.focus(); inp.select(); } catch(_){}
       var done=function(){ var b=card.querySelector('#sp-copy'); if(b) b.textContent='copied \u2713'; };
-      var fallback=function(){ var ok=false; try { ok=document.execCommand('copy'); } catch(__){}   // honest: only claim "copied" if it actually happened; else leave it selected + tell them to copy by hand
+      var fallback=function(){ var ok=false; try { ok=document.execCommand('copy'); } catch(__){}   // honest: only claim "copied" if it actually happened
         if(ok) done(); else { var b=card.querySelector('#sp-copy'); if(b) b.textContent='press \u2318/Ctrl+C'; } };
-      if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(inp.value).then(done).catch(fallback); }
-      else fallback(); });
-    card.querySelector('#sp-leave').addEventListener('click', function(e){ e.stopPropagation(); card.style.display='none'; openPicker(); });   // step back out to the public realms
-  } else {
-    var go=function(){ var v=(card.querySelector('#sp-pass').value||'').trim(); if(v.length<2) return;
-      var id=spaceIdFor(v); card.style.display='none';
-      try { history.replaceState(null,'',location.pathname+'?space='+id); } catch(_){}   // reflect the space in the URL (shareable + auto-rejoins on reload)
-      joinRealm(id, {priv:true, name:'Private space'}); };
-    card.querySelector('#sp-go').addEventListener('click', function(e){ e.stopPropagation(); go(); });
-    card.querySelector('#sp-pass').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.stopPropagation(); go(); } });
-    card.querySelector('#sp-close').addEventListener('click', function(e){ e.stopPropagation(); card.style.display='none'; });
+      if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(inp.value).then(done).catch(fallback); } else fallback(); });
+    card.querySelector('#sp-leave').addEventListener('click', function(e){ e.stopPropagation(); card.style.display='none'; openPicker(); });
   }
+  var go=function(){ var v=(card.querySelector('#sp-pass').value||'').trim(); if(v.length<2) return;
+    var id=spaceIdFor(v); card.style.display='none';
+    try { history.replaceState(null,'',location.pathname+'?space='+id); } catch(_){}
+    joinRealm(id, {priv:true, name:'Private space'}); };
+  card.querySelector('#sp-go').addEventListener('click', function(e){ e.stopPropagation(); go(); });
+  card.querySelector('#sp-pass').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.stopPropagation(); go(); } });
+  var ib=card.querySelector('#sp-install'); if(ib) ib.addEventListener('click', function(e){ e.stopPropagation(); if(canInstallPWA()) doInstallPWA(ib); else if(isIOS()) ib.textContent='Share \u2192 Add to Home Screen'; });
+  var pb=card.querySelector('#sp-publish'); if(pb) pb.addEventListener('click', function(e){ e.stopPropagation(); });   // inert: operator-gated moderation, never enabled here
+  withSB(function(){ REALMS.forEach(function(r){ realmChan(r.id); }); });   // subscribe realms + curated for live counts
+  updateHubCounts();
   card.style.display='block';
-  var f=card.querySelector('#sp-pass'); if(f) setTimeout(function(){ try{ f.focus(); }catch(_){} }, 30);
 }
 var DEBUG = /[?&]debug=1/.test(location.search||'');
 function debugPanel(){                                     // ?debug=1 -> a live readout of the realm presence state (for diagnosing multiplayer)
