@@ -105,7 +105,13 @@
     border-radius: 8px; padding: 5px 9px; background: rgba(6,16,30,.6); cursor: pointer; }
   .mpChip.on { background: rgba(86,206,255,.25); border-color: rgba(86,206,255,.9); }
   .mpChip.rnd { color: #ffd23f; border-color: rgba(255,210,63,.4); }
-  @media (max-width: 640px){ .dockbtn { width: 50px; height: 48px; font-size: 21px; } #musicPanel { width: 252px; } }
+  #djPanel { position: fixed; left: 50%; bottom: 80px; transform: translateX(-50%); z-index: 9999; display: none; width: 300px; box-sizing: border-box;
+    background: rgba(10,8,20,.96); border: 1px solid rgba(155,224,255,.45); border-radius: 12px; padding: 11px; text-align: center; }
+  .djTitle { font: 11px ui-monospace, monospace; color: #9be0ff; margin-bottom: 9px; letter-spacing: .04em; }
+  .djChip { font: 12px 'SF Mono', ui-monospace, Menlo, monospace; color: #c6b3ff; border: 1px solid rgba(155,224,255,.35);
+    border-radius: 8px; padding: 6px 11px; margin: 3px; background: rgba(10,8,20,.6); cursor: pointer; }
+  .djChip.on { background: rgba(155,224,255,.22); border-color: rgba(155,224,255,.9); color: #fff; }
+  @media (max-width: 640px){ .dockbtn { width: 50px; height: 48px; font-size: 21px; } #musicPanel { width: 252px; } #djPanel { width: 270px; } }
 </style>
 </head>
 <body>
@@ -618,6 +624,12 @@ function toggleSound(){                                   // browser autoplay po
 }
 function Rn(a,b){ return a + Math.random()*(b-a); }
 function groundY(){ return ROOM ? H * ROOM.floor : H * 0.72; }   // a #r= room's floor, else the village ground line
+function boothLift(px){                                   // DJ booth: vertical lift for the player at world-x px — the staircase ramps up to the platform
+  if (!BOOTH) return 0;
+  if (px >= BOOTH.platX0) return BOOTH.platH;             // on the platform
+  if (px >= BOOTH.stairX0) return BOOTH.platH * (px - BOOTH.stairX0) / (BOOTH.platX0 - BOOTH.stairX0);   // climbing the stairs
+  return 0;                                               // flat dance floor
+}
 function gazebo(){ return { x: (EXPLORE?WORLD_W:W)*0.5, y: groundY()+8, r: Math.min(150, W*0.12) }; }
 
 /* ── scene backdrop (sky, stars, Bifrost arc, huts, gazebo, ground, rune-rain) ── */
@@ -871,11 +883,15 @@ function enterBuilding(b){
   INSIDE = b; INT_W = (b.studio||b.cafe) ? W : Math.max(W, 1400);    // studio + café are one screen (no scroll → themed decor stays put); generic interiors are wider
   if (player){ player.x = INT_W*0.5; player.y = groundY()-2; player.danceX=null; player.dancing=false; }
   cameraX = (INT_W-W)/2; if (stage) stage.classList.add('inside');
+  if (b.studio){ stopLoop(); startClub(); }                // the club plays its own beat (replaces the ambient loop) while inside the studio
 }
 function exitBuilding(){
   if (!INSIDE) return;
   if (typeof closeToys==='function') closeToys();
-  var bx = INSIDE.door ? INSIDE.door.x : W*0.5; INSIDE = null;
+  var bx = INSIDE.door ? INSIDE.door.x : W*0.5;
+  if (INSIDE.studio){ stopClub(); startLoop(); }           // leaving the club -> resume the ambient loop
+  boothOpen = false; closeDJPanel(); BOOTH = null;          // tear down the DJ booth state
+  INSIDE = null;
   if (stage) stage.classList.remove('inside');
   if (_resizedInside){ _resizedInside = false; buildScene(); }   // the street was deferred during a resize-while-inside — regenerate it now
   if (player){ player.x = clampN(bx, 8, WORLD_W-SP-8); player.y = groundY()-2; player.danceX=null; player.dancing=false; }
@@ -888,6 +904,7 @@ document.addEventListener('click', function(e){   // inside a building: tap to i
   if (!INSIDE.studio || !STUDIO_FLOOR) return;               // dance studio: tap a floor tile → walk there + dance
   var r = cv.getBoundingClientRect();
   var worldX = (e.clientX - r.left) * (W / (r.width||W)) + cameraX;   // CSS-px (context is DPR-scaled); robust to CSS scaling / mid-resize
+  if (BOOTH && worldX >= BOOTH.stairX0) return;               // taps over the booth/stairs don't set a dance target — walk up manually
   var col = Math.max(0, Math.min(STUDIO_FLOOR.cols-1, Math.floor((worldX - STUDIO_FLOOR.x0)/STUDIO_FLOOR.sq)));
   player.danceX = STUDIO_FLOOR.x0 + col*STUDIO_FLOOR.sq + STUDIO_FLOOR.sq/2;
 });
@@ -901,7 +918,7 @@ function updateEnterHint(){
   if (b){ eh.innerHTML='⏎ enter '+(b.name?b.name:'the building'); eh.style.display='block'; }
   else eh.style.display='none';
 }
-var STUDIO_FLOOR = null;
+var STUDIO_FLOOR = null, BOOTH = null, CLUB_TRACK = 0, boothOpen = false;
 function drawStudio(ts){                                  // a disco room: ball + moving lights + a prismatic, clickable dance floor
   var gy=H*0.72, cxw=INT_W*0.5, fy=gy+62;                 // fy = the sprite foot line (measured), so the critter stands ON the tiles
   cx.fillStyle='#0a0814'; cx.fillRect(0,0,W,H);
@@ -927,10 +944,66 @@ function drawStudio(ts){                                  // a disco room: ball 
   var sw=140; cx.fillStyle='#0a141a'; cx.fillRect(cxw-sw/2, by+br+8, sw, 22); cx.strokeStyle='rgba(155,224,255,.5)'; cx.lineWidth=1; cx.strokeRect(cxw-sw/2, by+br+8, sw, 22);
   cx.fillStyle='#9be0ff'; cx.font='13px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('DANCE STUDIO', cxw, by+br+24);
   cx.globalAlpha=0.55+0.3*Math.sin(ts*0.003); cx.fillStyle='#7fe0ff'; cx.font='11px ui-monospace,monospace'; cx.fillText('tap a tile — your critter dances there', cxw, fy-40); cx.globalAlpha=1; cx.textAlign='left';
+  // ── DJ booth: a raised platform on the right reached by a working staircase ──
+  var platH=72, platX1=INT_W-14, platX0=INT_W-140, stairX0=platX0-70, platTopY=fy-platH;
+  BOOTH = { platX0:platX0, platX1:platX1, stairX0:stairX0, platH:platH, floorY:fy };
+  var steps=4, stepW=(platX0-stairX0)/steps, stepH=platH/steps;                       // staircase: floor -> platform
+  for (var st=0; st<steps; st++){ var ssx=stairX0+st*stepW, ssy=fy-(st+1)*stepH;
+    cx.fillStyle='#1b1530'; cx.fillRect(ssx, ssy, stepW+1, fy-ssy+6);
+    cx.fillStyle='#2a2046'; cx.fillRect(ssx, ssy, stepW+1, 5);
+    cx.strokeStyle='rgba(155,224,255,.22)'; cx.lineWidth=1; cx.strokeRect(ssx+0.5, ssy+0.5, stepW, fy-ssy); }
+  cx.fillStyle='#161226'; cx.fillRect(platX0, platTopY, platX1-platX0, fy-platTopY+6);  // platform slab
+  cx.fillStyle='#241b3e'; cx.fillRect(platX0, platTopY, platX1-platX0, 8);
+  cx.strokeStyle='rgba(155,224,255,.4)'; cx.lineWidth=1; cx.strokeRect(platX0, platTopY, platX1-platX0, fy-platTopY+6);
+  var deckX=(platX0+platX1)/2, deckY=platTopY-2;                                        // turntable decks + spinning records
+  cx.fillStyle='#0c0a14'; cx.fillRect(deckX-26, deckY-12, 52, 12);
+  for (var dk=0; dk<2; dk++){ var dcx=deckX+(dk?12:-12);
+    cx.save(); cx.translate(dcx, deckY-6); cx.rotate(ts*0.012*(dk?1:-1));
+    cx.fillStyle=(dk?'#ff7a9c':'#3df0bb'); cx.beginPath(); cx.arc(0,0,5,0,6.28); cx.fill();
+    cx.strokeStyle='rgba(4,4,8,.7)'; cx.lineWidth=1; cx.beginPath(); cx.moveTo(0,0); cx.lineTo(4,0); cx.stroke(); cx.restore(); }
+  cx.fillStyle='#9be0ff'; cx.font='10px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('DJ BOOTH', deckX, platTopY-16);
+  cx.globalAlpha=0.5+0.3*Math.sin(ts*0.004); cx.fillStyle='#7fe0ff'; cx.fillText(boothOpen?'on the decks ▾':'climb up to DJ ▲', deckX, platTopY-4); cx.globalAlpha=1; cx.textAlign='left';
   cx.restore();
 }
+/* ── club music: a four-on-the-floor loop on the music bus while inside the studio; the DJ booth switches the track ── */
+var CLUB = [
+  { name:'Pulse',    bpm:124, motif:[57,57,60,64] },
+  { name:'Neon',     bpm:128, motif:[59,62,64,67] },
+  { name:'Sunrise',  bpm:120, motif:[60,64,67,71] },
+  { name:'Deep Bass',bpm:126, motif:[45,45,48,52] }
+];
+var clubPlaying = false, clubTimer = null;
+function scheduleClub(){
+  if (!clubPlaying) return;
+  if (!audioOn || !AC || !audioReady || !(INSIDE && INSIDE.studio)){ clubTimer = setTimeout(scheduleClub, 400); return; }
+  if (musicBus) musicBus.gain.setTargetAtTime(0.8, AC.currentTime, 0.2);
+  var trk = CLUB[CLUB_TRACK] || CLUB[0], spb = 60/trk.bpm, t0a = AC.currentTime + 0.04, beats = 16, end = 0;
+  for (var b=0; b<beats; b++){ var tt = t0a + b*spb;
+    blip(midi(36), tt, spb*0.55, 'square', 0.18, musicBus);                                  // four-on-the-floor kick
+    if (b%2===1) blip(midi(72), tt, spb*0.18, 'sawtooth', 0.04, musicBus);                   // off-beat hat
+    blip(midi(trk.motif[b%trk.motif.length]+12), tt, spb*0.9, 'triangle', 0.10, musicBus);   // bass/lead motif
+    end = Math.max(end, (tt - t0a) + spb); }
+  clubTimer = setTimeout(scheduleClub, Math.max(800, end*1000));
+}
+function startClub(){ if (clubPlaying) return; clubPlaying = true; scheduleClub(); }
+function stopClub(){ clubPlaying = false; if (clubTimer){ clearTimeout(clubTimer); clubTimer = null; } }   // the bus is re-set by whatever plays next (startLoop on exit)
+function switchTrack(i){
+  CLUB_TRACK = ((i % CLUB.length) + CLUB.length) % CLUB.length;
+  if (player) floatNote(player, '🎶');
+  if (clubTimer){ clearTimeout(clubTimer); clubTimer = null; } scheduleClub();              // restart immediately for instant feedback
+  var p = document.getElementById('djPanel'); if (p){ [].forEach.call(p.querySelectorAll('.djChip'), function(x, xi){ x.classList.toggle('on', xi===CLUB_TRACK); }); }
+}
+function openDJPanel(){
+  var p = document.getElementById('djPanel');
+  if (!p){ p = document.createElement('div'); p.id = 'djPanel'; p.addEventListener('click', function(e){ e.stopPropagation(); }); (stage.parentNode||document.body).appendChild(p); }
+  p.innerHTML = '<div class="djTitle">♫ DJ BOOTH — change the track</div>';
+  CLUB.forEach(function(t, i){ var b = document.createElement('button'); b.type='button'; b.className = 'djChip' + (i===CLUB_TRACK?' on':''); b.textContent = t.name;
+    b.addEventListener('click', function(e){ e.stopPropagation(); switchTrack(i); }); p.appendChild(b); });
+  p.style.display = 'block';
+}
+function closeDJPanel(){ var p = document.getElementById('djPanel'); if (p) p.style.display = 'none'; }
 function drawCafe(ts){                                    // a cozy café: warm walls, lamp glow, counter + tables with steaming cups (single-screen)
-  var gy=H*0.74, cxw=INT_W*0.5; STUDIO_FLOOR = null;       // no dance floor here (clears any stale studio floor on studio→café)
+  var gy=H*0.74, cxw=INT_W*0.5; STUDIO_FLOOR = null; BOOTH = null;   // no dance floor / booth here (clear any stale studio state on studio→café)
   var wall=cx.createLinearGradient(0,0,0,gy); wall.addColorStop(0,'#2a1c12'); wall.addColorStop(1,'#3b2517'); cx.fillStyle=wall; cx.fillRect(0,0,W,gy);
   var fl=cx.createLinearGradient(0,gy,0,H); fl.addColorStop(0,'#4a3320'); fl.addColorStop(1,'#281b10'); cx.fillStyle=fl; cx.fillRect(0,gy,W,H-gy);
   cx.strokeStyle='rgba(255,200,120,.16)'; cx.lineWidth=1; cx.beginPath(); cx.moveTo(0,gy); cx.lineTo(W,gy); cx.stroke();
@@ -965,7 +1038,7 @@ function drawInterior(ts){
   var gy=H*0.74, b=INSIDE||{};
   if (b.studio){ drawStudio(ts); return; }
   if (b.cafe){ drawCafe(ts); return; }
-  STUDIO_FLOOR = null;
+  STUDIO_FLOOR = null; BOOTH = null;
   var wall=cx.createLinearGradient(0,0,0,gy); wall.addColorStop(0, mix('#161e2c','#13303a',0.5)); wall.addColorStop(1, mix('#101824','#16303a',0.4));
   cx.fillStyle=wall; cx.fillRect(0,0,W,gy);
   var fl=cx.createLinearGradient(0,gy,0,H); fl.addColorStop(0,'#271d16'); fl.addColorStop(1,'#15100c'); cx.fillStyle=fl; cx.fillRect(0,gy,W,H-gy);
@@ -1063,8 +1136,11 @@ function stepCritters(dt){
         if (Math.abs(dd) > 6){ c.face = dd<0?-1:1; c.x += c.face*Math.min(2.6, Math.abs(dd)*0.14); c.bob += 0.3; moving = true; c.dancing = false; }
         else { c.dancing = true; if (Math.random()<0.03) floatNote(c, ['🎵','✨','💃','🕺','🎶'][(Math.random()*5)|0]); }
       } else c.dancing = (c.anim==='dance');               // idle: dance if the animation wheel asked for it
-      c.x = clampN(c.x, 8, (INSIDE?INT_W:WORLD_W) - SP - 8); c.y = groundY() - 2;
+      c.x = clampN(c.x, 8, (INSIDE?INT_W:WORLD_W) - SP - 8);
+      c.y = groundY() - 2 - ((INSIDE && INSIDE.studio) ? boothLift(c.x + SP/2) : 0);   // climb the DJ-booth staircase (pure fn of x)
       if (c.dancing) c.face = Math.sin(t0*0.007) < 0 ? -1 : 1;   // wiggle while dancing
+      if (INSIDE && INSIDE.studio){ var nib = !!(BOOTH && (c.x+SP/2) >= BOOTH.platX0);   // DJ booth occupancy -> club music controls
+        if (nib !== boothOpen){ boothOpen = nib; if (boothOpen) openDJPanel(); else closeDJPanel(); } }
     } else if (c.mode==='leaving'){                       // wander off the nearest edge, then despawn
       var dir = c.x < W/2 ? -1 : 1; c.x += dir*Math.max(2.2, c.speed*1.6); c.bob+=0.3; c.face=dir; moving=true;
       if (c.x < -SP-12 || c.x > W+SP+12){ c.el.remove(); critters.splice(k,1); continue; }
@@ -1297,8 +1373,10 @@ function loop(ts){
 
 /* ── host state: idle / heat / audio on / volume ── */
 function applyAudio(){
-  if (!audioOn){ if (master) master.gain.value = 0; stopLoop(); return; }
-  wakeAudio(); if (AC && audioReady){ startBed(); startLoop(); if (master) master.gain.setTargetAtTime(Math.max(0,Math.min(1,vol)), AC.currentTime, 0.5); }
+  if (!audioOn){ if (master) master.gain.value = 0; stopLoop(); stopClub(); return; }
+  wakeAudio(); if (AC && audioReady){ startBed();
+    if (INSIDE && INSIDE.studio){ stopLoop(); startClub(); } else { stopClub(); startLoop(); }   // one music source at a time: club inside the studio, ambient loop otherwise
+    if (master) master.gain.setTargetAtTime(Math.max(0,Math.min(1,vol)), AC.currentTime, 0.5); }
 }
 /* host-state polling removed for the public edition — fixed lively defaults (heat 2, always awake) */
 document.addEventListener('visibilitychange', function(){ hidden = document.hidden; });
