@@ -89,7 +89,7 @@
   #rp-skip { margin-top: 18px; font: 12.5px 'SF Mono', ui-monospace, monospace; color: #8fd0ff; cursor: pointer;
     background: none; border: 1px solid rgba(86,206,255,.3); border-radius: 9px; padding: 8px 14px; }
   #rp-skip:hover { background: rgba(86,206,255,.14); border-color: rgba(86,206,255,.7); }
-  #stage.inside .critter:not(.player), #stage.inside .bubble, #stage.inside .plate { display: none !important; }   /* inside a building: street life hidden, only you */
+  #stage.inside .critterBody:not(.player):not(.remote), #stage.inside .bubble, #stage.inside .plate { display: none !important; }   /* inside a building: street life hidden; you + co-located real players (JS-controlled) stay */
   #enterhint { position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%); z-index: 10000; display: none; cursor: pointer;
     font: 13px 'SF Mono', ui-monospace, Menlo, monospace; color: #5ad4ff; text-shadow: 0 0 8px rgba(86,206,255,.5);
     border: 1px solid rgba(86,206,255,.45); border-radius: 10px; padding: 7px 14px; background: rgba(6,16,30,.82); -webkit-tap-highlight-color: transparent; }
@@ -907,6 +907,7 @@ function enterBuilding(b){
   if (player){ player.x = INT_W*0.5; player.y = groundY()-2; player.danceX=null; player.dancing=false; }
   cameraX = (INT_W-W)/2; if (stage) stage.classList.add('inside');
   if (b.studio){ stopLoop(); startClub(); }                // the club plays its own beat (replaces the ambient loop) while inside the studio
+  if (typeof pushPresenceNow==='function') pushPresenceNow();   // tell the realm I changed rooms (so others show/hide me correctly)
 }
 function exitBuilding(){
   if (!INSIDE) return;
@@ -919,6 +920,7 @@ function exitBuilding(){
   if (_resizedInside){ _resizedInside = false; buildScene(); }   // the street was deferred during a resize-while-inside — regenerate it now
   if (player){ player.x = clampN(bx, 8, WORLD_W-SP-8); player.y = groundY()-2; player.danceX=null; player.dancing=false; }
   cameraX = clampN(player ? player.x - W/2 : 0, 0, Math.max(0, WORLD_W-W));
+  if (typeof pushPresenceNow==='function') pushPresenceNow();   // back on the street -> tell the realm
 }
 function tryEnterExit(){ if (INSIDE) exitBuilding(); else { var b=nearBuilding(); if (b) enterBuilding(b); } }
 document.addEventListener('click', function(e){   // inside a building: tap to interact (on document: #stage overlays the canvas; dock buttons stopPropagation)
@@ -1153,7 +1155,7 @@ function stepCritters(dt){
   var awake = idle >= IDLE_WAKE && !reduced, e = ENERGY[heat] != null ? ENERGY[heat] : 0.9;
   var pop = 0; for (var n=0;n<critters.length;n++) if (critters[n].mode!=='leaving' && !critters[n].resident) pop++;
   for (var k=critters.length-1;k>=0;k--){ var c=critters[k]; var moving=false;
-    if (INSIDE && !c.player) continue;                   // inside a building: only the player moves (street critters paused + hidden)
+    if (INSIDE && !c.player && !c.remote) continue;      // inside a building: ambient street life paused+hidden; remotes handled (shown only if in the same room)
     if (EXPLORE && !c.player && !c.resident){ c.age=(c.age||0)+dt; c.scale=0.55+0.45*Math.min(1,c.age/9); }   // life cycle: born small, grow up over ~9s
     if (c.player){                                       // the user-controlled character (EXPLORE mode)
       var pv = (keyL?-1:0) + (keyR?1:0);
@@ -1173,10 +1175,18 @@ function stepCritters(dt){
         if (c._idle > (c._idleNext||9)){ c._idle=0; c._idleNext=Rn(8,16);
           if (Math.random()<0.5) c.face=-c.face; else floatNote(c, ['💭','✨','🐾','🎵','💤'][(Math.random()*5)|0]); } }
       else c._idle=0;
-    } else if (c.remote){                                // another REAL player, mirrored via realm presence — ease toward their position
-      var rdx = ((c.targetX!=null)?c.targetX:c.x) - c.x;
+    } else if (c.remote){                                // another REAL player, mirrored via realm presence — shown only in the same room as me
+      var here = INSIDE ? (INSIDE.studio?'studio':(INSIDE.cafe?'cafe':'bldg')) : 'street';
+      if (c.rloc && c.rloc !== here){                     // they're in a different room -> hide them here
+        if (c.el) c.el.style.display='none'; if (c.plate) c.plate.style.display='none'; if (c.bubble) c.bubble.style.display='none'; c.shownIn=null; continue;
+      }
+      if (c.el && c.el.style.display==='none'){ c.el.style.display=''; if (c.plate) c.plate.style.display=''; if (c.bubble) c.bubble.style.display=''; }
+      var rww = (INSIDE ? INT_W : WORLD_W) || 1, tx = (c.rnx!=null ? c.rnx : 0.5) * rww;
+      if (c.shownIn !== here){ c.x = tx; c.shownIn = here; }   // snap on room change (no slide across coordinate spaces)
+      var rdx = tx - c.x;
       if (Math.abs(rdx) > 1){ c.face = rdx<0?-1:1; c.x += Math.max(-4.5, Math.min(4.5, rdx*0.16)); c.bob += 0.26; moving=true; }
-      c.x = clampN(c.x, 8, WORLD_W - SP - 8); c.y = groundY() - 2;
+      c.x = clampN(c.x, 8, rww - SP - 8);
+      c.y = groundY() - 2 - ((INSIDE && INSIDE.studio) ? boothLift(c.x + SP/2) : 0);   // remotes ride the DJ-booth staircase too
     } else if (c.mode==='leaving'){                       // wander off the nearest edge, then despawn
       var dir = c.x < W/2 ? -1 : 1; c.x += dir*Math.max(2.2, c.speed*1.6); c.bob+=0.3; c.face=dir; moving=true;
       if (c.x < -SP-12 || c.x > W+SP+12){ c.el.remove(); critters.splice(k,1); continue; }
@@ -1644,7 +1654,8 @@ function openPicker(){
 }
 /* ── multiplayer: render the OTHER real players in your realm (their critter + position, carried on the same presence channel) ── */
 var _remotes = {};
-function myState(){ return { spec: playerSpec || null, nx: (player && WORLD_W ? player.x/WORLD_W : 0.5), face: player ? player.face : 1, t: Date.now() }; }
+function myLoc(){ if (typeof INSIDE!=='undefined' && INSIDE) return INSIDE.studio?'studio':(INSIDE.cafe?'cafe':'bldg'); return 'street'; }   // shared rooms: street/studio/cafe (singletons per realm)
+function myState(){ var ww=((typeof INSIDE!=='undefined'&&INSIDE)?INT_W:WORLD_W)||1; return { spec: playerSpec||null, nx: (player?player.x/ww:0.5), face: player?player.face:1, loc: myLoc(), t: Date.now() }; }
 function spawnRemote(pid, st){
   var spec = (st && st.spec) ? st.spec : null; if (!spec || !SPRITES[spec.base]) return;
   if (_remotes[pid]) return;
@@ -1659,9 +1670,10 @@ function spawnRemote(pid, st){
     stage.appendChild(el);
     var plate=document.createElement('div'); plate.className='plate'; plate.style.color=eye; plate.style.opacity='0.96'; plate.textContent='● '+name; stage.appendChild(plate);   // ● = a live player (not an ambient critter)
     var bubble=document.createElement('div'); bubble.className='bubble'; stage.appendChild(bubble);
-    var tx = (st.nx!=null?st.nx:0.5)*WORLD_W;
+    el.classList.add('remote');                            // exempt from the inside-hide CSS; remote visibility is JS-controlled per room
     var c = { el:el, head:cb.head, legL:cb.legL, legR:cb.legR, armL:cb.armL, armR:cb.armR, plate:plate, bubble:bubble, resident:true, remote:true, pid:pid,
-      animal:spec.base, persona:persona(spec.base), color:eye, scale:1.4, glow:eye, x:tx, targetX:tx, y:groundY()-2, face:st.face||1, bob:0, mode:'remote' };
+      animal:spec.base, persona:persona(spec.base), color:eye, scale:1.4, glow:eye, x:(st.nx!=null?st.nx:0.5)*WORLD_W,
+      rnx:(st.nx!=null?st.nx:0.5), rloc:(st.loc||'street'), shownIn:null, y:groundY()-2, face:st.face||1, bob:0, mode:'remote' };
     _remotes[pid] = c; critters.push(c);
   });
 }
@@ -1673,7 +1685,7 @@ function syncRemotes(state){
     if (pid===me) return; seen[pid]=1;
     var st = (state[pid] && state[pid][0]) || {}, c = _remotes[pid];
     if (!c){ spawnRemote(pid, st); }
-    else if (c.el){ if (st.nx!=null) c.targetX = st.nx*WORLD_W; if (st.face) c.face = st.face; }   // only update fully-built remotes (skip reservation tokens)
+    else if (c.el){ if (st.nx!=null) c.rnx = st.nx; if (st.loc) c.rloc = st.loc; if (st.face) c.face = st.face; }   // only update fully-built remotes (skip reservation tokens)
   });
   Object.keys(_remotes).forEach(function(pid){ if (!seen[pid]) despawnRemote(pid); });
 }
@@ -1689,14 +1701,19 @@ function debugPanel(){                                     // ?debug=1 -> a live
     +'\npresences: '+(keys.join('  ')||'none')
     +'\nrendered: '+(rem.join('  ')||'none');
 }
-var _lastPush=0, _pushX=-1, _pushFace=0;
-function presenceTick(){                                   // push my critter+position to the realm (throttled, only on real movement)
+var _lastPush=0, _pushX=-1, _pushFace=0, _pushLoc='';
+function pushPresenceNow(){                                // force an immediate re-track (e.g. on entering/leaving a building) so room changes propagate at once
+  if (!EXPLORE || !_realm || !_realmCh || !player) return;
+  var ww=(INSIDE?INT_W:WORLD_W)||1; _lastPush=t0; _pushX=player.x/ww; _pushFace=player.face; _pushLoc=myLoc();
+  try { if (_realmCh._tracking) _realmCh.track(myState()); } catch(e){}
+}
+function presenceTick(){                                   // push my critter+position+room to the realm (throttled, on movement OR room change)
   debugPanel();
   if (!EXPLORE || !_realm || !_realmCh || !player) return;
   if (t0 - _lastPush < 350) return;
-  var nx = WORLD_W ? player.x/WORLD_W : 0.5;
-  if (_pushX>=0 && Math.abs(nx-_pushX)<0.004 && player.face===_pushFace) return;
-  _lastPush=t0; _pushX=nx; _pushFace=player.face;
+  var ww=(INSIDE?INT_W:WORLD_W)||1, nx=player.x/ww, loc=myLoc();
+  if (_pushX>=0 && Math.abs(nx-_pushX)<0.004 && player.face===_pushFace && loc===_pushLoc) return;
+  _lastPush=t0; _pushX=nx; _pushFace=player.face; _pushLoc=loc;
   try { if (_realmCh._tracking) _realmCh.track(myState()); } catch(e){}
 }
 /* ── rooms: a #r= link renders a composed room (backsplash + props + critters) — our art, client-side, no backend ── */
