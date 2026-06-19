@@ -117,6 +117,7 @@
   .pico { position: absolute; top: 0; left: 0; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid rgba(86,206,255,.55);
     background: rgba(8,16,28,.9); color: #9be0ff; font: 12px ui-monospace,monospace; line-height: 20px; text-align: center; cursor: pointer; z-index: 6; will-change: transform; }
   .pico:hover { background: rgba(86,206,255,.35); }
+  #fx { position: fixed; inset: 0; pointer-events: none; z-index: 9000; mix-blend-mode: screen; opacity: 0; transition: opacity .8s ease; will-change: opacity; }   /* deterministic event lighting overlay */
   #stage.inside .pico { display: none !important; }
   #profileCard { position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 10003; width: 300px; max-width: 88vw; box-sizing: border-box;
     background: rgba(8,14,24,.97); border: 1px solid rgba(86,206,255,.5); border-radius: 14px; padding: 16px; display: none; }
@@ -1088,7 +1089,7 @@ var ROOMSPEC = {
     sky:['#160b2a','#2a1448'], floorFrac:0.76, floor:['#281a3e','#140d22'], aurora:true,
     lamps:[0.16,0.40,0.62,0.86],
     structures:[ { xf:0.5, top:0.50, w:210, h:60, c:'#33244e', edge:'#5a4488', label:'BAR' } ],
-    seats:[0.26,0.74],
+    seats:[0.26,0.74], events:['rave','aurora','glow'],
     prompt:'a shared lounge — tap to relax ✨' }
 };
 function drawAuthoredRoom(spec, ts){                       // render a room from its spec, in layers (wall-clock animation = synced across clients)
@@ -1115,6 +1116,28 @@ function drawAuthoredRoom(spec, ts){                       // render a room from
   cx.fillStyle=spec.accent; cx.font='10px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('← exit', dx, gy-74);
   if(spec.prompt){ cx.globalAlpha=0.5+0.3*Math.sin(now*3); cx.fillStyle=spec.accent; cx.font='11px ui-monospace,monospace'; cx.fillText(spec.prompt, cxw, gy-44); cx.globalAlpha=1; cx.textAlign='left'; }
   cx.restore();
+}
+/* ── deterministic timed EVENTS: a lighting overlay that fires identically on every client (pure f(spaceSeed, wall-clock) — no server) ── */
+var EVENT_WIN = 180000;                                    // 3-minute event windows
+var EVENT_COLOR = { aurora:'#5ad4ff', glow:'#ff9a3c', rave:'#c85aff', bloom:'#5affb0', sunset:'#ff6a8c' };
+function spaceEventList(){ if (EXPLORE && INSIDE && INSIDE.room && ROOMSPEC[INSIDE.room] && ROOMSPEC[INSIDE.room].events) return ROOMSPEC[INSIDE.room].events; return ['aurora','glow','bloom']; }
+function curEvent(){                                       // the active event for this space+time, or null (most windows are calm)
+  var evs=spaceEventList(); if(!evs.length) return null;
+  var bk=Math.floor(Date.now()/EVENT_WIN);
+  if (mulberry32(((SEED^bk^0x33)>>>0))() < 0.5) return null;
+  var kind=evs[(mulberry32(((SEED^bk^0x77)>>>0))()*evs.length)|0];
+  var prog=(Date.now()%EVENT_WIN)/EVENT_WIN, fade=prog<0.1?prog/0.1:(prog>0.9?(1-prog)/0.1:1);
+  return { kind:kind, fade:fade };
+}
+function applyEventFx(){                                   // drive the #fx lighting overlay from the current event (called each frame)
+  if (!EXPLORE) return;
+  var f=document.getElementById('fx'); if(!f){ f=document.createElement('div'); f.id='fx'; (stage.parentNode||document.body).appendChild(f); }
+  var e=curEvent();
+  if (!e || !EVENT_COLOR[e.kind] || reduced){ f.style.opacity='0'; if(f.dataset.ev) f.dataset.ev=''; return; }
+  var pulse = (e.kind==='rave') ? (0.45+0.55*Math.abs(Math.sin(Date.now()*0.006))) : (0.6+0.12*Math.sin(Date.now()*0.0008));
+  f.style.background = EVENT_COLOR[e.kind];
+  f.style.opacity = (e.fade * 0.3 * pulse).toFixed(3);
+  if (f.dataset.ev !== e.kind){ f.dataset.ev = e.kind; if (player && e.fade>0.2) floatNote(player, '✦'); }   // a sparkle when an event begins
 }
 function drawInterior(ts){
   var gy=H*0.74, b=INSIDE||{};
@@ -1482,7 +1505,7 @@ function loop(ts){
   if (ts - _lastDraw < 32) return;                 // ~30fps cap — gentler on battery, esp. mobile / 120Hz screens
   _lastDraw = ts;
   t0 = ts; var dt = 1/30;
-  if (!hidden && !lowPower){ if(EXPLORE && !INSIDE) stepWeather(dt); stepCamera(); drawScene(ts); stepCritters(dt); if(!INSIDE){ manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); } updateFireworks(dt); demoTick(dt); ambienceTick(dt); presenceTick(); }
+  if (!hidden && !lowPower){ if(EXPLORE && !INSIDE) stepWeather(dt); stepCamera(); drawScene(ts); stepCritters(dt); if(!INSIDE){ manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); } updateFireworks(dt); demoTick(dt); ambienceTick(dt); presenceTick(); applyEventFx(); }
 }
 
 /* ── host state: idle / heat / audio on / volume ── */
