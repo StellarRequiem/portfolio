@@ -141,13 +141,21 @@ var cur = { name:"", base:ANIMALS[0], eye:"#5ad4ff", outfit:[], scale:1.4 };
 var accColor = (typeof ACCENT!=='undefined' && ACCENT[0]) ? ACCENT[0] : "#ffd23f";
 
 function b64(spec){ return btoa(unescape(encodeURIComponent(JSON.stringify(spec)))); }
-function spec(){ return { v:1, name:cur.name, base:cur.base, eye:cur.eye, outfit:cur.outfit, scale:cur.scale }; }
+function genName(c){                                      // a friendly name for an unnamed critter (deterministic -> stable preview + share)
+  var cap = c.base ? c.base.charAt(0).toUpperCase()+c.base.slice(1) : 'Critter';
+  var ADJ = { topHat:'Dapper', party:'Party', cap:'Sporty', beanie:'Cozy', crown:'Royal', glasses:'Clever', shades:'Cool', bowtie:'Fancy', scarf:'Snug', flower:'Sunny', headphones:'Groovy' };
+  if (c.outfit && c.outfit[0] && ADJ[c.outfit[0].item]) return ADJ[c.outfit[0].item]+' '+cap;
+  var fb=['Wandering','Curious','Merry','Gentle','Brave','Cosmic'], s=(c.eye||'')+(c.base||''), h=0;
+  for (var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0;
+  return fb[Math.abs(h)%fb.length]+' '+cap;
+}
+function spec(){ return { v:1, name:(cur.name || genName(cur)), base:cur.base, eye:cur.eye, outfit:cur.outfit, scale:cur.scale }; }
 function link(){ return VILLAGE + "#c=" + encodeURIComponent(b64(spec())); }
 
 function renderPreview(){
   var of = cur.outfit.map(function(p){ return { fn:ACC_BY_NAME[p.item], c:p.color }; }).filter(function(p){return p.fn;});
   recolor(SPRITES[cur.base], cur.eye, of).then(function(url){ document.getElementById('prev').src = url; });
-  document.getElementById('pname').textContent = cur.name || "a visitor";
+  document.getElementById('pname').textContent = cur.name || genName(cur);
   document.getElementById('pmeta').textContent = cur.base + " · " + (cur.outfit.length? cur.outfit.map(function(p){return p.item;}).join(", ") : "no outfit");
   document.getElementById('link').value = link();
   document.getElementById('open').href = link();
@@ -230,7 +238,7 @@ if (_saveBtn) _saveBtn.addEventListener('click', function(){
   var snap=JSON.stringify(spec());
   if (snap===_lastSaved){ note.innerHTML='<span class="ok">Already saved ✓</span> — change something to save a new copy.'; return; }
   _saveBtn.disabled=true; note.textContent='Saving…';
-  _sb.from('creations').insert({ owner:_user.id, kind:'critter', name:(cur.name||'critter'), spec:spec(), visibility:'private' }).then(function(res){
+  _sb.from('creations').insert({ owner:_user.id, kind:'critter', name:(cur.name||genName(cur)), spec:spec(), visibility:'private' }).then(function(res){
     _saveBtn.disabled=false;
     if (res.error){ noteErr('Save failed — please try again.'); return; }
     _lastSaved=snap;
