@@ -567,7 +567,7 @@ var SKYLINE = [], BUILDINGS = [];                        // town: distant skylin
 var SHOPNAMES = ['BAKERY','FORGE','MARKET','CAFE','BOOKS','INN','ARCADE','CLINIC'], POND = null;
 function buildScene(){
   if (INSIDE){   // resizing while inside a building: resize the canvas + interior only, DON'T regenerate the street (it would orphan INSIDE)
-    W = innerWidth; H = innerHeight; cv.width = W; cv.height = H; INT_W = INSIDE.studio ? W : Math.max(W, 1400); _resizedInside = true;
+    W = innerWidth; H = innerHeight; cv.width = W; cv.height = H; INT_W = (INSIDE.studio||INSIDE.cafe) ? W : Math.max(W, 1400); _resizedInside = true;
     if (player) player.x = clampN(player.x, 8, INT_W-SP-8);
     cameraX = clampN(cameraX, 0, Math.max(0, INT_W-W)); return;
   }
@@ -754,7 +754,8 @@ function generateBuildings(){                             // multi-story shops/a
     for(var fl=0;fl<floors;fl++) for(var co=0;co<cols;co++){ if (fl===0 && co===(cols>>1)) continue;
       rooms.push({ x:x-w/2+pad+(co+0.5)*(span/cols)-ww/2, y:gy-h+16+fl*((h-24)/floors), lit:rng()<0.5, occupant:null, ph:rng()*6.28 }); }
     var shop=rng()<0.5; BUILDINGS.push({ x:x, w:w, h:h, shop:shop, name: shop?SHOPNAMES[(rng()*SHOPNAMES.length)|0]:'', door:{x:x,y:gy}, rooms:rooms }); });
-  if (EXPLORE && BUILDINGS.length){ var st=BUILDINGS[(BUILDINGS.length/2)|0]; st.studio=true; st.shop=true; st.name='DANCE STUDIO'; }   // one building is the dance studio
+  if (EXPLORE && BUILDINGS.length){ var mid=(BUILDINGS.length/2)|0; var st=BUILDINGS[mid]; st.studio=true; st.shop=true; st.name='DANCE STUDIO';   // one building is the dance studio
+    if (BUILDINGS.length>=2){ var ci=(mid+1)%BUILDINGS.length; var cf=BUILDINGS[ci]; cf.cafe=true; cf.shop=true; cf.name='CAFÉ'; } }   // another is the café
 }
 function drawBuildings(ts, f){
   var gy=groundY();
@@ -802,7 +803,7 @@ function nearBuilding(){
 function enterBuilding(b){
   if (!b || INSIDE) return;
   if (typeof closeToys==='function') closeToys();         // dismiss any open react/music panel on the room transition
-  INSIDE = b; INT_W = b.studio ? W : Math.max(W, 1400);    // the studio is one screen (no scroll → disco decor stays put); generic interiors are wider
+  INSIDE = b; INT_W = (b.studio||b.cafe) ? W : Math.max(W, 1400);    // studio + café are one screen (no scroll → themed decor stays put); generic interiors are wider
   if (player){ player.x = INT_W*0.5; player.y = groundY()-2; player.danceX=null; player.dancing=false; }
   cameraX = (INT_W-W)/2; if (stage) stage.classList.add('inside');
 }
@@ -816,8 +817,10 @@ function exitBuilding(){
   cameraX = clampN(player ? player.x - W/2 : 0, 0, Math.max(0, WORLD_W-W));
 }
 function tryEnterExit(){ if (INSIDE) exitBuilding(); else { var b=nearBuilding(); if (b) enterBuilding(b); } }
-document.addEventListener('click', function(e){   // dance studio: tap a floor tile -> your critter walks there + dances (on document: #stage overlays the canvas)
-  if (!INSIDE || !INSIDE.studio || !STUDIO_FLOOR || !player || !cv) return;
+document.addEventListener('click', function(e){   // inside a building: tap to interact (on document: #stage overlays the canvas; dock buttons stopPropagation)
+  if (!INSIDE || !player || !cv) return;
+  if (INSIDE.cafe){ floatNote(player, '☕'); return; }   // café: tap → your critter sips a coffee (☕)
+  if (!INSIDE.studio || !STUDIO_FLOOR) return;               // dance studio: tap a floor tile → walk there + dance
   var r = cv.getBoundingClientRect();
   var worldX = (e.clientX - r.left) * (cv.width / (r.width||cv.width)) + cameraX;   // robust to CSS scaling / mid-resize
   var col = Math.max(0, Math.min(STUDIO_FLOOR.cols-1, Math.floor((worldX - STUDIO_FLOOR.x0)/STUDIO_FLOOR.sq)));
@@ -861,9 +864,42 @@ function drawStudio(ts){                                  // a disco room: ball 
   cx.globalAlpha=0.55+0.3*Math.sin(ts*0.003); cx.fillStyle='#7fe0ff'; cx.font='11px ui-monospace,monospace'; cx.fillText('tap a tile — your critter dances there', cxw, fy-40); cx.globalAlpha=1; cx.textAlign='left';
   cx.restore();
 }
+function drawCafe(ts){                                    // a cozy café: warm walls, lamp glow, counter + tables with steaming cups (single-screen)
+  var gy=H*0.74, cxw=INT_W*0.5; STUDIO_FLOOR = null;       // no dance floor here (clears any stale studio floor on studio→café)
+  var wall=cx.createLinearGradient(0,0,0,gy); wall.addColorStop(0,'#2a1c12'); wall.addColorStop(1,'#3b2517'); cx.fillStyle=wall; cx.fillRect(0,0,W,gy);
+  var fl=cx.createLinearGradient(0,gy,0,H); fl.addColorStop(0,'#4a3320'); fl.addColorStop(1,'#281b10'); cx.fillStyle=fl; cx.fillRect(0,gy,W,H-gy);
+  cx.strokeStyle='rgba(255,200,120,.16)'; cx.lineWidth=1; cx.beginPath(); cx.moveTo(0,gy); cx.lineTo(W,gy); cx.stroke();
+  cx.strokeStyle='rgba(20,12,6,.4)'; for(var pk=0;pk<W;pk+=46){ cx.beginPath(); cx.moveTo(pk,gy); cx.lineTo(pk-34,H); cx.stroke(); }   // floor planks
+  cx.save(); cx.translate(-cameraX,0);                     // cameraX≈0 (single-screen café)
+  for(var L=0;L<3;L++){ var lx=INT_W*(0.24+L*0.26), ly=66;  // warm hanging lamps + glow
+    cx.strokeStyle='#1a1209'; cx.lineWidth=2; cx.beginPath(); cx.moveTo(lx,0); cx.lineTo(lx,ly); cx.stroke();
+    var g=cx.createRadialGradient(lx,ly+12,4,lx,ly+12,130); g.addColorStop(0,'rgba(255,196,110,'+(0.46+0.10*Math.sin(ts*0.002+L)).toFixed(3)+')'); g.addColorStop(1,'rgba(255,196,110,0)');
+    cx.fillStyle=g; cx.beginPath(); cx.arc(lx,ly+12,130,0,6.28); cx.fill();
+    cx.fillStyle='#3a2a16'; cx.beginPath(); cx.moveTo(lx-13,ly); cx.lineTo(lx+13,ly); cx.lineTo(lx+8,ly-12); cx.lineTo(lx-8,ly-12); cx.closePath(); cx.fill();
+    cx.fillStyle='#ffd98a'; cx.beginPath(); cx.arc(lx,ly+2,5,0,6.28); cx.fill(); }
+  var coX=INT_W-150, coY=gy-58;                            // counter + espresso machine, right side
+  cx.fillStyle='#5a3a22'; cx.fillRect(coX,coY,132,gy-coY); cx.fillStyle='#6e4a2c'; cx.fillRect(coX,coY,132,10);
+  cx.strokeStyle='rgba(20,12,6,.6)'; cx.lineWidth=1; cx.strokeRect(coX,coY,132,gy-coY);
+  cx.fillStyle='#c0c4cc'; cx.fillRect(coX+90,coY-22,30,22); cx.fillStyle='#2a2a30'; cx.fillRect(coX+98,coY-9,14,9);
+  var tables=[INT_W*0.20, INT_W*0.38];                     // tables (left cluster — clear of the centre spawn + the right counter)
+  for(var t=0;t<tables.length;t++){ var tx=tables[t], ty=gy-2;
+    cx.fillStyle='#3a2616'; cx.fillRect(tx-2,ty-26,4,26);
+    cx.fillStyle='#6e4a2c'; cx.beginPath(); cx.ellipse(tx,ty-28,26,7,0,0,6.28); cx.fill();
+    cx.fillStyle='#efe7d8'; cx.fillRect(tx-5,ty-40,10,9); cx.strokeStyle='#efe7d8'; cx.lineWidth=2; cx.beginPath(); cx.arc(tx+8,ty-35,3,-1.4,1.4); cx.stroke();
+    cx.globalAlpha=0.4+0.25*Math.sin(ts*0.004+t*1.7); cx.strokeStyle='#d8c9b0'; cx.lineWidth=1.5;
+    cx.beginPath(); cx.moveTo(tx,ty-42); cx.bezierCurveTo(tx-6,ty-50,tx+6,ty-57,tx,ty-66); cx.stroke(); cx.globalAlpha=1; }
+  if (INSIDE && INSIDE.name){ var sw=INSIDE.name.length*12+28, sx=cxw-sw/2; cx.fillStyle='#1a1006'; cx.fillRect(sx,42,sw,32);
+    cx.strokeStyle='rgba(255,200,120,.55)'; cx.lineWidth=1; cx.strokeRect(sx,42,sw,32);
+    cx.fillStyle='#ffd98a'; cx.font='18px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText(INSIDE.name, cxw, 64); }
+  var dx=cxw-210; cx.fillStyle='#1a1006'; cx.fillRect(dx-22,gy-66,44,66); cx.strokeStyle='rgba(255,200,120,.5)'; cx.lineWidth=2; cx.strokeRect(dx-22,gy-66,44,66);
+  cx.fillStyle='#ffd98a'; cx.font='10px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('← exit', dx, gy-74);
+  cx.globalAlpha=0.55+0.3*Math.sin(ts*0.003); cx.fillStyle='#ffcf8a'; cx.font='11px ui-monospace,monospace'; cx.fillText('tap for a coffee ☕', cxw, gy-44); cx.globalAlpha=1; cx.textAlign='left';
+  cx.restore();
+}
 function drawInterior(ts){
   var gy=H*0.74, b=INSIDE||{};
   if (b.studio){ drawStudio(ts); return; }
+  if (b.cafe){ drawCafe(ts); return; }
   STUDIO_FLOOR = null;
   var wall=cx.createLinearGradient(0,0,0,gy); wall.addColorStop(0, mix('#161e2c','#13303a',0.5)); wall.addColorStop(1, mix('#101824','#16303a',0.4));
   cx.fillStyle=wall; cx.fillRect(0,0,W,gy);
