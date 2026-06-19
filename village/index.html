@@ -169,13 +169,14 @@ var DEF = { role:'peep', wave:'square', octave:1, motif:[0,7,12], quirk:'amble',
 function persona(name){ return PERSONA[name] || DEF; }
 
 /* ── Procedural 8-bit audio (no samples, all oscillators) ── */
-var AC = null, master = null, bed = [], audioReady = false;
+var AC = null, master = null, musicBus = null, bed = [], audioReady = false;
 function midi(n){ return 440 * Math.pow(2, (n - 69) / 12); }
 function ensureAudio(){
   if (AC) return;
   try {
     AC = new (window.AudioContext || window.webkitAudioContext)();
     master = AC.createGain(); master.gain.value = 0; master.connect(AC.destination);
+    musicBus = AC.createGain(); musicBus.gain.value = 0; musicBus.connect(master);   // separate bus for looped + club music (independent of the critter blips on master)
   } catch(e){ AC = null; }
 }
 function wakeAudio(){                                 // resume the context (may need a gesture on some webviews)
@@ -194,14 +195,14 @@ function startBed(){                                  // soft ambient drone — 
   lfo.frequency.value = 0.07; lg.gain.value = 0.025; lfo.connect(lg);
   bed.forEach(function(b){ lg.connect(b.g.gain); }); lfo.start(); bed.push({o:lfo,g:lg});
 }
-function blip(freq, when, dur, wave, peak){           // one 8-bit note with a quick envelope
+function blip(freq, when, dur, wave, peak, dest){     // one 8-bit note with a quick envelope (dest defaults to master)
   if (!AC || !audioReady) return;
   var o = AC.createOscillator(), g = AC.createGain();
   o.type = wave || 'square'; o.frequency.setValueAtTime(freq, when);
   g.gain.setValueAtTime(0.0001, when);
   g.gain.exponentialRampToValueAtTime(peak || 0.18, when + 0.012);
   g.gain.exponentialRampToValueAtTime(0.0001, when + (dur || 0.18));
-  o.connect(g); g.connect(master); o.start(when); o.stop(when + (dur || 0.18) + 0.02);
+  o.connect(g); g.connect(dest||master); o.start(when); o.stop(when + (dur || 0.18) + 0.02);
 }
 var noiseBuf = null;
 function getNoise(){ if (noiseBuf || !AC) return noiseBuf; var n=(AC.sampleRate*0.3)|0, b=AC.createBuffer(1,n,AC.sampleRate), d=b.getChannelData(0); for(var i=0;i<n;i++) d[i]=Math.random()*2-1; noiseBuf=b; return b; }
@@ -309,6 +310,24 @@ function playTune(tuneIdx, instIdx){
     setTimeout(function(){ tunePlaying = false; if (master && AC) master.gain.setTargetAtTime(audioOn?vol:0, AC.currentTime, 0.06); }, (maxEnd+0.35)*1000);   // restore after the real audio tail, not just the beat sum
   });
 }
+/* ── looped ambient music (EXPLORE/village only — gentle A-minor-pentatonic motifs on the music bus; the ambient non-EXPLORE build stays drone-only) ── */
+var LOOPS = [
+  [[69,2],[67,1],[64,1],[62,2],[60,1],[57,2],[60,1],[62,2],[64,2]],
+  [[64,1.5],[67,1.5],[69,2],[67,1],[64,1],[62,2],[60,2],[57,2]],
+  [[57,2],[60,2],[64,2],[62,1],[60,1],[57,2],[55,2],[57,2]]
+];
+var loopOn = false, loopIdx = 0, loopTimer = null;
+function scheduleLoop(){
+  if (!loopOn) return;
+  if (!audioOn || !AC || !audioReady){ loopTimer = setTimeout(scheduleLoop, 1000); return; }   // wait for the sound-on gesture; never sound while muted
+  if (musicBus) musicBus.gain.setTargetAtTime(0.6, AC.currentTime, 0.8);                         // gentle fade-in
+  var seq = LOOPS[loopIdx % LOOPS.length], beat = 0.42, t0a = AC.currentTime + 0.05, t = t0a, maxEnd = 0;
+  seq.forEach(function(n){ var dur = n[1]*beat, ring = dur*1.5; blip(midi(n[0]), t, ring, 'sine', 0.11, musicBus); maxEnd = Math.max(maxEnd, (t - t0a) + ring); t += dur; });
+  loopIdx++;
+  loopTimer = setTimeout(scheduleLoop, Math.max(1200, maxEnd*1000));                             // re-arm off the measured tail -> seamless loop
+}
+function startLoop(){ if (loopOn || !EXPLORE) return; loopOn = true; scheduleLoop(); }            // village (EXPLORE) only; the ambient build keeps its drone
+function stopLoop(){ loopOn = false; if (loopTimer){ clearTimeout(loopTimer); loopTimer = null; } if (musicBus && AC) musicBus.gain.setTargetAtTime(0, AC.currentTime, 0.4); }
 function closeToys(){ ['reactWheel','musicPanel'].forEach(function(id){ var e=document.getElementById(id); if(e){ e.dataset.open='0'; e.style.display='none'; } }); }
 function openReactWheel(){
   var w=document.getElementById('reactWheel'); if(!w) return;
@@ -1221,8 +1240,8 @@ function loop(ts){
 
 /* ── host state: idle / heat / audio on / volume ── */
 function applyAudio(){
-  if (!audioOn){ if (master) master.gain.value = 0; return; }
-  wakeAudio(); if (AC && audioReady){ startBed(); if (master) master.gain.setTargetAtTime(Math.max(0,Math.min(1,vol)), AC.currentTime, 0.5); }
+  if (!audioOn){ if (master) master.gain.value = 0; stopLoop(); return; }
+  wakeAudio(); if (AC && audioReady){ startBed(); startLoop(); if (master) master.gain.setTargetAtTime(Math.max(0,Math.min(1,vol)), AC.currentTime, 0.5); }
 }
 /* host-state polling removed for the public edition — fixed lively defaults (heat 2, always awake) */
 document.addEventListener('visibilitychange', function(){ hidden = document.hidden; });
