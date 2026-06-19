@@ -661,7 +661,8 @@ function toggleSound(){                                   // browser autoplay po
   var sb = document.getElementById('sound'); if (sb) sb.textContent = audioOn ? '♪ sound on' : '♪ sound off';
 }
 function Rn(a,b){ return a + Math.random()*(b-a); }
-function groundY(){ return ROOM ? H * ROOM.floor : H * 0.72; }   // a #r= room's floor, else the village ground line
+var VH = 0;                                              // stable LAYOUT height (updated only on a real rebuild) so mobile address-bar resizes don't shift the world
+function groundY(){ return ROOM ? H * ROOM.floor : (VH||H) * 0.72; }   // a #r= room's floor, else the (stable-height) village ground line
 function boothLift(px){                                   // DJ booth: vertical lift for the player at world-x px — the staircase ramps up to the platform
   if (!BOOTH) return 0;
   if (px >= BOOTH.platX0) return BOOTH.platH;             // on the platform
@@ -682,11 +683,11 @@ var SKYLINE = [], BUILDINGS = [];                        // town: distant skylin
 var SHOPNAMES = ['BAKERY','FORGE','MARKET','CAFE','BOOKS','INN','ARCADE','CLINIC'], POND = null;
 function buildScene(){
   if (INSIDE){   // resizing while inside a building: resize the canvas + interior only, DON'T regenerate the street (it would orphan INSIDE)
-    W = innerWidth; H = innerHeight; sizeCanvas(); INT_W = (INSIDE.studio||INSIDE.cafe) ? W : Math.max(W, 1400); _resizedInside = true;
+    W = innerWidth; H = innerHeight; VH = H; sizeCanvas(); INT_W = (INSIDE.studio||INSIDE.cafe) ? W : Math.max(W, 1400); _resizedInside = true;
     if (player) player.x = clampN(player.x, 8, INT_W-SP-8);
     cameraX = clampN(cameraX, 0, Math.max(0, INT_W-W)); return;
   }
-  W = innerWidth; H = innerHeight; sizeCanvas(); WORLD_W = worldW();
+  W = innerWidth; H = innerHeight; VH = H; sizeCanvas(); WORLD_W = worldW();
   if (!SEED) SEED = defaultSeed(); rng = mulberry32(SEED);   // seed the backdrop too, so a space looks the same for everyone in it
   stars = []; for (var i=0;i<90;i++) stars.push({ x:rng()*W, y:rng()*groundY()*0.95, r:rng()*1.4+0.3, tw:rng()*6.28 });
   runes = []; for (var j=0;j<26;j++) runes.push({ x:rng()*W, y:rng()*H, s:rng()*0.5+0.4, ch:glyphChars[(rng()*glyphChars.length)|0], a:rng()*0.18+0.05 });
@@ -1855,7 +1856,13 @@ function boot(){
   requestAnimationFrame(loop);
 }
 var _rzT = null;
-window.addEventListener('resize', function(){ clearTimeout(_rzT); _rzT = setTimeout(buildScene, 180); });   // debounce — kills the mobile address-bar re-seed churn
+function _onResize(){
+  if (WORLD_W && W===innerWidth && Math.abs(innerHeight - (VH||innerHeight)) < 160){   // address-bar-ish height change: keep the world/ground stable, just refit the canvas (no jarring re-layout)
+    H = innerHeight; sizeCanvas(); cameraX = clampN(cameraX, 0, Math.max(0, ((typeof INSIDE!=='undefined'&&INSIDE)?INT_W:WORLD_W) - W)); return;
+  }
+  buildScene();   // a real resize (orientation / window) -> full deterministic rebuild
+}
+window.addEventListener('resize', function(){ clearTimeout(_rzT); _rzT = setTimeout(_onResize, 200); });   // debounced; small height changes refit only (no re-layout churn)
 if (document.readyState !== 'loading') boot(); else document.addEventListener('DOMContentLoaded', boot);
 </script>
 </body>
