@@ -119,15 +119,18 @@
   .pico:hover { background: rgba(86,206,255,.35); }
   #fx { position: fixed; inset: 0; pointer-events: none; z-index: 9000; mix-blend-mode: screen; opacity: 0; transition: opacity .8s ease; will-change: opacity; }   /* deterministic event lighting overlay */
   #stage.inside .pico { display: none !important; }
-  #profileCard { position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 10003; width: 300px; max-width: 88vw; box-sizing: border-box;
+  #profileCard, #spaceCard { position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 10003; width: 300px; max-width: 88vw; box-sizing: border-box;
     background: rgba(8,14,24,.97); border: 1px solid rgba(86,206,255,.5); border-radius: 14px; padding: 16px; display: none; }
-  #profileCard h3 { margin: 0 0 4px; color: #9be0ff; font: 600 16px ui-monospace,monospace; word-break: break-word; }
+  #spaceCard { width: 320px; max-width: 90vw; }
+  #profileCard h3, #spaceCard h3 { margin: 0 0 4px; color: #9be0ff; font: 600 16px ui-monospace,monospace; word-break: break-word; }
   #profileCard .pf-mood { font: 13px ui-monospace,monospace; color: #ffd23f; margin-bottom: 8px; }
-  #profileCard .pf-bio { font: 12px ui-monospace,monospace; color: #c8d8e8; white-space: pre-wrap; word-break: break-word; min-height: 16px; }
-  #profileCard label { display: block; font: 10px ui-monospace,monospace; color: #6c8aa6; text-transform: uppercase; letter-spacing: .08em; margin: 9px 0 3px; }
-  #profileCard input, #profileCard textarea { width: 100%; box-sizing: border-box; background: rgba(6,16,30,.7); border: 1px solid rgba(86,206,255,.35); border-radius: 8px; color: #cfe; font: 12px ui-monospace,monospace; padding: 6px 8px; resize: none; }
-  #profileCard .pf-row { display: flex; gap: 8px; margin-top: 13px; }
-  #profileCard .pf-row button { flex: 1; background: rgba(86,206,255,.18); border: 1px solid rgba(86,206,255,.6); border-radius: 8px; color: #cfe; font: 12px ui-monospace,monospace; padding: 8px; cursor: pointer; }
+  #profileCard .pf-bio, #spaceCard .pf-bio { font: 12px ui-monospace,monospace; color: #c8d8e8; white-space: pre-wrap; word-break: break-word; min-height: 16px; }
+  #profileCard label, #spaceCard label { display: block; font: 10px ui-monospace,monospace; color: #6c8aa6; text-transform: uppercase; letter-spacing: .08em; margin: 9px 0 3px; }
+  #profileCard input, #profileCard textarea, #spaceCard input { width: 100%; box-sizing: border-box; background: rgba(6,16,30,.7); border: 1px solid rgba(86,206,255,.35); border-radius: 8px; color: #cfe; font: 12px ui-monospace,monospace; padding: 6px 8px; resize: none; }
+  #spaceCard input[readonly] { color: #9be0ff; }
+  #profileCard .pf-row, #spaceCard .pf-row { display: flex; gap: 8px; margin-top: 13px; }
+  #profileCard .pf-row button, #spaceCard .pf-row button { flex: 1; background: rgba(86,206,255,.18); border: 1px solid rgba(86,206,255,.6); border-radius: 8px; color: #cfe; font: 12px ui-monospace,monospace; padding: 8px; cursor: pointer; }
+  #spaceCard .sp-note { font: 10px ui-monospace,monospace; color: #6c8aa6; margin-top: 11px; line-height: 1.5; }
   @media (max-width: 640px){ .dockbtn { width: 50px; height: 48px; font-size: 21px; } #musicPanel { width: 252px; } #djPanel { width: 270px; } }
 </style>
 </head>
@@ -145,6 +148,7 @@
   <button id="musicBtn" class="dockbtn" type="button" title="play music">&#127925;</button>
   <button id="animBtn" class="dockbtn" type="button" title="animate">&#129336;</button>
   <button id="copyBtn" class="dockbtn" type="button" title="copy my critter link">&#128279;</button>
+  <button id="portalBtn" class="dockbtn" type="button" title="private space">&#127744;</button>
 </div>
 <div id="reactWheel"></div>
 <div id="musicPanel"></div>
@@ -1650,6 +1654,7 @@ function bindExploreControls(){
   bindZone(zL,-1); bindZone(zR,1);
   var dock=document.getElementById('dock'); if(dock) dock.style.display='flex';   // reveal the control dock (movement + tools)
   var cb=document.getElementById('copyBtn'); if(cb) cb.addEventListener('click', function(e){ e.stopPropagation(); copyMyCritter(); });   // share affordance
+  var pbt=document.getElementById('portalBtn'); if(pbt) pbt.addEventListener('click', function(e){ e.stopPropagation(); openSpaces(); });   // private link-spaces portal
 }
 function b64enc(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))); }   // inverse of the #c= decoder
 function copyMyCritter(){                                  // copy a /village/#c= link for the current player critter, with a ✓ toast
@@ -1683,10 +1688,16 @@ var REALM_CAP = 20;
 var liveCount = 0, presenceEl = null, _sb = null, _realm = null, _realmCh = null, _chans = {}, _counts = {};
 function realmById(id){ for (var i=0;i<REALMS.length;i++) if (REALMS[i].id===id) return REALMS[i]; return null; }
 function chosenRealm(){                                    // ?realm= (shareable) > localStorage (return visit) > none
+  var sp=(location.search||'').match(/[?&]space=([a-z0-9]{2,40})(?![a-z0-9])/i); if (sp) return sp[1].toLowerCase();   // a private/shared link-space joins directly; the {2,40}+lookahead bound means a malformed (too-short/too-long) link falls through to the picker, never a blank screen or a truncated id
   var m=(location.search||'').match(/[?&]realm=([a-z0-9]+)/i); if (m && realmById(m[1].toLowerCase())) return m[1].toLowerCase();
   try { var k=localStorage.getItem('xclvxo_realm'); if (k && realmById(k)) return k; } catch(e){}
   return null;
 }
+function hashStr(s){ var t=String(s||''), a=0x811c9dc5, b=0xc2b2ae35;   // FNV-1a x2 (Math.imul = exact mod-2^32, deterministic everywhere) -> a ~64-bit token even for short input, so ids are NOT enumerable
+  for (var i=0;i<t.length;i++){ var c=t.charCodeAt(i); a=Math.imul(a^c,16777619); b=Math.imul(b^c,2246822519); }
+  return (a>>>0).toString(36)+(b>>>0).toString(36); }
+function spaceIdFor(pass){ return 'p'+hashStr(String(pass||'').trim().toLowerCase().replace(/\s+/g,' ')); }   // same passphrase -> same private space, for everyone (the dictionary strength is the passphrase's, not the id's)
+var _priv=false, _spaceName='';
 var _pidCache = null;
 function presenceKey(){   // PER-TAB id (sessionStorage, not localStorage) so two tabs/windows in one browser are DISTINCT players, not one — and cached so it never changes mid-session
   if (_pidCache) return _pidCache;
@@ -1694,10 +1705,11 @@ function presenceKey(){   // PER-TAB id (sessionStorage, not localStorage) so tw
   catch(e){ _pidCache='p'+Math.random().toString(36).slice(2); return _pidCache; } }
 function showLive(n){
   if (!presenceEl){ presenceEl = document.createElement('div'); presenceEl.id = 'live'; stage.appendChild(presenceEl); }
-  var rn = _realm ? ((realmById(_realm)||{}).name||'') : '';
-  presenceEl.innerHTML = (rn?'<b>'+rn+'</b> &middot; ':'') + '\u25cf ' + n + ' here now' + (rn?' <span id="rswitch">&#8646; switch</span>':'');
+  var priv=_priv, rn = priv ? (_spaceName||'Private space') : (_realm ? ((realmById(_realm)||{}).name||'') : '');
+  presenceEl.innerHTML = (rn?'<b>'+(priv?'\ud83d\udd12 ':'')+pesc(rn)+'</b> &middot; ':'') + '\u25cf ' + n + ' here now'
+    + (priv ? ' <span id="rswitch">&#8634; invite</span>' : (rn?' <span id="rswitch">&#8646; switch</span>':''));
   presenceEl.style.opacity = '1';
-  var rsw=document.getElementById('rswitch'); if (rsw) rsw.onclick=function(e){ e.stopPropagation(); openPicker(); };
+  var rsw=document.getElementById('rswitch'); if (rsw) rsw.onclick=function(e){ e.stopPropagation(); if (priv) openSpaces(); else openPicker(); };
   if (!ROOM){ var mob = innerWidth < 640;                  // ambient filler scales to headcount MINUS the real players we already render (no double-count)
     var base = EXPLORE ? (mob?6:9) : (mob?3:4), cap = EXPLORE ? (mob?12:20) : (mob?8:14);   // a touch fewer ambient extras now that real players render
     var rem = 0; for (var rp in _remotes){ if (_remotes[rp] && _remotes[rp].el) rem++; }
@@ -1736,16 +1748,20 @@ function setTrack(ch, on){                                  // present (track) i
   else { ch._wantTrack=false; if (ch._tracking){ ch._tracking=false; try { ch.untrack(); } catch(e){} } }
 }
 function spaceSeed(id){ var h=0, s=String(id||'street'); for (var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; return (h>>>0)||1; }   // stable per-space seed -> a distinct, consistent world per realm
-function joinRealm(id){                                     // EXPLORE: present in exactly one realm (track it, untrack the last)
-  var r = realmById(id); if (!r) return;
-  var prev=_realm; _realm=id; liveCount=1; try { localStorage.setItem('xclvxo_realm', id); } catch(e){}
-  SEED = spaceSeed(id); if (typeof buildScene==='function') buildScene();   // regenerate the world from this realm's seed -> everyone in it shares the same instance
+function joinRealm(id, opts){                               // EXPLORE: present in exactly one space (a public realm OR a private link-space); track it, untrack the last
+  if (!id) return; id=String(id).toLowerCase();
+  var r = realmById(id); if (!r && !/^[a-z0-9]{2,40}$/.test(id)) return;   // a known realm, or any valid space id (private link-spaces); reject junk
+  _priv = !r; _spaceName = r ? r.name : ((opts&&opts.name)||'Private space');
+  var prev=_realm; _realm=id; liveCount=1;
+  try { if (r) localStorage.setItem('xclvxo_realm', id); } catch(e){}   // auto-rejoin only PUBLIC realms; private spaces are link/passphrase-only (never silently re-entered)
+  SEED = spaceSeed(id); if (typeof buildScene==='function') buildScene();   // regenerate the world from this space's seed -> everyone in it shares the same instance
   var ov=document.getElementById('realmpick'); if (ov) ov.style.display='none';
   showLive(1);
   withSB(function(){
-    if (prev && prev!==id){ setTrack(_chans['realm:'+prev], false); clearRemotes(); }   // leave the old realm: untrack + clear its remote players
+    if (prev && prev!==id){ setTrack(_chans['realm:'+prev], false); clearRemotes(); }   // leave the old space: untrack + clear its remote players
     _realmCh = realmChan(id); setTrack(_realmCh, true);
   });
+  return true;   // success -> boot uses this to decide picker-fallback
 }
 function quietestRealm(){ var best=REALMS[0]; for (var i=1;i<REALMS.length;i++) if ((_counts[REALMS[i].id]||0)<(_counts[best.id]||0)) best=REALMS[i]; return best.id; }
 function updatePickerCounts(){
@@ -1859,6 +1875,41 @@ function openProfile(c){
   }
   card.style.display='block';
 }
+function spaceLink(id){ try { return location.origin+location.pathname+'?space='+id; } catch(e){ return '?space='+id; } }   // a clean, hash-free shareable link
+function openSpaces(){                                       // the private link-space portal: passphrase -> deterministic world + presence channel; invite link to share
+  var card=document.getElementById('spaceCard');
+  if(!card){ card=document.createElement('div'); card.id='spaceCard'; card.addEventListener('click', function(e){ e.stopPropagation(); }); (stage.parentNode||document.body).appendChild(card); }
+  var inPriv=_priv, link=inPriv?spaceLink(_realm):'';
+  card.innerHTML = '<h3>\ud83c\udf00 Private space</h3>'
+    + (inPriv
+       ? '<div class="pf-bio">You\u2019re in a private space. Share this link \u2014 anyone who opens it lands in the same world as you.</div>'
+         + '<label>invite link</label><input id="sp-link" readonly value="'+pesc(link)+'">'
+         + '<div class="pf-row"><button id="sp-copy">copy invite</button><button id="sp-leave">back to realms</button></div>'
+       : '<div class="pf-bio">Enter a passphrase to make or join a private space. The same passphrase \u2014 or the link \u2014 always lands everyone in the same world.</div>'
+         + '<label>passphrase</label><input id="sp-pass" maxlength="40" placeholder="e.g. moonlit garden">'
+         + '<div class="pf-row"><button id="sp-go">enter</button><button id="sp-close">close</button></div>')
+    + '<div class="sp-note">Unlisted link + passphrase \u2014 private like a shared link, not bulletproof. There are no accounts yet: anyone with the link or passphrase can join, and everyone here can see each other. Use a long, unusual passphrase, and don\u2019t share anything here you wouldn\u2019t put in a link.</div>';
+  if(inPriv){
+    card.querySelector('#sp-copy').addEventListener('click', function(e){ e.stopPropagation();
+      var inp=card.querySelector('#sp-link'); try { inp.focus(); inp.select(); } catch(_){}
+      var done=function(){ var b=card.querySelector('#sp-copy'); if(b) b.textContent='copied \u2713'; };
+      var fallback=function(){ var ok=false; try { ok=document.execCommand('copy'); } catch(__){}   // honest: only claim "copied" if it actually happened; else leave it selected + tell them to copy by hand
+        if(ok) done(); else { var b=card.querySelector('#sp-copy'); if(b) b.textContent='press \u2318/Ctrl+C'; } };
+      if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(inp.value).then(done).catch(fallback); }
+      else fallback(); });
+    card.querySelector('#sp-leave').addEventListener('click', function(e){ e.stopPropagation(); card.style.display='none'; openPicker(); });   // step back out to the public realms
+  } else {
+    var go=function(){ var v=(card.querySelector('#sp-pass').value||'').trim(); if(v.length<2) return;
+      var id=spaceIdFor(v); card.style.display='none';
+      try { history.replaceState(null,'',location.pathname+'?space='+id); } catch(_){}   // reflect the space in the URL (shareable + auto-rejoins on reload)
+      joinRealm(id, {priv:true, name:'Private space'}); };
+    card.querySelector('#sp-go').addEventListener('click', function(e){ e.stopPropagation(); go(); });
+    card.querySelector('#sp-pass').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.stopPropagation(); go(); } });
+    card.querySelector('#sp-close').addEventListener('click', function(e){ e.stopPropagation(); card.style.display='none'; });
+  }
+  card.style.display='block';
+  var f=card.querySelector('#sp-pass'); if(f) setTimeout(function(){ try{ f.focus(); }catch(_){} }, 30);
+}
 var DEBUG = /[?&]debug=1/.test(location.search||'');
 function debugPanel(){                                     // ?debug=1 -> a live readout of the realm presence state (for diagnosing multiplayer)
   if (!DEBUG) return;
@@ -1954,7 +2005,7 @@ function boot(){
   }
   ROOM_CRITTERS.forEach(spawnGuest);                      // the room's composed critters
   updateCredits();
-  if (EXPLORE){ var _rr=chosenRealm(); if (_rr) joinRealm(_rr); else openPicker(); }   // realms: pick one, or rejoin your last / a ?realm= link
+  if (EXPLORE){ var _rr=chosenRealm(); if (!(_rr && joinRealm(_rr))) openPicker(); }   // realms: pick one, or rejoin your last / a ?realm= / ?space= link (a rejected join falls back to the picker, never a blank screen)
   else connectPresence();                                 // a #r= room keeps the single shared "● N here now" counter
   var sb = document.getElementById('sound'); if (sb) sb.addEventListener('click', toggleSound);
   requestAnimationFrame(loop);
