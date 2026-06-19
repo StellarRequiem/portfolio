@@ -1164,6 +1164,10 @@ function stepCritters(dt){
         if (c._idle > (c._idleNext||9)){ c._idle=0; c._idleNext=Rn(8,16);
           if (Math.random()<0.5) c.face=-c.face; else floatNote(c, ['💭','✨','🐾','🎵','💤'][(Math.random()*5)|0]); } }
       else c._idle=0;
+    } else if (c.remote){                                // another REAL player, mirrored via realm presence — ease toward their position
+      var rdx = ((c.targetX!=null)?c.targetX:c.x) - c.x;
+      if (Math.abs(rdx) > 1){ c.face = rdx<0?-1:1; c.x += Math.max(-4.5, Math.min(4.5, rdx*0.16)); c.bob += 0.26; moving=true; }
+      c.x = clampN(c.x, 8, WORLD_W - SP - 8); c.y = groundY() - 2;
     } else if (c.mode==='leaving'){                       // wander off the nearest edge, then despawn
       var dir = c.x < W/2 ? -1 : 1; c.x += dir*Math.max(2.2, c.speed*1.6); c.bob+=0.3; c.face=dir; moving=true;
       if (c.x < -SP-12 || c.x > W+SP+12){ c.el.remove(); critters.splice(k,1); continue; }
@@ -1392,7 +1396,7 @@ function loop(ts){
   if (ts - _lastDraw < 32) return;                 // ~30fps cap — gentler on battery, esp. mobile / 120Hz screens
   _lastDraw = ts;
   t0 = ts; var dt = 1/30;
-  if (!hidden && !lowPower){ if(EXPLORE && !INSIDE) stepWeather(dt); stepCamera(); drawScene(ts); stepCritters(dt); if(!INSIDE){ manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); } updateFireworks(dt); demoTick(dt); ambienceTick(dt); }
+  if (!hidden && !lowPower){ if(EXPLORE && !INSIDE) stepWeather(dt); stepCamera(); drawScene(ts); stepCritters(dt); if(!INSIDE){ manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); } updateFireworks(dt); demoTick(dt); ambienceTick(dt); presenceTick(); }
 }
 
 /* ── host state: idle / heat / audio on / volume ── */
@@ -1536,9 +1540,10 @@ function showLive(n){
   presenceEl.innerHTML = (rn?'<b>'+rn+'</b> &middot; ':'') + '\u25cf ' + n + ' here now' + (rn?' <span id="rswitch">&#8646; switch</span>':'');
   presenceEl.style.opacity = '1';
   var rsw=document.getElementById('rswitch'); if (rsw) rsw.onclick=function(e){ e.stopPropagation(); openPicker(); };
-  if (!ROOM){ var mob = innerWidth < 640;                  // dynamic population scales to the real headcount (wider in EXPLORE)
+  if (!ROOM){ var mob = innerWidth < 640;                  // ambient filler scales to headcount MINUS the real players we already render (no double-count)
     var base = EXPLORE ? (mob?7:11) : (mob?3:4), cap = EXPLORE ? (mob?12:20) : (mob?8:14);
-    POP_MAX = Math.min(cap, base + n); }
+    var rem = 0; for (var rp in _remotes){ if (_remotes[rp] && _remotes[rp].el) rem++; }
+    POP_MAX = Math.min(cap, base + Math.max(0, n - 1 - rem)); }
 }
 function hideLive(){ if (presenceEl) presenceEl.style.opacity = '0'; }
 function withSB(cb){                                       // import supabase-js once, reuse the client (channels multiplex on one connection)
@@ -1560,15 +1565,15 @@ function realmChan(id){                                     // ONE persistent ch
   ch._wantTrack=false; ch._tracking=false;
   ch.on('presence', { event: 'sync' }, function(){
     var n=Object.keys(ch.presenceState()).length; _counts[id]=n;
-    if (_realm===id){ liveCount=Math.max(1,n); showLive(liveCount); }
+    if (_realm===id){ liveCount=Math.max(1,n); showLive(liveCount); syncRemotes(ch.presenceState()); }   // render the other real players in my realm
     var pk=document.getElementById('realmpick'); if (pk && pk.style.display!=='none') updatePickerCounts();
   });
-  ch.subscribe(function(s){ if (s==='SUBSCRIBED' && ch._wantTrack && !ch._tracking){ ch._tracking=true; ch.track({ t: Date.now() }); } });
+  ch.subscribe(function(s){ if (s==='SUBSCRIBED' && ch._wantTrack && !ch._tracking){ ch._tracking=true; ch.track(myState()); } });
   _chans[topic]=ch; return ch;
 }
 function setTrack(ch, on){                                  // present (track) in a realm or not — without tearing the channel down
   if (!ch) return;
-  if (on){ ch._wantTrack=true; if (ch.state==='joined' && !ch._tracking){ ch._tracking=true; ch.track({ t: Date.now() }); } }
+  if (on){ ch._wantTrack=true; if (ch.state==='joined' && !ch._tracking){ ch._tracking=true; ch.track(myState()); } }
   else { ch._wantTrack=false; if (ch._tracking){ ch._tracking=false; try { ch.untrack(); } catch(e){} } }
 }
 function joinRealm(id){                                     // EXPLORE: present in exactly one realm (track it, untrack the last)
@@ -1577,7 +1582,7 @@ function joinRealm(id){                                     // EXPLORE: present 
   var ov=document.getElementById('realmpick'); if (ov) ov.style.display='none';
   showLive(1);
   withSB(function(){
-    if (prev && prev!==id) setTrack(_chans['realm:'+prev], false);   // leave the old realm's presence (its channel stays for counts)
+    if (prev && prev!==id){ setTrack(_chans['realm:'+prev], false); clearRemotes(); }   // leave the old realm: untrack + clear its remote players
     _realmCh = realmChan(id); setTrack(_realmCh, true);
   });
 }
@@ -1611,6 +1616,51 @@ function openPicker(){
   var ov=document.getElementById('realmpick'); if (!ov) ov=buildPicker();
   ov.style.display='flex'; updatePickerCounts();
   withSB(function(){ REALMS.forEach(function(r){ realmChan(r.id); }); });   // ensure every realm is subscribed for live counts (reused; only _realm tracks itself)
+}
+/* ── multiplayer: render the OTHER real players in your realm (their critter + position, carried on the same presence channel) ── */
+var _remotes = {};
+function myState(){ return { spec: playerSpec || null, nx: (player && WORLD_W ? player.x/WORLD_W : 0.5), face: player ? player.face : 1, t: Date.now() }; }
+function spawnRemote(pid, st){
+  var spec = (st && st.spec) ? st.spec : null; if (!spec || !SPRITES[spec.base]) return;
+  if (_remotes[pid]) return;
+  var tok = {}; _remotes[pid] = tok;                       // unique reservation token — survives a leave->rejoin during recolor (no orphan double-spawn)
+  var eye = /^#[0-9a-fA-F]{6}$/.test(spec.eye||'') ? spec.eye : '#9b8cff';
+  var outfit = (spec.outfit||[]).slice(0,4).map(function(p){ return { fn:ACC_BY_NAME[p&&p.item], c:(/^#[0-9a-fA-F]{6}$/.test(p&&p.color)?p.color:'#ffffff') }; }).filter(function(p){ return p.fn; });
+  var name = cleanName(spec.name) || genName({ base:spec.base, eye:eye, outfit:spec.outfit||[] });
+  recolor(SPRITES[spec.base], eye, outfit).then(function(url){
+    if (_remotes[pid] !== tok) return;                    // despawned or re-reserved during recolor -> bail (no orphan)
+    var cb = buildCritterEl(url, eye); var el = cb.el; el.setAttribute('aria-label', name);
+    el.style.transformOrigin='50% 92%'; el.style.filter='drop-shadow(0 3px 4px rgba(0,0,0,.45)) drop-shadow(0 0 9px '+eye+')';
+    stage.appendChild(el);
+    var plate=document.createElement('div'); plate.className='plate'; plate.style.color=eye; plate.style.opacity='0.92'; plate.textContent=name; stage.appendChild(plate);
+    var bubble=document.createElement('div'); bubble.className='bubble'; stage.appendChild(bubble);
+    var tx = (st.nx!=null?st.nx:0.5)*WORLD_W;
+    var c = { el:el, head:cb.head, legL:cb.legL, legR:cb.legR, plate:plate, bubble:bubble, resident:true, remote:true, pid:pid,
+      animal:spec.base, persona:persona(spec.base), color:eye, scale:1.4, glow:eye, x:tx, targetX:tx, y:groundY()-2, face:st.face||1, bob:0, mode:'remote' };
+    _remotes[pid] = c; critters.push(c);
+  });
+}
+function despawnRemote(pid){ var c=_remotes[pid]; if (c && c.el){ c.el.remove(); if(c.plate)c.plate.remove(); if(c.bubble)c.bubble.remove(); var ix=critters.indexOf(c); if(ix>=0)critters.splice(ix,1); } delete _remotes[pid]; }   // handles both built critters and bare reservation tokens
+function syncRemotes(state){
+  if (!EXPLORE || !state) return;
+  var me = presenceKey(), seen = {};
+  Object.keys(state).forEach(function(pid){
+    if (pid===me) return; seen[pid]=1;
+    var st = (state[pid] && state[pid][0]) || {}, c = _remotes[pid];
+    if (!c){ spawnRemote(pid, st); }
+    else if (c.el){ if (st.nx!=null) c.targetX = st.nx*WORLD_W; if (st.face) c.face = st.face; }   // only update fully-built remotes (skip reservation tokens)
+  });
+  Object.keys(_remotes).forEach(function(pid){ if (!seen[pid]) despawnRemote(pid); });
+}
+function clearRemotes(){ Object.keys(_remotes).forEach(despawnRemote); }
+var _lastPush=0, _pushX=-1, _pushFace=0;
+function presenceTick(){                                   // push my critter+position to the realm (throttled, only on real movement)
+  if (!EXPLORE || !_realm || !_realmCh || !player) return;
+  if (t0 - _lastPush < 350) return;
+  var nx = WORLD_W ? player.x/WORLD_W : 0.5;
+  if (_pushX>=0 && Math.abs(nx-_pushX)<0.004 && player.face===_pushFace) return;
+  _lastPush=t0; _pushX=nx; _pushFace=player.face;
+  try { if (_realmCh._tracking) _realmCh.track(myState()); } catch(e){}
 }
 /* ── rooms: a #r= link renders a composed room (backsplash + props + critters) — our art, client-side, no backend ── */
 var ROOM = null, ROOM_PROPS = [], ROOM_CRITTERS = [];
