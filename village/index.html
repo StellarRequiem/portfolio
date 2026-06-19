@@ -1657,7 +1657,7 @@ function spawnRemote(pid, st){
     var cb = buildCritterEl(url, eye); var el = cb.el; el.setAttribute('aria-label', name);
     el.style.transformOrigin='50% 92%'; el.style.filter='drop-shadow(0 3px 4px rgba(0,0,0,.45)) drop-shadow(0 0 9px '+eye+')';
     stage.appendChild(el);
-    var plate=document.createElement('div'); plate.className='plate'; plate.style.color=eye; plate.style.opacity='0.92'; plate.textContent=name; stage.appendChild(plate);
+    var plate=document.createElement('div'); plate.className='plate'; plate.style.color=eye; plate.style.opacity='0.96'; plate.textContent='● '+name; stage.appendChild(plate);   // ● = a live player (not an ambient critter)
     var bubble=document.createElement('div'); bubble.className='bubble'; stage.appendChild(bubble);
     var tx = (st.nx!=null?st.nx:0.5)*WORLD_W;
     var c = { el:el, head:cb.head, legL:cb.legL, legR:cb.legR, armL:cb.armL, armR:cb.armR, plate:plate, bubble:bubble, resident:true, remote:true, pid:pid,
@@ -1678,8 +1678,20 @@ function syncRemotes(state){
   Object.keys(_remotes).forEach(function(pid){ if (!seen[pid]) despawnRemote(pid); });
 }
 function clearRemotes(){ Object.keys(_remotes).forEach(despawnRemote); }
+var DEBUG = /[?&]debug=1/.test(location.search||'');
+function debugPanel(){                                     // ?debug=1 -> a live readout of the realm presence state (for diagnosing multiplayer)
+  if (!DEBUG) return;
+  var d=document.getElementById('dbg');
+  if(!d){ d=document.createElement('div'); d.id='dbg'; d.style.cssText='position:fixed;left:8px;bottom:64px;z-index:10002;background:rgba(0,0,0,.82);color:#8fe6c0;font:10px ui-monospace,monospace;padding:6px 8px;border-radius:6px;max-width:80vw;white-space:pre-wrap;line-height:1.35;pointer-events:none;'; (stage.parentNode||document.body).appendChild(d); }
+  var keys=[]; try { if (_realmCh && _realmCh.presenceState){ var ps=_realmCh.presenceState(); for (var k in ps){ var meta=(ps[k]&&ps[k][0])||{}; keys.push(k.slice(0,5)+(k===presenceKey()?'(me)':'')+(meta.spec?'+spec':'-nospec')); } } } catch(e){ keys.push('err:'+e); }
+  var rem=[]; for (var p in _remotes){ var c=_remotes[p]; rem.push(p.slice(0,5)+(c&&c.el?'#'+(c.plate?c.plate.textContent:'?'):':pending')); }
+  d.textContent='me '+presenceKey().slice(0,5)+'  realm '+(_realm||'-')+'  count '+liveCount
+    +'\npresences: '+(keys.join('  ')||'none')
+    +'\nrendered: '+(rem.join('  ')||'none');
+}
 var _lastPush=0, _pushX=-1, _pushFace=0;
 function presenceTick(){                                   // push my critter+position to the realm (throttled, only on real movement)
+  debugPanel();
   if (!EXPLORE || !_realm || !_realmCh || !player) return;
   if (t0 - _lastPush < 350) return;
   var nx = WORLD_W ? player.x/WORLD_W : 0.5;
