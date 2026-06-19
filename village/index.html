@@ -149,9 +149,9 @@ var critters = [], W = innerWidth, H = innerHeight, t0 = 0;
 // local ambient desktop village is unchanged; the public web build flips it on (see gen_village_public.py).
 var EXPLORE = false, WORLD_W = innerWidth, cameraX = 0, player = null, keyL = false, keyR = false, taken = false;
 var cycleT = 0, CYCLE_HALF = 600;   // EXPLORE day/night: 600s day + 600s night (10 min each); cycleT advances in stepCamera
-function cyclePhase(){ return (cycleT % (2*CYCLE_HALF)) / (2*CYCLE_HALF); }   // 0=dawn, 0.5=dusk, 1=dawn
+function cyclePhase(){ return ((Date.now()/1000) % (2*CYCLE_HALF)) / (2*CYCLE_HALF); }   // wall-clock -> every client shares the same time-of-day (0=dawn, 0.5=dusk)
 function clampN(v,a,b){ return v<a?a:(v>b?b:v); }
-function worldW(){ return EXPLORE ? Math.max(W*3, 2400) : W; }
+function worldW(){ return EXPLORE ? 2800 : W; }          // FIXED width — every client shares the same world size (not viewport-scaled), so a space is one consistent instance
 function stepCamera(){                                   // follow the player; centre the world until the user takes control
   if (!EXPLORE) { cameraX = 0; return; }
   cycleT += 1/30;                                       // advance the day/night clock (once per ~30fps frame)
@@ -672,8 +672,9 @@ function buildScene(){
     cameraX = clampN(cameraX, 0, Math.max(0, INT_W-W)); return;
   }
   W = innerWidth; H = innerHeight; sizeCanvas(); WORLD_W = worldW();
-  stars = []; for (var i=0;i<90;i++) stars.push({ x:Math.random()*W, y:Math.random()*groundY()*0.95, r:Math.random()*1.4+0.3, tw:Math.random()*6.28 });
-  runes = []; for (var j=0;j<26;j++) runes.push({ x:Math.random()*W, y:Math.random()*H, s:Math.random()*0.5+0.4, ch:glyphChars[(Math.random()*glyphChars.length)|0], a:Math.random()*0.18+0.05 });
+  if (!SEED) SEED = defaultSeed(); rng = mulberry32(SEED);   // seed the backdrop too, so a space looks the same for everyone in it
+  stars = []; for (var i=0;i<90;i++) stars.push({ x:rng()*W, y:rng()*groundY()*0.95, r:rng()*1.4+0.3, tw:rng()*6.28 });
+  runes = []; for (var j=0;j<26;j++) runes.push({ x:rng()*W, y:rng()*H, s:rng()*0.5+0.4, ch:glyphChars[(rng()*glyphChars.length)|0], a:rng()*0.18+0.05 });
   buildHuts();
   generateScene(SEED);
 }
@@ -693,7 +694,7 @@ function defaultSeed(){ var d=new Date(); return d.getFullYear()*1000 + Math.cei
 function generateScene(seed){                            // seeded set-dressing: hills, trees, lanterns, rocks (avoids the gazebo)
   SEED = seed || defaultSeed(); rng = mulberry32(SEED);
   var gy=groundY(), gz=gazebo(), clear=function(x){ return Math.abs(x-gz.x) < gz.r*1.15; };
-  var WW = WORLD_W, dens = WW / W;                       // EXPLORE: spread the set-dressing across the whole walkable world
+  var WW = WORLD_W, dens = EXPLORE ? WW/1000 : WW/W;     // EXPLORE: density keyed to the FIXED world width (viewport-independent -> same set-dressing for everyone); ambient build unchanged
   HILLS=[]; for(var i=0;i<Math.round(5*dens);i++) HILLS.push({ x:rng()*WW, w:140+rng()*240, h:26+rng()*46 });
   TREES=[]; for(var t=0;t<Math.round((6+Math.floor(rng()*6))*dens);t++){ var x=rng()*WW; if(clear(x))continue; TREES.push({ x:x, y:gy+10+rng()*(H-gy-46), s:0.7+rng()*0.7, pine:rng()<0.6 }); }
   LANTERNS=[]; for(var l=0;l<Math.round((3+Math.floor(rng()*3))*dens);l++){ var lx=rng()*WW; if(clear(lx))continue; LANTERNS.push({ x:lx, y:gy+22+rng()*(H-gy-52) }); }
@@ -760,10 +761,10 @@ function drawCelestial(f){                                // EXPLORE: sun arcs b
     cx.save(); cx.globalAlpha=0.62; cx.fillStyle='#d6e6f3'; cx.shadowColor='#9fc4e6'; cx.shadowBlur=22;
     cx.beginPath(); cx.arc(mx,my,19,0,6.28); cx.fill(); cx.shadowBlur=0; cx.restore(); cx.globalAlpha=1; }
 }
-var _wx = 'clear', _wxNext = 0;   // self-contained ambient weather (no data); evolves over time, calmer at night
+var _wx = 'clear', _wxBucket = -1;   // DETERMINISTIC ambient weather: a function of (space seed + wall-clock window) so everyone in a space sees the same sky
 function weatherState(){ return _wx; }
-function stepWeather(dt){ _wxNext -= dt; if (_wxNext > 0) return; _wxNext = Rn(40, 110);
-  var night = (typeof dayFactor==='function' ? dayFactor() : 1) < 0.4, roll = Math.random();
+function stepWeather(dt){ var bk = Math.floor(Date.now()/75000); if (bk === _wxBucket) return; _wxBucket = bk;   // a new ~75s window, shared by wall-clock
+  var night = (typeof dayFactor==='function' ? dayFactor() : 1) < 0.4, roll = mulberry32(((SEED^bk^0x9e3779b9)>>>0))();
   _wx = night ? (roll<0.72?'clear':'cloudy')                              // night: mostly clear/cloudy, no storms
               : (roll<0.55?'clear':(roll<0.85?'cloudy':'storm')); }
 function drawClouds(ts, wx, f){
@@ -847,7 +848,7 @@ function drawSkyline(f){
 }
 function generateBuildings(){                             // multi-story shops/apartments (doors + window grid + rooms)
   BUILDINGS=[]; var gy=groundY(), gz=gazebo(), WW=EXPLORE?WORLD_W:W, spots;
-  if (EXPLORE){ var ns=Math.max(4,Math.round(4*WW/W)); spots=[]; for(var si=0;si<ns;si++) spots.push((si+0.5)/ns); }
+  if (EXPLORE){ var ns=Math.max(5,Math.round(WW/340)); spots=[]; for(var si=0;si<ns;si++) spots.push((si+0.5)/ns); }   // building slots keyed to the FIXED world width (same count for every client)
   else spots=[0.08,0.22,0.78,0.92];                       // local village: original layout untouched
   spots.forEach(function(fx){ if (rng()<0.25) return; var x=fx*WW; if (Math.abs(x-gz.x)<gz.r*1.25) return;
     var floors=2+(rng()*3|0), cols=2+(rng()*2|0), w=cols*44+24, h=floors*52+28, pad=14, span=w-2*pad, ww=18, rooms=[];
@@ -1611,9 +1612,11 @@ function setTrack(ch, on){                                  // present (track) i
   if (on){ ch._wantTrack=true; if (ch.state==='joined' && !ch._tracking){ ch._tracking=true; ch.track(myState()); } }
   else { ch._wantTrack=false; if (ch._tracking){ ch._tracking=false; try { ch.untrack(); } catch(e){} } }
 }
+function spaceSeed(id){ var h=0, s=String(id||'street'); for (var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; return (h>>>0)||1; }   // stable per-space seed -> a distinct, consistent world per realm
 function joinRealm(id){                                     // EXPLORE: present in exactly one realm (track it, untrack the last)
   var r = realmById(id); if (!r) return;
   var prev=_realm; _realm=id; liveCount=1; try { localStorage.setItem('xclvxo_realm', id); } catch(e){}
+  SEED = spaceSeed(id); if (typeof buildScene==='function') buildScene();   // regenerate the world from this realm's seed -> everyone in it shares the same instance
   var ov=document.getElementById('realmpick'); if (ov) ov.style.display='none';
   showLive(1);
   withSB(function(){
