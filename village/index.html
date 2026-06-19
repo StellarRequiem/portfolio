@@ -199,16 +199,32 @@ function wakeAudio(){                                 // resume the context (may
   if (AC && AC.state === 'suspended') AC.resume().then(function(){ audioReady = (AC.state==='running'); });
   else if (AC) audioReady = (AC.state === 'running');
 }
-function startBed(){                                  // soft ambient drone — the "background sound"
+function startBed(){                                  // soft filtered-noise AIR bed (no tonal pitch = no hum) — replaces the old sine drone
   if (!AC || bed.length) return;
-  [KEY-12, KEY-12+7, KEY].forEach(function(n, i){
-    var o = AC.createOscillator();
-    var g = AC.createGain(); o.type = 'sine'; o.frequency.value = midi(n) * (i===1?1.005:1);
-    g.gain.value = 0.06; o.connect(g); g.connect(master); o.start(); bed.push({o:o,g:g});
-  });
-  var lfo = AC.createOscillator(), lg = AC.createGain();      // slow breathing on the bed
-  lfo.frequency.value = 0.07; lg.gain.value = 0.025; lfo.connect(lg);
-  bed.forEach(function(b){ lg.connect(b.g.gain); }); lfo.start(); bed.push({o:lfo,g:lg});
+  var src = AC.createBufferSource(); src.buffer = getNoise(); src.loop = true;
+  var fl = AC.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 650; fl.Q.value = 0.4;
+  var g = AC.createGain(); g.gain.value = 0.014;             // very soft breathing air, not a constant tone
+  src.connect(fl); fl.connect(g); g.connect(master); src.start();
+  var lfo = AC.createOscillator(), lg = AC.createGain();      // slow swell so the air breathes
+  lfo.type = 'sine'; lfo.frequency.value = 0.05; lg.gain.value = 0.009; lfo.connect(lg); lg.connect(g.gain); lfo.start();
+  bed.push({o:src,g:g}, {o:lfo,g:lg});
+}
+function sfx(kind){                                   // small action noises (very soft; gated on audio)
+  if (!AC || !audioReady || !audioOn) return;
+  var t = AC.currentTime + 0.005;
+  if (kind==='step'){ blip(104 + Math.random()*16, t, 0.05, 'triangle', 0.035, master); }              // soft footstep tick
+  else if (kind==='greet'){ blip(660, t, 0.07, 'sine', 0.045, master); blip(880, t+0.07, 0.06, 'sine', 0.035, master); }   // a friendly two-note "hi"
+  else if (kind==='jump'){ var o=AC.createOscillator(), g=AC.createGain(); o.type='square'; o.frequency.setValueAtTime(300,t); o.frequency.exponentialRampToValueAtTime(700,t+0.16);
+    g.gain.setValueAtTime(0.06,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.2); o.connect(g); g.connect(master); o.start(t); o.stop(t+0.22); }   // boing
+  else if (kind==='pop'){ blip(560, t, 0.05, 'sine', 0.05, master); blip(740, t+0.05, 0.05, 'sine', 0.04, master); }
+}
+var ambT = 1;
+function ambienceTick(dt){                            // day = occasional birds, night = crickets (village only; soft, on top of the air bed)
+  if (!EXPLORE || !audioOn || !AC || !audioReady || INSIDE) return;
+  ambT -= dt; if (ambT > 0) return;
+  var t = AC.currentTime + 0.02, df = (typeof dayFactor==='function') ? dayFactor() : 1;
+  if (df < 0.28){ for (var i=0;i<3;i++) blip(midi(95 + ((i*5)%7)), t + i*0.05, 0.035, 'triangle', 0.028, master); ambT = Rn(2.5, 6); }   // crickets
+  else { var bn=[84,88,86,91,89]; for (var j=0;j<3;j++) blip(midi(bn[(Math.random()*bn.length)|0]), t + j*0.09, 0.07, 'sine', 0.03, master); ambT = Rn(4.5, 10); }   // birds
 }
 function blip(freq, when, dur, wave, peak, dest){     // one 8-bit note with a quick envelope (dest defaults to master)
   if (!AC || !audioReady) return;
@@ -326,10 +342,11 @@ function playTune(tuneIdx, instIdx){
   });
 }
 /* ── looped ambient music (EXPLORE/village only — gentle A-minor-pentatonic motifs on the music bus; the ambient non-EXPLORE build stays drone-only) ── */
-var LOOPS = [
-  [[69,2],[67,1],[64,1],[62,2],[60,1],[57,2],[60,1],[62,2],[64,2]],
-  [[64,1.5],[67,1.5],[69,2],[67,1],[64,1],[62,2],[60,2],[57,2]],
-  [[57,2],[60,2],[64,2],[62,1],[60,1],[57,2],[55,2],[57,2]]
+var LOOPS = [   // longer developed phrases (A-minor pentatonic) so the ambient line has shape, not just a short motif
+  [[57,1],[60,1],[64,2],[62,1],[60,1],[64,1],[67,2],[69,1],[67,1],[64,2],[62,1],[60,1],[57,2],[60,1],[62,1],[64,3]],
+  [[64,1.5],[67,1.5],[69,1],[72,1],[69,2],[67,1],[64,1],[62,2],[60,1],[64,1],[62,1],[57,1],[60,2],[57,3]],
+  [[69,1],[67,1],[64,1],[62,1],[60,2],[57,1],[60,1],[64,1],[67,1],[69,2],[67,1],[64,1],[60,1],[62,1],[64,2],[57,3]],
+  [[60,2],[62,1],[64,1],[67,2],[64,1],[62,1],[60,2],[57,1],[60,1],[62,2],[64,1],[67,1],[69,2],[67,2]]
 ];
 var loopOn = false, loopIdx = 0, loopTimer = null;
 function scheduleLoop(){
@@ -386,6 +403,7 @@ function setAnim(k, label){                                // trigger a player p
   if(!player) return;
   player.anim=k; player.animUntil=(k==='sit')?1e12:(t0+2200);
   player.dancing=(k==='dance');
+  if (k==='jump') sfx('jump'); else if (k==='cheer') sfx('pop');
   floatNote(player, label||'✨');
 }
 function setupPlayerUI(){
@@ -1130,7 +1148,8 @@ function stepCritters(dt){
     if (EXPLORE && !c.player && !c.resident){ c.age=(c.age||0)+dt; c.scale=0.55+0.45*Math.min(1,c.age/9); }   // life cycle: born small, grow up over ~9s
     if (c.player){                                       // the user-controlled character (EXPLORE mode)
       var pv = (keyL?-1:0) + (keyR?1:0);
-      if (pv){ c.danceX=null; c.dancing=false; c.x += pv*2.8; c.face = pv; c.bob += 0.28; moving = true; }
+      if (pv){ c.danceX=null; c.dancing=false; c.x += pv*2.8; c.face = pv; c.bob += 0.28; moving = true;
+        var stp=Math.floor(c.bob/Math.PI); if (stp!==c._step){ c._step=stp; sfx('step'); } }   // soft footstep on each stride
       else if (INSIDE && INSIDE.studio && c.danceX!=null){   // walk to the tapped dance tile, then dance on it
         var dd = c.danceX - (c.x + SP/2);
         if (Math.abs(dd) > 6){ c.face = dd<0?-1:1; c.x += c.face*Math.min(2.6, Math.abs(dd)*0.14); c.bob += 0.3; moving = true; c.dancing = false; }
@@ -1141,6 +1160,10 @@ function stepCritters(dt){
       if (c.dancing) c.face = Math.sin(t0*0.007) < 0 ? -1 : 1;   // wiggle while dancing
       if (INSIDE && INSIDE.studio){ var nib = !!(BOOTH && (c.x+SP/2) >= BOOTH.platX0);   // DJ booth occupancy -> club music controls
         if (nib !== boothOpen){ boothOpen = nib; if (boothOpen) openDJPanel(); else closeDJPanel(); } }
+      if (!moving && !c.anim && !c.dancing){ c._idle=(c._idle||0)+dt;   // idle: an occasional little look / thought
+        if (c._idle > (c._idleNext||9)){ c._idle=0; c._idleNext=Rn(8,16);
+          if (Math.random()<0.5) c.face=-c.face; else floatNote(c, ['💭','✨','🐾','🎵','💤'][(Math.random()*5)|0]); } }
+      else c._idle=0;
     } else if (c.mode==='leaving'){                       // wander off the nearest edge, then despawn
       var dir = c.x < W/2 ? -1 : 1; c.x += dir*Math.max(2.2, c.speed*1.6); c.bob+=0.3; c.face=dir; moving=true;
       if (c.x < -SP-12 || c.x > W+SP+12){ c.el.remove(); critters.splice(k,1); continue; }
@@ -1178,7 +1201,7 @@ function stepCritters(dt){
       else { var ggx=go.x-c.x, ggd=Math.abs(ggx);
         if (ggd > SP*1.25){ c.face=ggx<0?-1:1; c.x += c.face*Math.min(2.2, ggd*0.08); c.bob+=0.26; moving=true; }
         else { c.face=ggx<0?-1:1;
-          if (!c.greeted){ c.greeted=true; c.greetT=Rn(1.6,3.0);
+          if (!c.greeted){ c.greeted=true; c.greetT=Rn(1.6,3.0); sfx('greet');
             if (typeof pickEmoji==='function'){ floatNote(c, pickEmoji(c)); go.face=-c.face; if(go.mode==='roam') floatNote(go, pickEmoji(go)); } }
           if ((c.greetT-=dt)<=0){ c.mode='roam'; c.greeted=false; c.greetTarget=null; } } }
     } else if (awake && e>0){                             // free roam along the ground
@@ -1217,6 +1240,7 @@ function stepCritters(dt){
       else if (c.anim==='wave'){ animRot=' rotate('+(Math.sin(t0*0.018)*9).toFixed(1)+'deg)'; }
       else if (c.anim==='sit'){ hop=0; ysq=0.74; }        // squash from the foot pivot -> reads as sitting
     }
+    if (!moving && !c.dancing && !(c.player && c.anim) && !reduced) ysq *= 1 + Math.sin(t0*0.0028 + (c.bob||0))*0.018;   // gentle idle breathing
     c.el.style.transform = 'translate(' + sx.toFixed(1) + 'px,' + (c.y+hop).toFixed(1) + 'px) scale(' + (c.face*rs).toFixed(3) + ',' + (rs*ysq).toFixed(3) + ')' + animRot;
     if (c.legL){                                          // bipedal walk cycle: legs swing opposite on the bob phase
       var lsw = reduced ? 0 : (moving ? Math.sin(c.bob)*16 : ((c.dancing||dancing) ? Math.sin(t0*0.013)*14 : 0));
@@ -1368,7 +1392,7 @@ function loop(ts){
   if (ts - _lastDraw < 32) return;                 // ~30fps cap — gentler on battery, esp. mobile / 120Hz screens
   _lastDraw = ts;
   t0 = ts; var dt = 1/30;
-  if (!hidden && !lowPower){ if(EXPLORE && !INSIDE) stepWeather(dt); stepCamera(); drawScene(ts); stepCritters(dt); if(!INSIDE){ manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); } updateFireworks(dt); demoTick(dt); }
+  if (!hidden && !lowPower){ if(EXPLORE && !INSIDE) stepWeather(dt); stepCamera(); drawScene(ts); stepCritters(dt); if(!INSIDE){ manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); } updateFireworks(dt); demoTick(dt); ambienceTick(dt); }
 }
 
 /* ── host state: idle / heat / audio on / volume ── */
