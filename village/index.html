@@ -113,6 +113,7 @@
   <div class="dockdiv"></div>
   <button id="reactBtn" class="dockbtn" type="button" title="react">&#128522;</button>
   <button id="musicBtn" class="dockbtn" type="button" title="play music">&#127925;</button>
+  <button id="copyBtn" class="dockbtn" type="button" title="copy my critter link">&#128279;</button>
 </div>
 <div id="reactWheel"></div>
 <div id="musicPanel"></div>
@@ -1268,6 +1269,7 @@ function spawnGuest(spec){
     critters.push(c); spawnSparkles(c.x+SP/2, c.y-20, 30); floatNote(c, '\u2726');
   });
 }
+var playerSpec = null;                                    // the spec the player critter was built from (for the share/copy link)
 function spawnPlayer(spec){                               // EXPLORE: the user-controlled character (your critter, or a default)
   var base = (spec && SPRITES[spec.base]) ? spec.base : SPRITE_NAMES[0];
   if (!base) return;
@@ -1275,6 +1277,7 @@ function spawnPlayer(spec){                               // EXPLORE: the user-c
   var outfit = (spec ? (spec.outfit||[]) : []).slice(0,4).map(function(p){ return { fn:ACC_BY_NAME[p&&p.item], c:(/^#[0-9a-fA-F]{6}$/.test(p&&p.color)?p.color:'#ffffff') }; }).filter(function(p){ return p.fn; });
   var name = (spec && cleanName(spec.name)) || 'you';
   var scale = spec ? Math.max(1, Math.min(2, +spec.scale || 1.5)) : 1.5;
+  playerSpec = { v:1, base:base, eye:eye, outfit:(spec && spec.outfit ? spec.outfit.slice(0,4) : []), scale:scale, name:(spec && cleanName(spec.name)) || '' };   // captured for "copy my critter"
   recolor(SPRITES[base], eye, outfit).then(function(url){
     var el=document.createElement('img'); el.className='critter player'; el.src=url; el.alt=name;
     el.style.transformOrigin='50% 92%'; el.style.zIndex='5';
@@ -1308,6 +1311,18 @@ function bindExploreControls(){
     z.addEventListener('pointerdown',down); z.addEventListener('pointerup',up); z.addEventListener('pointerleave',up); }
   bindZone(zL,-1); bindZone(zR,1);
   var dock=document.getElementById('dock'); if(dock) dock.style.display='flex';   // reveal the control dock (movement + tools)
+  var cb=document.getElementById('copyBtn'); if(cb) cb.addEventListener('click', function(e){ e.stopPropagation(); copyMyCritter(); });   // share affordance
+}
+function b64enc(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))); }   // inverse of the #c= decoder
+function copyMyCritter(){                                  // copy a /village/#c= link for the current player critter, with a ✓ toast
+  var url = location.origin + '/village/#c=' + encodeURIComponent(b64enc(playerSpec || {}));
+  var t = document.getElementById('copytoast');
+  if (!t){ t = document.createElement('div'); t.id='copytoast';
+    t.style.cssText='position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:10000;background:rgba(8,14,22,.95);color:#9be0ff;border:1px solid rgba(86,206,255,.6);border-radius:8px;padding:8px 14px;font:12.5px ui-monospace,monospace;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis;';
+    (stage.parentNode||document.body).appendChild(t); }
+  var show=function(msg){ t.textContent=msg; t.style.opacity='1'; setTimeout(function(){ t.style.opacity='0'; }, 2000); };
+  if (navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(function(){ show('✓ copied — share your critter'); }, function(){ show(url); }); }
+  else { show(url); }
 }
 function spawnGuestFromHash(){
   var m = (location.hash||'').match(/[#&]c=([^&]+)/); if (!m) return;
