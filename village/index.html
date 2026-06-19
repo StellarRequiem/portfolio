@@ -114,6 +114,19 @@
   .djChip { font: 12px 'SF Mono', ui-monospace, Menlo, monospace; color: #c6b3ff; border: 1px solid rgba(155,224,255,.35);
     border-radius: 8px; padding: 6px 11px; margin: 3px; background: rgba(10,8,20,.6); cursor: pointer; }
   .djChip.on { background: rgba(155,224,255,.22); border-color: rgba(155,224,255,.9); color: #fff; }
+  .pico { position: absolute; top: 0; left: 0; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid rgba(86,206,255,.55);
+    background: rgba(8,16,28,.9); color: #9be0ff; font: 12px ui-monospace,monospace; line-height: 20px; text-align: center; cursor: pointer; z-index: 6; will-change: transform; }
+  .pico:hover { background: rgba(86,206,255,.35); }
+  #stage.inside .pico { display: none !important; }
+  #profileCard { position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 10003; width: 300px; max-width: 88vw; box-sizing: border-box;
+    background: rgba(8,14,24,.97); border: 1px solid rgba(86,206,255,.5); border-radius: 14px; padding: 16px; display: none; }
+  #profileCard h3 { margin: 0 0 4px; color: #9be0ff; font: 600 16px ui-monospace,monospace; word-break: break-word; }
+  #profileCard .pf-mood { font: 13px ui-monospace,monospace; color: #ffd23f; margin-bottom: 8px; }
+  #profileCard .pf-bio { font: 12px ui-monospace,monospace; color: #c8d8e8; white-space: pre-wrap; word-break: break-word; min-height: 16px; }
+  #profileCard label { display: block; font: 10px ui-monospace,monospace; color: #6c8aa6; text-transform: uppercase; letter-spacing: .08em; margin: 9px 0 3px; }
+  #profileCard input, #profileCard textarea { width: 100%; box-sizing: border-box; background: rgba(6,16,30,.7); border: 1px solid rgba(86,206,255,.35); border-radius: 8px; color: #cfe; font: 12px ui-monospace,monospace; padding: 6px 8px; resize: none; }
+  #profileCard .pf-row { display: flex; gap: 8px; margin-top: 13px; }
+  #profileCard .pf-row button { flex: 1; background: rgba(86,206,255,.18); border: 1px solid rgba(86,206,255,.6); border-radius: 8px; color: #cfe; font: 12px ui-monospace,monospace; padding: 8px; cursor: pointer; }
   @media (max-width: 640px){ .dockbtn { width: 50px; height: 48px; font-size: 21px; } #musicPanel { width: 252px; } #djPanel { width: 270px; } }
 </style>
 </head>
@@ -305,12 +318,14 @@ function performSong(group){                            // a COORDINATED, dynami
 }
 
 /* ── floating note glyph above a critter ── */
+function critTop(c){ var rs=c.scale||1; return c.y + 85 - 79*rs; }   // screen-Y of the critter's head top (accounts for the foot-pivot scaling) — anchors plates/bubbles/emoji above the head
 function floatNote(c, glyph){
   var n = document.createElement('div'); n.className = 'note'; n.textContent = glyph;
   stage.appendChild(n);
-  n.style.transform = 'translate(' + (c.x-cameraX+30) + 'px,' + (c.y-2) + 'px)';
+  var ex = c.x-cameraX+30, ey = critTop(c)-8;
+  n.style.transform = 'translate(' + ex + 'px,' + ey.toFixed(1) + 'px)';
   requestAnimationFrame(function(){ n.style.opacity = '1';
-    n.style.transform = 'translate(' + (c.x-cameraX+30+(Math.random()*16-8)) + 'px,' + (c.y-34) + 'px)'; });
+    n.style.transform = 'translate(' + (ex+(Math.random()*16-8)) + 'px,' + (ey-32).toFixed(1) + 'px)'; });   // rise from just above the head
   setTimeout(function(){ n.style.opacity = '0'; setTimeout(function(){ n.remove(); }, 500); }, 900);
 }
 
@@ -1284,8 +1299,10 @@ function stepCritters(dt){
     }
     if (c.resident){                                      // follow the resident with its nameplate + speech bubble
       var px = Math.max(54, Math.min(W-54, sx + SP*0.5)).toFixed(1);   // clamp so the plate/bubble stay on-screen at world edges
-      c.plate.style.transform  = 'translate(' + px + 'px,' + (c.y + SP*0.62).toFixed(1) + 'px) translate(-50%,0)';
-      c.bubble.style.transform = 'translate(' + px + 'px,' + (c.y - SP*0.10).toFixed(1) + 'px) translate(-50%,-100%)';
+      var top = critTop(c);                                 // anchor above the head, scale-aware
+      c.plate.style.transform  = 'translate(' + px + 'px,' + (top-15).toFixed(1) + 'px) translate(-50%,0)';
+      c.bubble.style.transform = 'translate(' + px + 'px,' + (top-6).toFixed(1) + 'px) translate(-50%,-100%)';
+      if (c.pico) c.pico.style.transform = 'translate(' + px + 'px,' + (top-33).toFixed(1) + 'px) translate(-50%,0)';   // profile icon above the plate
     }
   }
 }
@@ -1503,6 +1520,7 @@ function spawnPlayer(spec){                               // EXPLORE: the user-c
     player={ el:el, head:cb.head, legL:cb.legL, legR:cb.legR, armL:cb.armL, armR:cb.armR, plate:plate, bubble:bubble, resident:true, player:true, animal:base, persona:persona(base),
       color:eye, scale:scale, glow:eye, x:WORLD_W*0.5, y:groundY()-2, angle:0, speed:1, bob:0, face:1, mode:'roam', cooldown:99 };
     critters.push(player);
+    player.pico = makePico(player);                        // clickable profile icon above your head
     floatNote(player, '\u2726');                          // arrival sparkle (camera-aware float)
     player.bubble.textContent = 'a new friend joined the village!';   // brief welcome moment on load / shared-link open
     player.bubble.style.opacity = '0.95';
@@ -1658,7 +1676,7 @@ function openPicker(){
 /* ── multiplayer: render the OTHER real players in your realm (their critter + position, carried on the same presence channel) ── */
 var _remotes = {};
 function myLoc(){ if (typeof INSIDE!=='undefined' && INSIDE) return INSIDE.studio?'studio':(INSIDE.cafe?'cafe':'bldg'); return 'street'; }   // shared rooms: street/studio/cafe (singletons per realm)
-function myState(){ var ww=((typeof INSIDE!=='undefined'&&INSIDE)?INT_W:WORLD_W)||1; return { spec: playerSpec||null, nx: (player?player.x/ww:0.5), face: player?player.face:1, loc: myLoc(), t: Date.now() }; }
+function myState(){ var ww=((typeof INSIDE!=='undefined'&&INSIDE)?INT_W:WORLD_W)||1; return { spec: playerSpec||null, nx: (player?player.x/ww:0.5), face: player?player.face:1, loc: myLoc(), prof: { mood:(myProfile&&myProfile.mood)||'', bio:(myProfile&&myProfile.bio)||'' }, t: Date.now() }; }
 function spawnRemote(pid, st){
   var spec = (st && st.spec) ? st.spec : null; if (!spec || !SPRITES[spec.base]) return;
   if (_remotes[pid]) return;
@@ -1676,11 +1694,11 @@ function spawnRemote(pid, st){
     el.classList.add('remote');                            // exempt from the inside-hide CSS; remote visibility is JS-controlled per room
     var c = { el:el, head:cb.head, legL:cb.legL, legR:cb.legR, armL:cb.armL, armR:cb.armR, plate:plate, bubble:bubble, resident:true, remote:true, pid:pid,
       animal:spec.base, persona:persona(spec.base), color:eye, scale:1.4, glow:eye, x:(st.nx!=null?st.nx:0.5)*WORLD_W,
-      rnx:(st.nx!=null?st.nx:0.5), rloc:(st.loc||'street'), shownIn:null, y:groundY()-2, face:st.face||1, bob:0, mode:'remote' };
-    _remotes[pid] = c; critters.push(c);
+      rnx:(st.nx!=null?st.nx:0.5), rloc:(st.loc||'street'), shownIn:null, prof:(st.prof||{}), y:groundY()-2, face:st.face||1, bob:0, mode:'remote' };
+    c.pico = makePico(c); _remotes[pid] = c; critters.push(c);
   });
 }
-function despawnRemote(pid){ var c=_remotes[pid]; if (c && c.el){ c.el.remove(); if(c.plate)c.plate.remove(); if(c.bubble)c.bubble.remove(); var ix=critters.indexOf(c); if(ix>=0)critters.splice(ix,1); } delete _remotes[pid]; }   // handles both built critters and bare reservation tokens
+function despawnRemote(pid){ var c=_remotes[pid]; if (c && c.el){ c.el.remove(); if(c.plate)c.plate.remove(); if(c.bubble)c.bubble.remove(); if(c.pico)c.pico.remove(); var ix=critters.indexOf(c); if(ix>=0)critters.splice(ix,1); } delete _remotes[pid]; }   // handles both built critters and bare reservation tokens
 function syncRemotes(state){
   if (!EXPLORE || !state) return;
   var me = presenceKey(), seen = {};
@@ -1688,11 +1706,48 @@ function syncRemotes(state){
     if (pid===me) return; seen[pid]=1;
     var st = (state[pid] && state[pid][0]) || {}, c = _remotes[pid];
     if (!c){ spawnRemote(pid, st); }
-    else if (c.el){ if (st.nx!=null) c.rnx = st.nx; if (st.loc) c.rloc = st.loc; if (st.face) c.face = st.face; }   // only update fully-built remotes (skip reservation tokens)
+    else if (c.el){ if (st.nx!=null) c.rnx = st.nx; if (st.loc) c.rloc = st.loc; if (st.face) c.face = st.face; if (st.prof) c.prof = st.prof; }   // only update fully-built remotes (skip reservation tokens)
   });
   Object.keys(_remotes).forEach(function(pid){ if (!seen[pid]) despawnRemote(pid); });
 }
 function clearRemotes(){ Object.keys(_remotes).forEach(despawnRemote); }
+/* ── character profiles: a clickable icon above each player -> a little editable character sheet ── */
+var myProfile = (function(){ try { return JSON.parse(localStorage.getItem('xclvxo_profile'))||{}; } catch(e){ return {}; } })();
+function saveMyProfile(p){ myProfile=p; try { localStorage.setItem('xclvxo_profile', JSON.stringify(p)); } catch(e){} }
+function pesc(s){ return String(s==null?'':s).replace(/[<>&"]/g, function(m){ return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[m]; }); }
+function makePico(c){ var b=document.createElement('button'); b.type='button'; b.className='pico'; b.textContent='ⓘ'; b.title='profile';
+  b.addEventListener('click', function(e){ e.stopPropagation(); openProfile(c); }); stage.appendChild(b); return b; }
+function openProfile(c){
+  var card=document.getElementById('profileCard');
+  if(!card){ card=document.createElement('div'); card.id='profileCard'; card.addEventListener('click', function(e){ e.stopPropagation(); }); (stage.parentNode||document.body).appendChild(card); }
+  var mine=!!c.player;
+  var nm = mine ? ((playerSpec&&playerSpec.name)||'you') : (c.plate ? c.plate.textContent.replace(/^●\s*/,'') : 'a visitor');
+  var mood = mine ? (myProfile.mood||'') : ((c.prof&&c.prof.mood)||'');
+  var bio  = mine ? (myProfile.bio||'')  : ((c.prof&&c.prof.bio)||'');
+  if(mine){
+    card.innerHTML = '<h3>your character</h3>'
+      + '<label>name</label><input id="pf-name" maxlength="24" value="'+pesc(nm)+'">'
+      + '<label>mood</label><input id="pf-mood" maxlength="24" placeholder="e.g. 😎 vibing" value="'+pesc(mood)+'">'
+      + '<label>bio</label><textarea id="pf-bio" maxlength="140" rows="3" placeholder="a line about your character">'+pesc(bio)+'</textarea>'
+      + '<div class="pf-row"><button id="pf-save">save</button><button id="pf-close">close</button></div>';
+    card.querySelector('#pf-save').addEventListener('click', function(e){ e.stopPropagation();
+      var nn=(cleanName(card.querySelector('#pf-name').value)||'you');
+      var mm=card.querySelector('#pf-mood').value.replace(/[<>]/g,'').slice(0,24);
+      var bb=card.querySelector('#pf-bio').value.replace(/[<>]/g,'').slice(0,140);
+      saveMyProfile({ mood:mm, bio:bb });
+      if(playerSpec) playerSpec.name=nn; if(player&&player.plate) player.plate.textContent=nn;
+      if(typeof pushPresenceNow==='function') pushPresenceNow();
+      card.style.display='none'; });
+    card.querySelector('#pf-close').addEventListener('click', function(e){ e.stopPropagation(); card.style.display='none'; });
+  } else {
+    card.innerHTML = '<h3>'+pesc(nm)+'</h3>'
+      + (mood?'<div class="pf-mood">'+pesc(mood)+'</div>':'')
+      + '<div class="pf-bio">'+(bio?pesc(bio):'<span style="opacity:.5">no bio yet</span>')+'</div>'
+      + '<div class="pf-row"><button id="pf-close">close</button></div>';
+    card.querySelector('#pf-close').addEventListener('click', function(e){ e.stopPropagation(); card.style.display='none'; });
+  }
+  card.style.display='block';
+}
 var DEBUG = /[?&]debug=1/.test(location.search||'');
 function debugPanel(){                                     // ?debug=1 -> a live readout of the realm presence state (for diagnosing multiplayer)
   if (!DEBUG) return;
