@@ -1010,11 +1010,15 @@ function scheduleClub(){
 }
 function startClub(){ if (clubPlaying) return; clubPlaying = true; scheduleClub(); }
 function stopClub(){ clubPlaying = false; if (clubTimer){ clearTimeout(clubTimer); clubTimer = null; } }   // the bus is re-set by whatever plays next (startLoop on exit)
-function switchTrack(i){
+function applyClubTrack(i){                                // set + restart the club loop (used by the local DJ AND by a synced remote change)
   CLUB_TRACK = ((i % CLUB.length) + CLUB.length) % CLUB.length;
-  if (player) floatNote(player, '🎶');
-  if (clubTimer){ clearTimeout(clubTimer); clubTimer = null; } scheduleClub();              // restart immediately for instant feedback
+  if (clubPlaying){ if (clubTimer){ clearTimeout(clubTimer); clubTimer = null; } scheduleClub(); }   // only restart audio if we're actually in the club
   var p = document.getElementById('djPanel'); if (p){ [].forEach.call(p.querySelectorAll('.djChip'), function(x, xi){ x.classList.toggle('on', xi===CLUB_TRACK); }); }
+}
+function switchTrack(i){                                   // local DJ action: apply + broadcast so every studio occupant in the realm follows
+  applyClubTrack(i);
+  if (player) floatNote(player, '🎶');
+  if (typeof _realmCh !== 'undefined' && _realmCh){ try { _realmCh.send({ type:'broadcast', event:'club', payload:{ track:CLUB_TRACK } }); } catch(e){} }
 }
 function openDJPanel(){
   var p = document.getElementById('djPanel');
@@ -1584,6 +1588,7 @@ function realmChan(id){                                     // ONE persistent ch
     if (_realm===id){ liveCount=Math.max(1,n); showLive(liveCount); syncRemotes(ch.presenceState()); }   // render the other real players in my realm
     var pk=document.getElementById('realmpick'); if (pk && pk.style.display!=='none') updatePickerCounts();
   });
+  ch.on('broadcast', { event:'club' }, function(m){ if (_realm===id && m && m.payload && typeof m.payload.track==='number' && typeof applyClubTrack==='function') applyClubTrack(m.payload.track); });   // DJ sync: follow the realm's club track
   ch.subscribe(function(s){ if (s==='SUBSCRIBED' && ch._wantTrack && !ch._tracking){ ch._tracking=true; ch.track(myState()); } });
   _chans[topic]=ch; return ch;
 }
