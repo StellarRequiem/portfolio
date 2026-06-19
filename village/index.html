@@ -1535,7 +1535,7 @@ function spawnGuestFromHash(){
 }
 /* ── live presence (Supabase Realtime): a "● N here now" counter + dynamic population from the REAL headcount.
    Set SUPABASE_URL + SUPABASE_ANON (the project's PUBLIC anon key) — empty = disabled (per-session only).
-   Count = real connected clients (unique per-browser key), or nothing — never a fabricated number.
+   Count = real connected clients (unique per-TAB key), or nothing — never a fabricated number.
    supabase-js loads on demand only when configured, so the page stays self-contained otherwise. ── */
 var SUPABASE_URL = "https://bhrwgygqpahtclwnrjmp.supabase.co", SUPABASE_ANON = "sb_publishable_xZG4n38G2cMtQjTCUKRarw_SUBtP9mK";
 var REALMS = [
@@ -1553,7 +1553,11 @@ function chosenRealm(){                                    // ?realm= (shareable
   try { var k=localStorage.getItem('xclvxo_realm'); if (k && realmById(k)) return k; } catch(e){}
   return null;
 }
-function presenceKey(){ try { var k=localStorage.getItem('xclvxo_pid'); if(!k){ k='p'+Math.random().toString(36).slice(2); localStorage.setItem('xclvxo_pid',k); } return k; } catch(e){ return 'p'+Math.random().toString(36).slice(2); } }
+var _pidCache = null;
+function presenceKey(){   // PER-TAB id (sessionStorage, not localStorage) so two tabs/windows in one browser are DISTINCT players, not one — and cached so it never changes mid-session
+  if (_pidCache) return _pidCache;
+  try { var k=sessionStorage.getItem('xclvxo_pid'); if(!k){ k='p'+Math.random().toString(36).slice(2); sessionStorage.setItem('xclvxo_pid',k); } _pidCache=k; return k; }
+  catch(e){ _pidCache='p'+Math.random().toString(36).slice(2); return _pidCache; } }
 function showLive(n){
   if (!presenceEl){ presenceEl = document.createElement('div'); presenceEl.id = 'live'; stage.appendChild(presenceEl); }
   var rn = _realm ? ((realmById(_realm)||{}).name||'') : '';
