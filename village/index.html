@@ -683,7 +683,7 @@ var SKYLINE = [], BUILDINGS = [];                        // town: distant skylin
 var SHOPNAMES = ['BAKERY','FORGE','MARKET','CAFE','BOOKS','INN','ARCADE','CLINIC'], POND = null;
 function buildScene(){
   if (INSIDE){   // resizing while inside a building: resize the canvas + interior only, DON'T regenerate the street (it would orphan INSIDE)
-    W = innerWidth; H = innerHeight; VH = H; sizeCanvas(); INT_W = (INSIDE.studio||INSIDE.cafe) ? W : Math.max(W, 1400); _resizedInside = true;
+    W = innerWidth; H = innerHeight; VH = H; sizeCanvas(); INT_W = (INSIDE.studio||INSIDE.cafe||INSIDE.room) ? W : Math.max(W, 1400); _resizedInside = true;
     if (player) player.x = clampN(player.x, 8, INT_W-SP-8);
     cameraX = clampN(cameraX, 0, Math.max(0, INT_W-W)); return;
   }
@@ -872,7 +872,8 @@ function generateBuildings(){                             // multi-story shops/a
       rooms.push({ x:x-w/2+pad+(co+0.5)*(span/cols)-ww/2, y:gy-h+16+fl*((h-24)/floors), lit:rng()<0.5, occupant:null, ph:rng()*6.28 }); }
     var shop=rng()<0.5; BUILDINGS.push({ x:x, w:w, h:h, shop:shop, name: shop?SHOPNAMES[(rng()*SHOPNAMES.length)|0]:'', door:{x:x,y:gy}, rooms:rooms }); });
   if (EXPLORE && BUILDINGS.length){ var mid=(BUILDINGS.length/2)|0; var st=BUILDINGS[mid]; st.studio=true; st.shop=true; st.name='DANCE STUDIO';   // one building is the dance studio
-    if (BUILDINGS.length>=2){ var ci=(mid+1)%BUILDINGS.length; var cf=BUILDINGS[ci]; cf.cafe=true; cf.shop=true; cf.name='CAFÉ'; } }   // another is the café
+    if (BUILDINGS.length>=2){ var ci=(mid+1)%BUILDINGS.length; var cf=BUILDINGS[ci]; cf.cafe=true; cf.shop=true; cf.name='CAFÉ'; }   // another is the café
+    if (BUILDINGS.length>=3){ var li=(mid+2)%BUILDINGS.length; var lg=BUILDINGS[li]; lg.room='lounge'; lg.shop=true; lg.name='AURORA LOUNGE'; } }   // an authored fixed-layout shared room
 }
 function drawBuildings(ts, f){
   var gy=groundY();
@@ -920,7 +921,7 @@ function nearBuilding(){
 function enterBuilding(b){
   if (!b || INSIDE) return;
   if (typeof closeToys==='function') closeToys();         // dismiss any open react/music panel on the room transition
-  INSIDE = b; INT_W = (b.studio||b.cafe) ? W : Math.max(W, 1400);    // studio + café are one screen (no scroll → themed decor stays put); generic interiors are wider
+  INSIDE = b; INT_W = (b.studio||b.cafe||b.room) ? W : Math.max(W, 1400);    // studio/café/authored rooms are one screen (contained — everyone shares the framing); generic interiors are wider
   if (player){ player.x = INT_W*0.5; player.y = groundY()-2; player.danceX=null; player.dancing=false; }
   cameraX = (INT_W-W)/2; if (stage) stage.classList.add('inside');
   if (b.studio){ stopLoop(); startClub(); }                // the club plays its own beat (replaces the ambient loop) while inside the studio
@@ -943,6 +944,7 @@ function tryEnterExit(){ if (INSIDE) exitBuilding(); else { var b=nearBuilding()
 document.addEventListener('click', function(e){   // inside a building: tap to interact (on document: #stage overlays the canvas; dock buttons stopPropagation)
   if (!INSIDE || !player || !cv) return;
   if (INSIDE.cafe){ floatNote(player, '☕'); return; }   // café: tap → your critter sips a coffee (☕)
+  if (INSIDE.room){ floatNote(player, '✨'); return; }   // authored room: tap → a little sparkle
   if (!INSIDE.studio || !STUDIO_FLOOR) return;               // dance studio: tap a floor tile → walk there + dance
   var r = cv.getBoundingClientRect();
   var worldX = (e.clientX - r.left) * (W / (r.width||W)) + cameraX;   // CSS-px (context is DPR-scaled); robust to CSS scaling / mid-resize
@@ -1080,10 +1082,45 @@ function drawCafe(ts){                                    // a cozy café: warm 
   cx.globalAlpha=0.55+0.3*Math.sin(ts*0.003); cx.fillStyle='#ffcf8a'; cx.font='11px ui-monospace,monospace'; cx.fillText('tap for a coffee ☕', cxw, gy-44); cx.globalAlpha=1; cx.textAlign='left';
   cx.restore();
 }
+/* ── authored fixed-layout rooms: data-driven shared spaces (set layers, single-screen, deterministic) ── */
+var ROOMSPEC = {
+  lounge: { name:'AURORA LOUNGE', accent:'#b794ff',
+    sky:['#160b2a','#2a1448'], floorFrac:0.76, floor:['#281a3e','#140d22'], aurora:true,
+    lamps:[0.16,0.40,0.62,0.86],
+    structures:[ { xf:0.5, top:0.50, w:210, h:60, c:'#33244e', edge:'#5a4488', label:'BAR' } ],
+    seats:[0.26,0.74],
+    prompt:'a shared lounge — tap to relax ✨' }
+};
+function drawAuthoredRoom(spec, ts){                       // render a room from its spec, in layers (wall-clock animation = synced across clients)
+  STUDIO_FLOOR = null; BOOTH = null;
+  var gy=H*(spec.floorFrac||0.76), cxw=INT_W*0.5, now=Date.now()*0.001;
+  var sky=cx.createLinearGradient(0,0,0,gy); sky.addColorStop(0,spec.sky[0]); sky.addColorStop(1,spec.sky[1]); cx.fillStyle=sky; cx.fillRect(0,0,W,gy);
+  if (spec.aurora){ for(var a=0;a<3;a++){ var ay=gy*(0.22+a*0.12), amp=16+a*7, ph=now*0.25+a*1.6;   // animated aurora light layer
+    cx.globalAlpha=0.09+0.05*Math.sin(now*0.4+a); cx.strokeStyle=spec.accent; cx.lineWidth=20-a*5; cx.beginPath();
+    for(var ax=0;ax<=W;ax+=24){ var yy=ay+Math.sin(ax*0.012+ph)*amp; if(ax===0)cx.moveTo(ax,yy); else cx.lineTo(ax,yy); } cx.stroke(); } cx.globalAlpha=1; }
+  var fl=cx.createLinearGradient(0,gy,0,H); fl.addColorStop(0,spec.floor[0]); fl.addColorStop(1,spec.floor[1]); cx.fillStyle=fl; cx.fillRect(0,gy,W,H-gy);
+  cx.strokeStyle=spec.accent+'44'; cx.lineWidth=1; cx.beginPath(); cx.moveTo(0,gy); cx.lineTo(W,gy); cx.stroke();
+  cx.save(); cx.translate(-cameraX,0);                     // cameraX≈0 (single-screen room — everyone shares the framing)
+  (spec.lamps||[]).forEach(function(lf){ var lx=INT_W*lf, ly=58;
+    cx.strokeStyle='#1a1226'; cx.lineWidth=2; cx.beginPath(); cx.moveTo(lx,0); cx.lineTo(lx,ly); cx.stroke();
+    var g=cx.createRadialGradient(lx,ly+8,3,lx,ly+8,118); g.addColorStop(0,spec.accent+'5e'); g.addColorStop(1,spec.accent+'00'); cx.fillStyle=g; cx.beginPath(); cx.arc(lx,ly+8,118,0,6.28); cx.fill();
+    cx.fillStyle=spec.accent; cx.beginPath(); cx.arc(lx,ly+4,5,0,6.28); cx.fill(); });
+  (spec.structures||[]).forEach(function(s){ var sx=INT_W*s.xf - s.w/2, sy=(s.top!=null?H*s.top:gy-s.h);
+    cx.fillStyle=s.c; cx.fillRect(sx,sy,s.w,s.h); if(s.edge){ cx.fillStyle=s.edge; cx.fillRect(sx,sy,s.w,8); } cx.strokeStyle='rgba(0,0,0,.4)'; cx.lineWidth=1; cx.strokeRect(sx,sy,s.w,s.h);
+    if(s.label){ cx.fillStyle=spec.accent; cx.font='11px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText(s.label, INT_W*s.xf, sy+s.h*0.62); cx.textAlign='left'; } });
+  (spec.seats||[]).forEach(function(sf){ var sx=INT_W*sf, sy=gy-4; cx.fillStyle='#3a2a52'; cx.fillRect(sx-12,sy-14,24,14); cx.fillStyle='#4a3568'; cx.fillRect(sx-12,sy-22,24,8); });
+  if(spec.name){ var nw=spec.name.length*12+28; cx.fillStyle='#140c22'; cx.fillRect(cxw-nw/2,42,nw,32); cx.strokeStyle=spec.accent; cx.lineWidth=1; cx.strokeRect(cxw-nw/2,42,nw,32);
+    cx.fillStyle=spec.accent; cx.font='18px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText(spec.name, cxw, 64); cx.textAlign='left'; }
+  var dx=cxw-210; cx.fillStyle='#140c22'; cx.fillRect(dx-22,gy-66,44,66); cx.strokeStyle=spec.accent; cx.lineWidth=2; cx.strokeRect(dx-22,gy-66,44,66);
+  cx.fillStyle=spec.accent; cx.font='10px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('← exit', dx, gy-74);
+  if(spec.prompt){ cx.globalAlpha=0.5+0.3*Math.sin(now*3); cx.fillStyle=spec.accent; cx.font='11px ui-monospace,monospace'; cx.fillText(spec.prompt, cxw, gy-44); cx.globalAlpha=1; cx.textAlign='left'; }
+  cx.restore();
+}
 function drawInterior(ts){
   var gy=H*0.74, b=INSIDE||{};
   if (b.studio){ drawStudio(ts); return; }
   if (b.cafe){ drawCafe(ts); return; }
+  if (b.room && ROOMSPEC[b.room]){ drawAuthoredRoom(ROOMSPEC[b.room], ts); return; }
   STUDIO_FLOOR = null; BOOTH = null;
   var wall=cx.createLinearGradient(0,0,0,gy); wall.addColorStop(0, mix('#161e2c','#13303a',0.5)); wall.addColorStop(1, mix('#101824','#16303a',0.4));
   cx.fillStyle=wall; cx.fillRect(0,0,W,gy);
@@ -1676,7 +1713,7 @@ function openPicker(){
 }
 /* ── multiplayer: render the OTHER real players in your realm (their critter + position, carried on the same presence channel) ── */
 var _remotes = {};
-function myLoc(){ if (typeof INSIDE!=='undefined' && INSIDE) return INSIDE.studio?'studio':(INSIDE.cafe?'cafe':'bldg'); return 'street'; }   // shared rooms: street/studio/cafe (singletons per realm)
+function myLoc(){ if (typeof INSIDE!=='undefined' && INSIDE) return INSIDE.studio?'studio':(INSIDE.cafe?'cafe':(INSIDE.room?('room:'+INSIDE.room):'bldg')); return 'street'; }   // shared rooms: street/studio/cafe/room:<id> (singletons per realm)
 function myState(){ var ww=((typeof INSIDE!=='undefined'&&INSIDE)?INT_W:WORLD_W)||1; return { spec: playerSpec||null, nx: (player?player.x/ww:0.5), face: player?player.face:1, loc: myLoc(), prof: { mood:(myProfile&&myProfile.mood)||'', bio:(myProfile&&myProfile.bio)||'' }, t: Date.now() }; }
 function spawnRemote(pid, st){
   var spec = (st && st.spec) ? st.spec : null; if (!spec || !SPRITES[spec.base]) return;
