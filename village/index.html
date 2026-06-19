@@ -143,6 +143,8 @@ function stepCamera(){                                   // follow the player; c
   cameraX += (tgt - cameraX) * 0.12;
 }
 var cv = document.getElementById('scene'), cx = cv.getContext('2d');
+function DPR(){ return Math.max(1, Math.min(3, window.devicePixelRatio||1)); }   // crisp on hi-DPI displays; capped at 3 (backing-store RAM)
+function sizeCanvas(){ var d=DPR(); cv.width=Math.round(W*d); cv.height=Math.round(H*d); cv.style.width=W+'px'; cv.style.height=H+'px'; cx.setTransform(d,0,0,d,0,0); }   // backing store = W*d x H*d; base transform keeps every draw in CSS px
 var stage = document.getElementById('stage'), tag = document.getElementById('tag');
 var IDLE_WAKE = 0;                                    // 0 = always lively (no idle wait) — they start as soon as the village opens
 
@@ -568,11 +570,11 @@ var SKYLINE = [], BUILDINGS = [];                        // town: distant skylin
 var SHOPNAMES = ['BAKERY','FORGE','MARKET','CAFE','BOOKS','INN','ARCADE','CLINIC'], POND = null;
 function buildScene(){
   if (INSIDE){   // resizing while inside a building: resize the canvas + interior only, DON'T regenerate the street (it would orphan INSIDE)
-    W = innerWidth; H = innerHeight; cv.width = W; cv.height = H; INT_W = (INSIDE.studio||INSIDE.cafe) ? W : Math.max(W, 1400); _resizedInside = true;
+    W = innerWidth; H = innerHeight; sizeCanvas(); INT_W = (INSIDE.studio||INSIDE.cafe) ? W : Math.max(W, 1400); _resizedInside = true;
     if (player) player.x = clampN(player.x, 8, INT_W-SP-8);
     cameraX = clampN(cameraX, 0, Math.max(0, INT_W-W)); return;
   }
-  W = innerWidth; H = innerHeight; cv.width = W; cv.height = H; WORLD_W = worldW();
+  W = innerWidth; H = innerHeight; sizeCanvas(); WORLD_W = worldW();
   stars = []; for (var i=0;i<90;i++) stars.push({ x:Math.random()*W, y:Math.random()*groundY()*0.95, r:Math.random()*1.4+0.3, tw:Math.random()*6.28 });
   runes = []; for (var j=0;j<26;j++) runes.push({ x:Math.random()*W, y:Math.random()*H, s:Math.random()*0.5+0.4, ch:glyphChars[(Math.random()*glyphChars.length)|0], a:Math.random()*0.18+0.05 });
   buildHuts();
@@ -823,7 +825,7 @@ document.addEventListener('click', function(e){   // inside a building: tap to i
   if (INSIDE.cafe){ floatNote(player, '☕'); return; }   // café: tap → your critter sips a coffee (☕)
   if (!INSIDE.studio || !STUDIO_FLOOR) return;               // dance studio: tap a floor tile → walk there + dance
   var r = cv.getBoundingClientRect();
-  var worldX = (e.clientX - r.left) * (cv.width / (r.width||cv.width)) + cameraX;   // robust to CSS scaling / mid-resize
+  var worldX = (e.clientX - r.left) * (W / (r.width||W)) + cameraX;   // CSS-px (context is DPR-scaled); robust to CSS scaling / mid-resize
   var col = Math.max(0, Math.min(STUDIO_FLOOR.cols-1, Math.floor((worldX - STUDIO_FLOOR.x0)/STUDIO_FLOOR.sq)));
   player.danceX = STUDIO_FLOOR.x0 + col*STUDIO_FLOOR.sq + STUDIO_FLOOR.sq/2;
 });
