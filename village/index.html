@@ -22,6 +22,12 @@
   .critter { position: absolute; top: 0; left: 0; width: 76px; height: 76px;
     image-rendering: pixelated; image-rendering: crisp-edges;
     filter: drop-shadow(0 3px 4px rgba(0,0,0,.45)); will-change: transform; }
+  .critterBody { position: absolute; top: 0; left: 0; width: 76px; height: 76px; will-change: transform; transform-origin: 50% 85px; }   /* pivot at the foot line so growing critters stay grounded */
+  .critterBody .head { position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+    image-rendering: pixelated; image-rendering: crisp-edges; filter: drop-shadow(0 3px 4px rgba(0,0,0,.45)); }
+  .critterBody .leg { position: absolute; bottom: -9px; width: 8px; height: 20px; border-radius: 4px;
+    background: #3df0bb; transform-origin: 50% 3px; box-shadow: 0 2px 3px rgba(0,0,0,.4); }
+  .critterBody .legL { left: 24px; } .critterBody .legR { left: 44px; }
   .note { position: absolute; top: 0; left: 0; font: 15px ui-monospace, monospace;
     color: rgba(150,225,255,.9); text-shadow: 0 0 7px rgba(90,212,255,.7);
     opacity: 0; transition: opacity .4s, transform 1.1s; pointer-events: none; will-change: transform; }
@@ -404,19 +410,34 @@ function recolor(dataUri, hex, outfit){
   });
 }
 var SPRITES = { bear:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABU0lEQVR4nO1XO3LCMBCVdjgATYYLUACT9C6pqHKCHIGCw7jIEXICKqqU6Z2BzIQLMGlyAxjBiGxAT6uV7TEFr7HZ33uWV1pjzB13dAwrBYyGj3t//7X9FOO1eT2pwOJ5craVS7OXCmrzKPYUvEjodxN5hJ4CJTk7X966eWQ6BnUtwCIHWs5yuRaLorxQE9qYAF6ME6P3jGK8XSUgtq1SwMXEti21Qa7JoTbIL0WgbetgNeRSH+T0AEnqeZHNd2U22+qKTPKrTsJR5DRz6/XQH5xJNP5GTsLx8Mn8/O6O1xx/CJQa6FfFF0cDB/nV4zgEXrSYTU1ns6AA5DmiqC75y+K1lgi6NLi9igYOIk8RgYYRIWUpU++tnP+75tSikNEr1YiQyNFAIpQYEvGxehcF8TiJPCogV4SG3EE8B/5EnD6tY43GmzH1P4RNCeKIjVYN8c3gAAZhz+ctMV9vAAAAAElFTkSuQmCC', bird:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABPUlEQVR4nGNgGAWjYBSMglEw0gEjOZo0VHT+YxO/cecKyeaxkGOxVds27AqqvP6T6hAmqlmOJIcrhLABRlIsx2YZCByr8kIRR+YTCg1GUiy/fvsyWIemii6KZbjEsQF0BzERcgDMQJhzRQXEGa7fuYzhDXRxXFEF8hAyZmIgAYB8+PrDS4bvMzSxisNCgBgACgkQxhsFIBeCfDLlnRuGXI7QLoYHD56A2c9mpcHFpdJmMSgoyMD5hNIDCzGuBVkGAsgOgVkOsxQZgOSQHYEvITIR4wBkh8AcQwggOxAfYGIgA/h8mkeONuo5gJqACZ8kKO6w5Wfk+MUFQGpAegkVRExEOROHBeTIkeWAYzhKNWwWwcRw6aGoLrDCUxEhA5jlxNSKTMQYCDOIGF+RYjnRDiDWEaRaDgID3iIacAAAxVKTK/EGybIAAAAASUVORK5CYII=', cat:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABOklEQVR4nO1WsQ3CMBD8vDwADUKioEoREDABYzEGY2UCgggSVBRIiIYNQEYxspLYvo+JoOCaFL6/u3fecYj++ANAls4ffdXxJ8W68Bkh5euJxFtUxxIxtCvNQ0MzfRksISO7IOkeDrDanBsmLnNfXRsUCaG708KuENKBVSjR7sZlojmGhwZJEJLpFhW1wx5OuyQqQCYcqnqQUADuyxw9NdyXORpCScRCg4gMKrQDWUv3Wrw8FlSeioZZaN23C0wSJETDwehtIl6PDTBNF3S7X1/PLutRAfLqlRjx+isKrX9kCPOAaJdTo1Cia8Iv+yWNZ9sGL/pTnFUnQSrYFljD9UVUISFjjJ7xtsC+aznxmdtnN2YHfPcB+0RMYZfhMjXRt2HMdRwy14AC2CF8QST/AeIA5AhjAzX9KTwBLYmv5y3wUtgAAAAASUVORK5CYII=', chick:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABFklEQVR4nO2WUQrCMAyG07AD+CJewIcJOnzwAB7A43oAD+CDbIKCXkB88QCCEiFjG12b1Eof3PfSLV3yp2nXFmBgYODfMSFO+XT+stnP16M6XhYiXG6X1v5iAy9tIhhLvNnXVyEbRiruErZRbA6iSuAvxAnykVQCITFGO3oqLdPsc9ldU4GabCnY6VLB6Vq1RPvsElA99wZgPJrUYj67by0gKJlNF3B/3D6txO4DNR9zRViE3/vs0XfCbvDnbl8/l9sVhICQGPzGOVuvWm30BArF7xQ1gVxxmPhGzxsRxbTFRZs4OYSc7S44ZjcJ86vDSHoiIiQGfR/QCEIWo/Q+YGLeiFiYkK4hlCbAAV3V0IoTyW/FyXkDHiuVqucPslYAAAAASUVORK5CYII=', fox:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABX0lEQVR4nO1VO24CQQz1WJQUW4C4AAWRko4DpKSk4igcgqNQUVJygO2IRKRwgQgKbgAyYtAwzOd5yAZFypPQStjj9/zWniX6x1/AoP96bOocNyUCzWckaTmpNNyqc6wphnYleahopieDNcmIC5ruYQGj+eGOJEaeOlcswEWuO+3AtuiX74ZiASPHzliXkmPzUCeMplu0qCv2c/thHhIwUE61LyQngJsiR9fWaMhzcxCLp5zglDq/+OZrTZvt+o4MicfAKusNUbfqXUnQeOpVMCnw0n+j3eH7/CyJP3QPLCfV2VZbvK5XN/F6SjQcvl/j6PC2YKmXop3pIhq3ovazMVyTNQJS5CV5agEhiO3yKwWH/pSd9dco1JVL7Itw83/kHmgKHAuEXPDhboK/Fej3wOQUupeSZrhkE5CPkUGK2Vss1mUIMhM5cgE0A7YQOu0ouQBK8iGOhNxoV52iek/FCXb0seQFlQ/fAAAAAElFTkSuQmCC', frog:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABC0lEQVR4nO2WTQ6CMBCFp40HcGO8AAtMcOdBPALH8DgegUO4dCeJLLiAceMNakqowWpnphQEk36bQvPoe+nPUIBIJDIxgitMk0yZ56ouRajOsOAa74+7V1+Rg7INuDrvAGbQIj873311bNIkU4dTrnTbAKp57vb76L4h2WkEwGq5hmt9GUbnG2CTbOH+uDXtEDqDoAR6+lxra29Cjq5XAOjsbs6msrVBAbBj5oJj3HsGfAiegbRd11CwfSDHNtfocVy1QI5tToWQvzDHQkiYGBkDwNyWoKpLgZVbqhRT39r1QLjE2GkwJu+3n88+yhwNQIXommLGmDkZwISgDKiA//03tMHudwaO8Wx4AhDyzqzsU2RjAAAAAElFTkSuQmCC', hedgehog:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABRElEQVR4nGNgGAWjAA/QUNH5T0s+CDAxDDBgGrQO0FDR+R/iYQIPNmrzCTqAXoCJbjaNOoDUKAjxMKEpjdcBGjQugJD5TAwDDFhI1bBmxxkUGl0cPYgJAUZiFCEHGSELkB12484VguYzEmMxqb5Cdww+hzDRynJkvdhqQbwO0KCC5cQ6gomQRmoAfGYxogvAai1CICrIAUNs2boDBNMEenpgIWgTFkNg9LpZJXDxoLQeskKPiVTLr9++zHD9zmUUS0E0sjh6GUEVB0TBgpyRgUFUQBxuGRygiWOLIqIccOPOFUZ8PtBU0WV4/eElmCZGHF/8Y3UAsgZ0AItzmCUwPi5xfGbBACMuCfSyAFeQguIf3ULkXEGoNGTC5QCYBpgB2LIYciIkx3IQILkyQvctthCAOYjiyogBj2OwBTvIYmIsHVQAAMo3yWJ7dLb0AAAAAElFTkSuQmCC', mouse:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABSElEQVR4nO1WOw7CMAyNow6MLIgLdCgS3IFDdeAIHXoo7lCkIsEFEAsjAxIoiFRuiWOnKQKJvqUfu++9JE5cpUaM+HeAJClLl3d7vz/uYMh8kBAVZdm82+Q5SRyab6B9BrpkrufYfE0FzGjwx+tk0iLF09wnnzWAYckw6VD5Wn0Z4AviaTWj2d6urcJygcqnihA4A5YUi1KF5crhdgH4DGAjXDVTZrhzQH9C3ED6jf6EuGT7sQaySHGpiSSEjCtESaGKZiBzjN6Q14dK1cfqTYyLR5+EDUCp2XTeiATHYw0s0pU6X07Pa594lIHitSSWnOp6VHyQIiwCW7EEELMNcbez574Lrl5gizIJ8+sWt88+E11ha0hTiSbB1/WkwKM34uYezwZIHFNLwS2Brw2LDcR0Q8kfNEgJ8Ukm+R+QiAcZoMxgSEV/Cg9bH9ByPVsvKAAAAABJRU5ErkJggg==', owl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABYUlEQVR4nO1VsU4CQRCdndwH0Bh7QwGJGj/DkhBrKz7DwoLPoLI2htLPMEICiRd6Y+MfaMZkYDlmd9+ykLPgJeRyO7vvvZ2ZG4hOOCGBXvfy55jn+RAkJeeYWgajN8jNAnqWqWVwzmY0CznZqnIM5JIjcPsIjQY35vpk+hYVW9Zzt3cGRgHR0J6UmWQG/Cwg4hbUhHXzZBP2CsX9s7FyVgiBhdvhYGft9WVqcsTK4axFcRwSt4QRI2KiqAmVRG/z/PRITdzdb9bQ0jF6exFefMxoUc92xPTdjzfTLpxWLzDlwBGddc7XItlxA4xs0rr3u1f09f3597TQjCP9wqhTrbmSy/vF+8P6Z8URVKgBhBQVjWZgWc8dOkZX1+OtZwyhz5CpZbhQoPk5Ig0VGkih2wuiGUBLUcLBoYA6VgJrvMYg+4v+DUtMoOKCaNCHP0alN6ye8MdzSjjbABlGLKDC/wa/lOO0yGoTuxwAAAAASUVORK5CYII=', rabbit:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABOElEQVR4nO1WsQrCMBBNQj/ARfyBDhXq4iTi5xfp5KKgQ39A7CDOQiSlkTQkvUtyBRUfSJu+5t6LuV6OsW9DkZcyhU8Wb9uH9IlAPIl42/9sEYj3QYQayepDEh9loMhLWdX7wTM11quE+GQD9up8q4R4ki2ghiCP+Dfw01vw3KwH11A+2sClOfHdZvseq3s91t+6yeuxmgfFztBWDRG76Nh8CDjmJVelg4D9B8QU4mSluIgUDzEhphLHmsh84lCSucyN8SomJieczYVuMDow2d27GhCIZ8mVkDM2ny3YuTnG8akGlvmK3e7X7hrDJxmo+j3VwV0d0BjvA3c91PtF8RWYyelKQuGagM7WgPbLF5OPTaKoBVBJFiGnILU4aCDFBPYw4tiAZiHBHMfYPOJYAz4zJkKS92PwAi/5BZHl0Y7cAAAAAElFTkSuQmCC' }, SPRITE_NAMES = [], POP_MIN = 7, POP_MAX = 12, nextTurnover = 18;
+var BODIES = true;                                       // bipedal-body toggle — set false to fall back to head-only sprites
+function buildCritterEl(url, color){                     // a critter element = container + head sprite (+ two swinging legs in the village)
+  var d = document.createElement('div'); d.className = 'critterBody';
+  var head = document.createElement('img'); head.className = 'head'; head.src = url; head.alt = '';
+  var legL = null, legR = null;
+  if (EXPLORE && BODIES){                                 // legs only in the walkable village; the ambient build stays head-only
+    legL = document.createElement('div'); legL.className = 'leg legL';
+    legR = document.createElement('div'); legR.className = 'leg legR';
+    var col = (/^#[0-9a-fA-F]{6}$/.test(color||'')) ? color : '#3df0bb';
+    legL.style.background = col; legR.style.background = col;
+    d.appendChild(legL); d.appendChild(legR);            // legs behind the head sprite (feet poke out below)
+  }
+  d.appendChild(head);
+  return { el:d, head:head, legL:legL, legR:legR };
+}
 function spawnCritter(animal, opts){                    // generate one critter; opts.enter -> walk in from a screen edge
   opts = opts || {}; var dataUri = SPRITES[animal]; if (!dataUri) return;
   var color = opts.color || EYE[(Math.random()*EYE.length)|0];
   var outfit = pickOutfit();                              // a simple multi-piece outfit per critter
   recolor(dataUri, color, outfit).then(function(url){
-    var el = document.createElement('img'); el.className = 'critter'; el.src = url; el.alt = animal;
+    var cb = buildCritterEl(url, color); var el = cb.el; el.setAttribute('aria-label', animal);
     var y = groundY()+Rn(-10,20);
     var x = opts.enter ? (EXPLORE ? (Math.random()<0.5 ? cameraX-SP : cameraX+W+SP) : (Math.random()<0.5 ? -SP : W+SP))
                        : (EXPLORE ? Rn(40, WORLD_W-SP-40) : Rn(40, Math.max(60, W-SP-40)));   // EXPLORE: across the world / into view
     var isc = EXPLORE ? 0.55 : 1;                          // EXPLORE: born small (aging grows it); place + size before first paint
     el.style.transform = 'translate('+(x-cameraX).toFixed(1)+'px,'+y.toFixed(1)+'px) scale('+isc+')';
     stage.appendChild(el);
-    critters.push({ el:el, animal:animal, persona:persona(animal), color:color, scale:isc, age:0,
+    critters.push({ el:el, head:cb.head, legL:cb.legL, legR:cb.legR, animal:animal, persona:persona(animal), color:color, scale:isc, age:0,
       x:x, y:y, angle:Rn(0,6.28), speed:Rn(0.7,1.4), bob:Rn(0,6), face:1,
       mode: opts.enter?'arriving':'roam', target: opts.enter?{ x:(EXPLORE?Rn(cameraX+W*0.12,cameraX+W*0.88):Rn(W*0.12,W*0.88)), y:y }:null, cooldown:Rn(2,8), ttl:Rn(70,180) });
   });
@@ -1090,6 +1111,11 @@ function stepCritters(dt){
             : (c.mode==='perform' ? -Math.abs(Math.sin(performBob(c)))*3 : 0);
     var rs = c.scale || 1, sx = c.x - cameraX;            // sx = screen-space x (world x minus camera) for DOM sprites
     c.el.style.transform = 'translate(' + sx.toFixed(1) + 'px,' + (c.y+hop).toFixed(1) + 'px) scale(' + (c.face*rs).toFixed(3) + ',' + rs.toFixed(3) + ')';
+    if (c.legL){                                          // bipedal walk cycle: legs swing opposite on the bob phase
+      var lsw = reduced ? 0 : (moving ? Math.sin(c.bob)*16 : ((c.dancing||dancing) ? Math.sin(t0*0.013)*14 : 0));
+      c.legL.style.transform = 'rotate(' + lsw.toFixed(1) + 'deg)';
+      c.legR.style.transform = 'rotate(' + (-lsw).toFixed(1) + 'deg)';
+    }
     if (c.resident){                                      // follow the resident with its nameplate + speech bubble
       var px = Math.max(54, Math.min(W-54, sx + SP*0.5)).toFixed(1);   // clamp so the plate/bubble stay on-screen at world edges
       c.plate.style.transform  = 'translate(' + px + 'px,' + (c.y + SP*0.62).toFixed(1) + 'px) translate(-50%,0)';
@@ -1140,7 +1166,7 @@ function startConcert(avail){
   performers.forEach(function(c,i){
     var pos = i<3 ? stations[i] : { x: gz.x + Math.cos(Math.PI + ((i-3)/Math.max(1,performers.length-4))*Math.PI)*gz.r*0.62, y: gz.y-20 };
     c.mode='toGazebo'; c.target={ x: pos.x - SP/2, y: pos.y - 16 };
-    if (!c.origSrc && SPRITES[c.animal]){ c.origSrc=c.el.src; recolor(SPRITES[c.animal], c.color, BAND_UNIFORM).then(function(u){ if (concertActive) c.el.src=u; }); }   // into the band uniform
+    if (!c.origSrc && SPRITES[c.animal]){ var hd=c.head||c.el; c.origSrc=hd.src; recolor(SPRITES[c.animal], c.color, BAND_UNIFORM).then(function(u){ if (concertActive) (c.head||c.el).src=u; }); }   // into the band uniform (the head sprite, not the body container)
   });
   spawnSparkles(gz.x, gz.y-72, 44);
   setTimeout(beginConcert, 2900);
@@ -1149,7 +1175,7 @@ function beginConcert(){
   if (!concertActive) return;
   if (audioOn && audioReady) performConcert(performers);
   setTimeout(function(){ fireworkFinale();                 // finale of fireworks as the concert ends
-    performers.forEach(function(c){ if(c.mode==='perform') c.mode='roam'; c.cooldown=Rn(4,10); if(c.origSrc){ c.el.src=c.origSrc; c.origSrc=null; } });   // back into their own clothes
+    performers.forEach(function(c){ if(c.mode==='perform') c.mode='roam'; c.cooldown=Rn(4,10); if(c.origSrc){ (c.head||c.el).src=c.origSrc; c.origSrc=null; } });   // back into their own clothes
     concertActive=false; perfActive=false; performers=[]; banner=null; groove=0; }, 16500);
 }
 function performConcert(group){                          // chains the recent composed BITS into one larger piece, with a band
@@ -1279,13 +1305,13 @@ function spawnGuest(spec){
   var name = cleanName(spec.name) || genName(spec);      // re-filter offensive names; generate a friendly one if blank
   var scale = Math.max(1, Math.min(2, +spec.scale || 1.4));
   recolor(SPRITES[spec.base], eye, outfit).then(function(url){
-    var el=document.createElement('img'); el.className='critter'; el.src=url; el.alt=name||'guest';
+    var cb=buildCritterEl(url, eye); var el=cb.el; el.setAttribute('aria-label', name||'guest');
     el.style.transformOrigin='50% 92%'; el.style.filter='drop-shadow(0 3px 4px rgba(0,0,0,.45)) drop-shadow(0 0 9px '+eye+')';
     stage.appendChild(el);
     var plate=document.createElement('div'); plate.className='plate'; plate.style.color=eye; plate.style.opacity='0.92';
     plate.textContent=name||'a visitor'; stage.appendChild(plate);
     var bubble=document.createElement('div'); bubble.className='bubble'; stage.appendChild(bubble);
-    var c={ el:el, plate:plate, bubble:bubble, resident:true, animal:spec.base, persona:persona(spec.base),
+    var c={ el:el, head:cb.head, legL:cb.legL, legR:cb.legR, plate:plate, bubble:bubble, resident:true, animal:spec.base, persona:persona(spec.base),
       color:eye, scale:scale, glow:eye, x:W*0.5, y:groundY()-4, angle:Rn(0,6.28), speed:Rn(0.5,1.0), bob:Rn(0,6), face:1, mode:'roam', cooldown:Rn(2,8) };
     critters.push(c); spawnSparkles(c.x+SP/2, c.y-20, 30); floatNote(c, '\u2726');
   });
@@ -1300,13 +1326,13 @@ function spawnPlayer(spec){                               // EXPLORE: the user-c
   var scale = spec ? Math.max(1, Math.min(2, +spec.scale || 1.5)) : 1.5;
   playerSpec = { v:1, base:base, eye:eye, outfit:(spec && spec.outfit ? spec.outfit.slice(0,4) : []), scale:scale, name:(spec && cleanName(spec.name)) || '' };   // captured for "copy my critter"
   recolor(SPRITES[base], eye, outfit).then(function(url){
-    var el=document.createElement('img'); el.className='critter player'; el.src=url; el.alt=name;
+    var cb=buildCritterEl(url, eye); var el=cb.el; el.classList.add('player'); el.setAttribute('aria-label', name);
     el.style.transformOrigin='50% 92%'; el.style.zIndex='5';
     el.style.filter='drop-shadow(0 3px 5px rgba(0,0,0,.5)) drop-shadow(0 0 12px '+eye+')';
     stage.appendChild(el);
     var plate=document.createElement('div'); plate.className='plate'; plate.style.color=eye; plate.style.opacity='0.95'; plate.textContent=name; stage.appendChild(plate);
     var bubble=document.createElement('div'); bubble.className='bubble'; stage.appendChild(bubble);
-    player={ el:el, plate:plate, bubble:bubble, resident:true, player:true, animal:base, persona:persona(base),
+    player={ el:el, head:cb.head, legL:cb.legL, legR:cb.legR, plate:plate, bubble:bubble, resident:true, player:true, animal:base, persona:persona(base),
       color:eye, scale:scale, glow:eye, x:WORLD_W*0.5, y:groundY()-2, angle:0, speed:1, bob:0, face:1, mode:'roam', cooldown:99 };
     critters.push(player);
     floatNote(player, '\u2726');                          // arrival sparkle (camera-aware float)
