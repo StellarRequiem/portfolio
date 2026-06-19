@@ -92,6 +92,7 @@
     border: 1px solid rgba(86,206,255,.45); border-radius: 10px; padding: 7px 14px; background: rgba(6,16,30,.82); -webkit-tap-highlight-color: transparent; }
   #enterhint:hover { background: rgba(86,206,255,.2); border-color: rgba(86,206,255,.85); }
   #reactWheel { position: fixed; left: 50%; bottom: 86px; transform: translateX(-50%); width: 220px; height: 220px; z-index: 9999; display: none; }
+  #animWheel { position: fixed; left: 50%; bottom: 86px; transform: translateX(-50%); width: 220px; height: 220px; z-index: 9999; display: none; }
   .reactItem { position: absolute; transform: translate(-50%,-50%); width: 44px; height: 44px; font-size: 22px; padding: 0;
     border: 1px solid rgba(86,206,255,.4); border-radius: 50%; background: rgba(6,16,30,.94); cursor: pointer; }
   .reactItem:hover { background: rgba(86,206,255,.3); }
@@ -119,10 +120,12 @@
   <div class="dockdiv"></div>
   <button id="reactBtn" class="dockbtn" type="button" title="react">&#128522;</button>
   <button id="musicBtn" class="dockbtn" type="button" title="play music">&#127925;</button>
+  <button id="animBtn" class="dockbtn" type="button" title="animate">&#129336;</button>
   <button id="copyBtn" class="dockbtn" type="button" title="copy my critter link">&#128279;</button>
 </div>
 <div id="reactWheel"></div>
 <div id="musicPanel"></div>
+<div id="animWheel"></div>
 <script>
 /* The Village (public web edition) — an ambient, self-contained pixel village. Critters roam a themed
    night town and, at the gazebo, sing procedural 8-bit music. For personality they surface aspirational
@@ -334,7 +337,7 @@ function scheduleLoop(){
 }
 function startLoop(){ if (loopOn || !EXPLORE) return; loopOn = true; scheduleLoop(); }            // village (EXPLORE) only; the ambient build keeps its drone
 function stopLoop(){ loopOn = false; if (loopTimer){ clearTimeout(loopTimer); loopTimer = null; } if (musicBus && AC) musicBus.gain.setTargetAtTime(0, AC.currentTime, 0.4); }
-function closeToys(){ ['reactWheel','musicPanel'].forEach(function(id){ var e=document.getElementById(id); if(e){ e.dataset.open='0'; e.style.display='none'; } }); }
+function closeToys(){ ['reactWheel','musicPanel','animWheel'].forEach(function(id){ var e=document.getElementById(id); if(e){ e.dataset.open='0'; e.style.display='none'; } }); }
 function openReactWheel(){
   var w=document.getElementById('reactWheel'); if(!w) return;
   if (w.dataset.open==='1'){ closeToys(); return; }
@@ -361,10 +364,29 @@ function openMusicPanel(){
   rnd.addEventListener('click', function(e){ e.stopPropagation(); playTune((Math.random()*TUNES.length)|0, curInstrument); }); tr.appendChild(rnd);
   p.appendChild(tr);
 }
+var ANIMATIONS = [ {k:'wave',label:'👋'}, {k:'jump',label:'⤴️'}, {k:'spin',label:'🌀'}, {k:'dance',label:'💃'}, {k:'sit',label:'🪑'}, {k:'cheer',label:'🙌'} ];
+function openAnimWheel(){                                  // a radial wheel of avatar animations (mirrors the reaction wheel)
+  var w=document.getElementById('animWheel'); if(!w) return;
+  if (w.dataset.open==='1'){ closeToys(); return; }
+  closeToys(); w.innerHTML=''; w.dataset.open='1'; w.style.display='block';
+  var n=ANIMATIONS.length, R=80, C=110;
+  ANIMATIONS.forEach(function(a,i){ var ang=-Math.PI/2 + (i/n)*2*Math.PI;
+    var b=document.createElement('button'); b.type='button'; b.className='reactItem'; b.textContent=a.label; b.title=a.k;
+    b.style.left=(C+R*Math.cos(ang))+'px'; b.style.top=(C+R*Math.sin(ang))+'px';
+    b.addEventListener('click', function(e){ e.stopPropagation(); setAnim(a.k, a.label); closeToys(); });
+    w.appendChild(b); });
+}
+function setAnim(k, label){                                // trigger a player pose; momentary poses auto-expire, sit holds
+  if(!player) return;
+  player.anim=k; player.animUntil=(k==='sit')?1e12:(t0+2200);
+  player.dancing=(k==='dance');
+  floatNote(player, label||'✨');
+}
 function setupPlayerUI(){
-  var rb=document.getElementById('reactBtn'), mb=document.getElementById('musicBtn');
+  var rb=document.getElementById('reactBtn'), mb=document.getElementById('musicBtn'), ab=document.getElementById('animBtn');
   if(rb){ rb.addEventListener('click', function(e){ e.stopPropagation(); openReactWheel(); }); }   // visibility handled by #dock
   if(mb){ mb.addEventListener('click', function(e){ e.stopPropagation(); openMusicPanel(); }); }
+  if(ab){ ab.addEventListener('click', function(e){ e.stopPropagation(); openAnimWheel(); }); }
   document.addEventListener('click', closeToys);
 }
 
@@ -1040,7 +1062,7 @@ function stepCritters(dt){
         var dd = c.danceX - (c.x + SP/2);
         if (Math.abs(dd) > 6){ c.face = dd<0?-1:1; c.x += c.face*Math.min(2.6, Math.abs(dd)*0.14); c.bob += 0.3; moving = true; c.dancing = false; }
         else { c.dancing = true; if (Math.random()<0.03) floatNote(c, ['🎵','✨','💃','🕺','🎶'][(Math.random()*5)|0]); }
-      } else c.dancing = false;
+      } else c.dancing = (c.anim==='dance');               // idle: dance if the animation wheel asked for it
       c.x = clampN(c.x, 8, (INSIDE?INT_W:WORLD_W) - SP - 8); c.y = groundY() - 2;
       if (c.dancing) c.face = Math.sin(t0*0.007) < 0 ? -1 : 1;   // wiggle while dancing
     } else if (c.mode==='leaving'){                       // wander off the nearest edge, then despawn
@@ -1110,7 +1132,16 @@ function stepCritters(dt){
             : moving ? -Math.abs(Math.sin(c.bob))*(1.5+e)
             : (c.mode==='perform' ? -Math.abs(Math.sin(performBob(c)))*3 : 0);
     var rs = c.scale || 1, sx = c.x - cameraX;            // sx = screen-space x (world x minus camera) for DOM sprites
-    c.el.style.transform = 'translate(' + sx.toFixed(1) + 'px,' + (c.y+hop).toFixed(1) + 'px) scale(' + (c.face*rs).toFixed(3) + ',' + rs.toFixed(3) + ')';
+    var animRot = '', ysq = 1;                            // player animation-wheel poses (EXPLORE)
+    if (c.player && c.anim){
+      if ((t0 >= (c.animUntil||0)) || (moving && c.anim==='sit')){ c.anim=null; c.dancing=false; }   // momentary poses expire; walking ends a sit
+      else if (c.anim==='jump'){ var jt=Math.max(0,Math.min(1,1-(c.animUntil-t0)/2200)); hop=-Math.abs(Math.sin(jt*Math.PI))*42; }
+      else if (c.anim==='cheer'){ hop=-Math.abs(Math.sin(t0*0.02))*18; }
+      else if (c.anim==='spin'){ animRot=' rotateY('+(((t0*0.6)|0)%360)+'deg)'; }
+      else if (c.anim==='wave'){ animRot=' rotate('+(Math.sin(t0*0.018)*9).toFixed(1)+'deg)'; }
+      else if (c.anim==='sit'){ hop=0; ysq=0.74; }        // squash from the foot pivot -> reads as sitting
+    }
+    c.el.style.transform = 'translate(' + sx.toFixed(1) + 'px,' + (c.y+hop).toFixed(1) + 'px) scale(' + (c.face*rs).toFixed(3) + ',' + (rs*ysq).toFixed(3) + ')' + animRot;
     if (c.legL){                                          // bipedal walk cycle: legs swing opposite on the bob phase
       var lsw = reduced ? 0 : (moving ? Math.sin(c.bob)*16 : ((c.dancing||dancing) ? Math.sin(t0*0.013)*14 : 0));
       c.legL.style.transform = 'rotate(' + lsw.toFixed(1) + 'deg)';
