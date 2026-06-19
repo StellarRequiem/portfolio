@@ -1139,6 +1139,19 @@ function applyEventFx(){                                   // drive the #fx ligh
   f.style.opacity = (e.fade * 0.3 * pulse).toFixed(3);
   if (f.dataset.ev !== e.kind){ f.dataset.ev = e.kind; if (player && e.fade>0.2) floatNote(player, '✦'); }   // a sparkle when an event begins
 }
+/* ── end-of-cycle soft-refresh: at the day/night boundary (wall-clock, synced), clear transient build-up + respawn fresh; the player + real remotes are KEPT; masked by the dawn transition ── */
+var CYCLE_MS = 2*CYCLE_HALF*1000, _cycleBk = -1;           // one soft-refresh per full day/night cycle, derived from CYCLE_HALF so the boundary stays aligned to dawn
+function cycleRefresh(){
+  if (INSIDE) return;                                       // don't refresh mid-room (would cull without respawning); the next cycle on the street handles it
+  var notes=document.querySelectorAll('#stage .note'); for(var i=0;i<notes.length;i++) notes[i].remove();   // clear any lingering sparkles/emoji
+  for(var k=critters.length-1;k>=0;k--){ var c=critters[k]; if(c.player||c.remote||c.resident) continue;    // KEEP every persistent character (player, real remotes, authored residents); cull only the ambient turnover
+    if(c.room) c.room.occupant=null; if(c.el)c.el.remove(); if(c.plate)c.plate.remove(); if(c.bubble)c.bubble.remove(); critters.splice(k,1); }
+  if(typeof sparkles!=='undefined' && sparkles) sparkles.length=0;                                          // reset transient particle array
+  buildScene();                                            // fresh deterministic scene (identical layout — same SEED)
+  for(var j=0;j<critters.length;j++){ var kc=critters[j]; if(kc.targetB||kc.room){ kc.targetB=null; kc.room=null; if(kc.mode==='enterBldg'||kc.mode==='inside'||kc.mode==='exitBldg') kc.mode='roam'; } }   // drop refs to the just-regenerated buildings
+  var n=reduced?4:8; for(var s=0;s<n;s++) spawnCritter(SPRITE_NAMES[s%SPRITE_NAMES.length], {});             // respawn a fresh ambient population
+}
+function cycleTick(){ if(!EXPLORE) return; var bk=Math.floor(Date.now()/CYCLE_MS); if(_cycleBk<0){ _cycleBk=bk; return; } if(bk!==_cycleBk){ _cycleBk=bk; cycleRefresh(); } }
 function drawInterior(ts){
   var gy=H*0.74, b=INSIDE||{};
   if (b.studio){ drawStudio(ts); return; }
@@ -1505,7 +1518,7 @@ function loop(ts){
   if (ts - _lastDraw < 32) return;                 // ~30fps cap — gentler on battery, esp. mobile / 120Hz screens
   _lastDraw = ts;
   t0 = ts; var dt = 1/30;
-  if (!hidden && !lowPower){ if(EXPLORE && !INSIDE) stepWeather(dt); stepCamera(); drawScene(ts); stepCritters(dt); if(!INSIDE){ manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); } updateFireworks(dt); demoTick(dt); ambienceTick(dt); presenceTick(); applyEventFx(); }
+  if (!hidden && !lowPower){ if(EXPLORE && !INSIDE) stepWeather(dt); stepCamera(); drawScene(ts); stepCritters(dt); if(!INSIDE){ manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); } updateFireworks(dt); demoTick(dt); ambienceTick(dt); presenceTick(); applyEventFx(); cycleTick(); }
 }
 
 /* ── host state: idle / heat / audio on / volume ── */
