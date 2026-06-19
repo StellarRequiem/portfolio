@@ -28,6 +28,9 @@
   .critterBody .leg { position: absolute; bottom: -9px; width: 8px; height: 20px; border-radius: 4px;
     background: #3df0bb; transform-origin: 50% 3px; box-shadow: 0 2px 3px rgba(0,0,0,.4); }
   .critterBody .legL { left: 24px; } .critterBody .legR { left: 44px; }
+  .critterBody .arm { position: absolute; top: 34px; width: 7px; height: 17px; border-radius: 4px;
+    background: #3df0bb; transform-origin: 50% 3px; box-shadow: 0 1px 2px rgba(0,0,0,.3); }   /* shoulder pivot near the top */
+  .critterBody .armL { left: 8px; } .critterBody .armR { left: 61px; }
   .note { position: absolute; top: 0; left: 0; font: 15px ui-monospace, monospace;
     color: rgba(150,225,255,.9); text-shadow: 0 0 7px rgba(90,212,255,.7);
     opacity: 0; transition: opacity .4s, transform 1.1s; pointer-events: none; will-change: transform; }
@@ -212,7 +215,7 @@ function startBed(){                                  // soft filtered-noise AIR
 function sfx(kind){                                   // small action noises (very soft; gated on audio)
   if (!AC || !audioReady || !audioOn) return;
   var t = AC.currentTime + 0.005;
-  if (kind==='step'){ blip(104 + Math.random()*16, t, 0.05, 'triangle', 0.035, master); }              // soft footstep tick
+  if (kind==='step'){ blip(104 + Math.random()*16, t, 0.05, 'triangle', 0.025, master); }              // soft footstep tick (kept quiet)
   else if (kind==='greet'){ blip(660, t, 0.07, 'sine', 0.045, master); blip(880, t+0.07, 0.06, 'sine', 0.035, master); }   // a friendly two-note "hi"
   else if (kind==='jump'){ var o=AC.createOscillator(), g=AC.createGain(); o.type='square'; o.frequency.setValueAtTime(300,t); o.frequency.exponentialRampToValueAtTime(700,t+0.16);
     g.gain.setValueAtTime(0.06,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.2); o.connect(g); g.connect(master); o.start(t); o.stop(t+0.22); }   // boing
@@ -460,16 +463,18 @@ var BODIES = true;                                       // bipedal-body toggle 
 function buildCritterEl(url, color){                     // a critter element = container + head sprite (+ two swinging legs in the village)
   var d = document.createElement('div'); d.className = 'critterBody';
   var head = document.createElement('img'); head.className = 'head'; head.src = url; head.alt = '';
-  var legL = null, legR = null;
-  if (EXPLORE && BODIES){                                 // legs only in the walkable village; the ambient build stays head-only
+  var legL = null, legR = null, armL = null, armR = null;
+  if (EXPLORE && BODIES){                                 // limbs only in the walkable village; the ambient build stays head-only
+    var col = (/^#[0-9a-fA-F]{6}$/.test(color||'')) ? color : '#3df0bb';
     legL = document.createElement('div'); legL.className = 'leg legL';
     legR = document.createElement('div'); legR.className = 'leg legR';
-    var col = (/^#[0-9a-fA-F]{6}$/.test(color||'')) ? color : '#3df0bb';
-    legL.style.background = col; legR.style.background = col;
-    d.appendChild(legL); d.appendChild(legR);            // legs behind the head sprite (feet poke out below)
+    armL = document.createElement('div'); armL.className = 'arm armL';
+    armR = document.createElement('div'); armR.className = 'arm armR';
+    [legL, legR, armL, armR].forEach(function(p){ p.style.background = col; });
+    d.appendChild(legL); d.appendChild(legR); d.appendChild(armL); d.appendChild(armR);   // limbs behind the head sprite (poke out at the edges)
   }
   d.appendChild(head);
-  return { el:d, head:head, legL:legL, legR:legR };
+  return { el:d, head:head, legL:legL, legR:legR, armL:armL, armR:armR };
 }
 function spawnCritter(animal, opts){                    // generate one critter; opts.enter -> walk in from a screen edge
   opts = opts || {}; var dataUri = SPRITES[animal]; if (!dataUri) return;
@@ -483,7 +488,7 @@ function spawnCritter(animal, opts){                    // generate one critter;
     var isc = EXPLORE ? 0.55 : 1;                          // EXPLORE: born small (aging grows it); place + size before first paint
     el.style.transform = 'translate('+(x-cameraX).toFixed(1)+'px,'+y.toFixed(1)+'px) scale('+isc+')';
     stage.appendChild(el);
-    critters.push({ el:el, head:cb.head, legL:cb.legL, legR:cb.legR, animal:animal, persona:persona(animal), color:color, scale:isc, age:0,
+    critters.push({ el:el, head:cb.head, legL:cb.legL, legR:cb.legR, armL:cb.armL, armR:cb.armR, animal:animal, persona:persona(animal), color:color, scale:isc, age:0,
       x:x, y:y, angle:Rn(0,6.28), speed:Rn(0.7,1.4), bob:Rn(0,6), face:1,
       mode: opts.enter?'arriving':'roam', target: opts.enter?{ x:(EXPLORE?Rn(cameraX+W*0.12,cameraX+W*0.88):Rn(W*0.12,W*0.88)), y:y }:null, cooldown:Rn(2,8), ttl:Rn(70,180) });
   });
@@ -1251,6 +1256,17 @@ function stepCritters(dt){
       c.legL.style.transform = 'rotate(' + lsw.toFixed(1) + 'deg)';
       c.legR.style.transform = 'rotate(' + (-lsw).toFixed(1) + 'deg)';
     }
+    if (c.armL){                                          // arms: wave/cheer poses, a counter-swing while walking, a sway while dancing
+      var al, ar;
+      if (c.player && c.anim==='wave'){ ar = -150 + Math.sin(t0*0.022)*22; al = 12; }       // right arm up, waving
+      else if (c.player && c.anim==='cheer'){ al = 150; ar = -150; }                        // both arms thrown up
+      else if (reduced){ al = 12; ar = -12; }
+      else if (moving){ al = Math.sin(c.bob)*-12; ar = Math.sin(c.bob)*12; }                // gentle counter-swing to the legs
+      else if (c.dancing || dancing){ al = 90 + Math.sin(t0*0.013)*35; ar = -90 + Math.sin(t0*0.013+1)*35; }   // dance arms up + sway
+      else { al = 12; ar = -12; }                                                            // rest: hang slightly outward
+      c.armL.style.transform = 'rotate(' + al.toFixed(1) + 'deg)';
+      c.armR.style.transform = 'rotate(' + ar.toFixed(1) + 'deg)';
+    }
     if (c.resident){                                      // follow the resident with its nameplate + speech bubble
       var px = Math.max(54, Math.min(W-54, sx + SP*0.5)).toFixed(1);   // clamp so the plate/bubble stay on-screen at world edges
       c.plate.style.transform  = 'translate(' + px + 'px,' + (c.y + SP*0.62).toFixed(1) + 'px) translate(-50%,0)';
@@ -1448,7 +1464,7 @@ function spawnGuest(spec){
     var plate=document.createElement('div'); plate.className='plate'; plate.style.color=eye; plate.style.opacity='0.92';
     plate.textContent=name||'a visitor'; stage.appendChild(plate);
     var bubble=document.createElement('div'); bubble.className='bubble'; stage.appendChild(bubble);
-    var c={ el:el, head:cb.head, legL:cb.legL, legR:cb.legR, plate:plate, bubble:bubble, resident:true, animal:spec.base, persona:persona(spec.base),
+    var c={ el:el, head:cb.head, legL:cb.legL, legR:cb.legR, armL:cb.armL, armR:cb.armR, plate:plate, bubble:bubble, resident:true, animal:spec.base, persona:persona(spec.base),
       color:eye, scale:scale, glow:eye, x:W*0.5, y:groundY()-4, angle:Rn(0,6.28), speed:Rn(0.5,1.0), bob:Rn(0,6), face:1, mode:'roam', cooldown:Rn(2,8) };
     critters.push(c); spawnSparkles(c.x+SP/2, c.y-20, 30); floatNote(c, '\u2726');
   });
@@ -1469,7 +1485,7 @@ function spawnPlayer(spec){                               // EXPLORE: the user-c
     stage.appendChild(el);
     var plate=document.createElement('div'); plate.className='plate'; plate.style.color=eye; plate.style.opacity='0.95'; plate.textContent=name; stage.appendChild(plate);
     var bubble=document.createElement('div'); bubble.className='bubble'; stage.appendChild(bubble);
-    player={ el:el, head:cb.head, legL:cb.legL, legR:cb.legR, plate:plate, bubble:bubble, resident:true, player:true, animal:base, persona:persona(base),
+    player={ el:el, head:cb.head, legL:cb.legL, legR:cb.legR, armL:cb.armL, armR:cb.armR, plate:plate, bubble:bubble, resident:true, player:true, animal:base, persona:persona(base),
       color:eye, scale:scale, glow:eye, x:WORLD_W*0.5, y:groundY()-2, angle:0, speed:1, bob:0, face:1, mode:'roam', cooldown:99 };
     critters.push(player);
     floatNote(player, '\u2726');                          // arrival sparkle (camera-aware float)
@@ -1541,7 +1557,7 @@ function showLive(n){
   presenceEl.style.opacity = '1';
   var rsw=document.getElementById('rswitch'); if (rsw) rsw.onclick=function(e){ e.stopPropagation(); openPicker(); };
   if (!ROOM){ var mob = innerWidth < 640;                  // ambient filler scales to headcount MINUS the real players we already render (no double-count)
-    var base = EXPLORE ? (mob?7:11) : (mob?3:4), cap = EXPLORE ? (mob?12:20) : (mob?8:14);
+    var base = EXPLORE ? (mob?6:9) : (mob?3:4), cap = EXPLORE ? (mob?12:20) : (mob?8:14);   // a touch fewer ambient extras now that real players render
     var rem = 0; for (var rp in _remotes){ if (_remotes[rp] && _remotes[rp].el) rem++; }
     POP_MAX = Math.min(cap, base + Math.max(0, n - 1 - rem)); }
 }
@@ -1635,7 +1651,7 @@ function spawnRemote(pid, st){
     var plate=document.createElement('div'); plate.className='plate'; plate.style.color=eye; plate.style.opacity='0.92'; plate.textContent=name; stage.appendChild(plate);
     var bubble=document.createElement('div'); bubble.className='bubble'; stage.appendChild(bubble);
     var tx = (st.nx!=null?st.nx:0.5)*WORLD_W;
-    var c = { el:el, head:cb.head, legL:cb.legL, legR:cb.legR, plate:plate, bubble:bubble, resident:true, remote:true, pid:pid,
+    var c = { el:el, head:cb.head, legL:cb.legL, legR:cb.legR, armL:cb.armL, armR:cb.armR, plate:plate, bubble:bubble, resident:true, remote:true, pid:pid,
       animal:spec.base, persona:persona(spec.base), color:eye, scale:1.4, glow:eye, x:tx, targetX:tx, y:groundY()-2, face:st.face||1, bob:0, mode:'remote' };
     _remotes[pid] = c; critters.push(c);
   });
