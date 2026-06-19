@@ -668,7 +668,7 @@ function boothLift(px){                                   // DJ booth: vertical 
   if (px >= BOOTH.stairX0) return BOOTH.platH * (px - BOOTH.stairX0) / (BOOTH.platX0 - BOOTH.stairX0);   // climbing the stairs
   return 0;                                               // flat dance floor
 }
-function gazebo(){ return { x: (EXPLORE?WORLD_W:W)*0.5, y: groundY()+8, r: Math.min(150, W*0.12) }; }
+function gazebo(){ return { x: (EXPLORE?WORLD_W:W)*0.5, y: groundY()+8, r: EXPLORE ? 130 : Math.min(150, W*0.12) }; }   // EXPLORE: fixed size so the central gazebo is identical across viewports (ambient build keeps its viewport-scaled size)
 
 /* ── scene backdrop (sky, stars, Bifrost arc, huts, gazebo, ground, rune-rain) ── */
 var REPOS = [];                                         // decorative huts only in the public edition (no live data)
@@ -1711,6 +1711,12 @@ function syncRemotes(state){
   Object.keys(_remotes).forEach(function(pid){ if (!seen[pid]) despawnRemote(pid); });
 }
 function clearRemotes(){ Object.keys(_remotes).forEach(despawnRemote); }
+document.addEventListener('visibilitychange', function(){   // a tab loaded while hidden never finishes connecting -> connect when it becomes visible
+  if (document.visibilityState==='visible' && EXPLORE && _realm && (!_realmCh || _realmCh.state!=='joined')){
+    withSB(function(){ _realmCh = realmChan(_realm); setTrack(_realmCh, true); });
+  }
+});
+addEventListener('beforeunload', function(){ try { if (_realmCh) setTrack(_realmCh, false); } catch(e){} });   // leave presence promptly on close -> fewer stale ghosts
 /* ── character profiles: a clickable icon above each player -> a little editable character sheet ── */
 var myProfile = (function(){ try { return JSON.parse(localStorage.getItem('xclvxo_profile'))||{}; } catch(e){ return {}; } })();
 function saveMyProfile(p){ myProfile=p; try { localStorage.setItem('xclvxo_profile', JSON.stringify(p)); } catch(e){} }
