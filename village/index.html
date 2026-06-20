@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="xclusivexo">
 <script>if("serviceWorker" in navigator){addEventListener("load",function(){navigator.serviceWorker.register("/sw.js").catch(function(){});});}
-window.__deferredInstall=null; addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__deferredInstall=e;var r=document.getElementById("sp-install-row"),c=document.getElementById("spaceCard");if(r&&c&&c.style.display!=="none")r.style.display="flex";}); addEventListener("appinstalled",function(){window.__deferredInstall=null;});</script>
+window.__deferredInstall=null; addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__deferredInstall=e;var r=document.getElementById("sp-install-row"),c=document.getElementById("spaceCard");if(r&&c&&c.style.display!=="none")r.style.display="flex";}); addEventListener("appinstalled",function(){window.__deferredInstall=null;var r=document.getElementById("sp-install-row");if(r)r.style.display="none";});</script>
 <style>
   html, body { margin: 0; height: 100%; background: #04060d; overflow: hidden;
     -webkit-user-select: none; user-select: none; }
@@ -62,6 +62,7 @@ window.__deferredInstall=null; addEventListener("beforeinstallprompt",function(e
     #tag { font-size: 9px; bottom: 6px; right: 8px; }
   }
   #dock { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 9998; display: none;
+    flex-wrap: wrap; justify-content: center; max-width: 96vw;   /* 7 buttons wrap to a 2nd row on narrow phones instead of clipping past the screen edge */
     align-items: center; gap: 7px; padding: 6px; border-radius: 16px; background: rgba(6,16,30,.55);
     border: 1px solid rgba(86,206,255,.18); -webkit-tap-highlight-color: transparent; }
   .dockbtn { display: flex; align-items: center; justify-content: center; width: 54px; height: 50px;
@@ -115,18 +116,18 @@ window.__deferredInstall=null; addEventListener("beforeinstallprompt",function(e
   .djChip { font: 12px 'SF Mono', ui-monospace, Menlo, monospace; color: #c6b3ff; border: 1px solid rgba(155,224,255,.35);
     border-radius: 8px; padding: 6px 11px; margin: 3px; background: rgba(10,8,20,.6); cursor: pointer; }
   .djChip.on { background: rgba(155,224,255,.22); border-color: rgba(155,224,255,.9); color: #fff; }
-  .pico { position: absolute; top: 0; left: 0; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid rgba(86,206,255,.55);
-    background: rgba(8,16,28,.9); color: #9be0ff; font: 12px ui-monospace,monospace; line-height: 20px; text-align: center; cursor: pointer; z-index: 6; will-change: transform; }
+  .pico { position: absolute; top: 0; left: 0; width: 30px; height: 30px; padding: 0; border-radius: 50%; border: 1px solid rgba(86,206,255,.55);
+    background: rgba(8,16,28,.9); color: #9be0ff; font: 13px ui-monospace,monospace; line-height: 28px; text-align: center; cursor: pointer; z-index: 6; will-change: transform; }   /* >=30px tap target (was 22) */
   .pico:hover { background: rgba(86,206,255,.35); }
   #fx { position: fixed; inset: 0; pointer-events: none; z-index: 9000; mix-blend-mode: screen; opacity: 0; transition: opacity .8s ease; will-change: opacity; }   /* deterministic event lighting overlay */
   #stage.inside .pico { display: none !important; }
   #profileCard, #spaceCard { position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 10003; width: 300px; max-width: 88vw; box-sizing: border-box;
     background: rgba(8,14,24,.97); border: 1px solid rgba(86,206,255,.5); border-radius: 14px; padding: 16px; display: none; }
   #spaceCard { width: 340px; max-width: 92vw; max-height: 86vh; overflow-y: auto; }
-  #spaceCard h3 #sp-x { float: right; cursor: pointer; color: #6c8aa6; font-weight: 400; font-size: 18px; line-height: 1; padding: 0 2px; }
+  #spaceCard h3 #sp-x { float: right; cursor: pointer; color: #6c8aa6; font-weight: 400; font-size: 20px; line-height: 1; padding: 6px 10px; margin: -6px -8px 0 0; }   /* bigger tap target without moving it visually */
   #spaceCard h3 #sp-x:hover { color: #cfe; }
   #spaceCard .hub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 3px; }
-  #spaceCard .hubchip { display: flex; align-items: center; gap: 6px; background: rgba(6,16,30,.6); border: 1px solid rgba(86,206,255,.3); border-radius: 8px; color: #cfe; font: 11px ui-monospace,monospace; padding: 7px 8px; cursor: pointer; text-align: left; overflow: hidden; }
+  #spaceCard .hubchip { display: flex; align-items: center; gap: 6px; background: rgba(6,16,30,.6); border: 1px solid rgba(86,206,255,.3); border-radius: 8px; color: #cfe; font: 11px ui-monospace,monospace; padding: 10px 8px; cursor: pointer; text-align: left; overflow: hidden; }   /* ~40px tall touch target */
   #spaceCard .hubchip:hover { background: rgba(86,206,255,.16); }
   #spaceCard .hubdot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
   #spaceCard .hubname { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -151,14 +152,14 @@ window.__deferredInstall=null; addEventListener("beforeinstallprompt",function(e
 <a id="makeown" href="/create/">&#10022; make your own</a>
 <button id="sound" type="button">&#9834; sound off</button>
 <div id="dock">
-  <div id="walkL" class="dockbtn walk"><span>&#9664;</span></div>
-  <div id="walkR" class="dockbtn walk"><span>&#9654;</span></div>
+  <button id="walkL" class="dockbtn walk" type="button" aria-label="walk left"><span>&#9664;</span></button>
+  <button id="walkR" class="dockbtn walk" type="button" aria-label="walk right"><span>&#9654;</span></button>
   <div class="dockdiv"></div>
-  <button id="reactBtn" class="dockbtn" type="button" title="react">&#128522;</button>
-  <button id="musicBtn" class="dockbtn" type="button" title="play music">&#127925;</button>
-  <button id="animBtn" class="dockbtn" type="button" title="animate">&#129336;</button>
-  <button id="copyBtn" class="dockbtn" type="button" title="copy my critter link">&#128279;</button>
-  <button id="portalBtn" class="dockbtn" type="button" title="private space">&#127744;</button>
+  <button id="reactBtn" class="dockbtn" type="button" title="react" aria-label="react">&#128522;</button>
+  <button id="musicBtn" class="dockbtn" type="button" title="play music" aria-label="play music">&#127925;</button>
+  <button id="animBtn" class="dockbtn" type="button" title="animate" aria-label="animate">&#129336;</button>
+  <button id="copyBtn" class="dockbtn" type="button" title="copy my critter link" aria-label="copy my critter link">&#128279;</button>
+  <button id="portalBtn" class="dockbtn" type="button" title="spaces" aria-label="spaces and private rooms">&#127744;</button>
 </div>
 <div id="reactWheel"></div>
 <div id="musicPanel"></div>
@@ -842,6 +843,7 @@ function launchFirework(x, big){
   for(var i=0;i<cnt;i++){ var a=Math.random()*6.28, sp=Rn(1.2, big?5:3.4); FIREWORKS.push({ x:tx, y:ty, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:Rn(40,82), max:82, c:hue }); }
 }
 function updateFireworks(dt){
+  if (reduced){ if (FIREWORKS.length) FIREWORKS.length=0; return; }   // prefers-reduced-motion: no sky bursts (clears any in flight; drawFireworks then renders nothing)
   fwNext -= dt; if (fwNext<=0){ fwNext = demo? Rn(2,5) : Rn(12,26); launchFirework(); }   // intermittent (denser in demo)
   for(var i=FIREWORKS.length-1;i>=0;i--){ var p=FIREWORKS[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=0.04; p.vx*=0.99; p.life-=1; if(p.life<=0) FIREWORKS.splice(i,1); }
 }
@@ -1262,7 +1264,7 @@ function drawScene(ts){
   ['#5ad4ff','#9b8cff','#3df0bb'].forEach(function(col,bi){ cx.beginPath(); cx.strokeStyle=col; cx.globalAlpha=(0.10-bi*0.02)*(1.3-f); cx.lineWidth=10; cx.arc(0,0,rad-bi*12,Math.PI,2*Math.PI); cx.stroke(); });
   cx.restore(); cx.globalAlpha = 1;
   drawClouds(ts, wx, f);
-  for (var r=0;r<runes.length;r++){ var ru=runes[r]; ru.y += ru.s*0.25; if(ru.y>H+10){ru.y=-10;ru.x=Math.random()*W;} cx.globalAlpha=ru.a; cx.fillStyle='#5ad4ff'; cx.font=(11*ru.s+8)+'px ui-monospace,monospace'; cx.fillText(ru.ch, ru.x, ru.y); }
+  for (var r=0;r<runes.length;r++){ var ru=runes[r]; if(!reduced) ru.y += ru.s*0.25; if(ru.y>H+10){ru.y=-10;ru.x=Math.random()*W;} cx.globalAlpha=ru.a; cx.fillStyle='#5ad4ff'; cx.font=(11*ru.s+8)+'px ui-monospace,monospace'; cx.fillText(ru.ch, ru.x, ru.y); }
   cx.globalAlpha = 1;
   drawSkyline(f);                                       // distant city skyline on the horizon
   drawFireworks();                                      // bursts in the sky behind the village
@@ -1340,7 +1342,7 @@ function stepCritters(dt){
           if (Math.random()<0.5) c.face=-c.face; else floatNote(c, ['💭','✨','🐾','🎵','💤'][(Math.random()*5)|0]); } }
       else c._idle=0;
     } else if (c.remote){                                // another REAL player, mirrored via realm presence — shown only in the same room as me
-      var here = INSIDE ? (INSIDE.studio?'studio':(INSIDE.cafe?'cafe':'bldg')) : 'street';
+      var here = INSIDE ? (INSIDE.studio?'studio':(INSIDE.cafe?'cafe':(INSIDE.room?('room:'+INSIDE.room):'bldg'))) : 'street';   // match myLoc()'s vocabulary so same-authored-room players see each other (was 'bldg' for all interiors -> remotes hidden in rooms)
       if (c.rloc && c.rloc !== here){                     // they're in a different room -> hide them here
         if (c.el) c.el.style.display='none'; if (c.plate) c.plate.style.display='none'; if (c.bubble) c.bubble.style.display='none'; c.shownIn=null; continue;
       }
@@ -1679,6 +1681,8 @@ function bindExploreControls(){
   function set(dir,on){ if(dir<0) keyL=on; else keyR=on; if(on) taken=true; }
   addEventListener('keydown', function(e){ var k=e.key;
     var pk=document.getElementById('realmpick'); if (pk && pk.style.display!=='none') return;   // don't walk behind the open realm picker
+    var sc=document.getElementById('spaceCard'), pc=document.getElementById('profileCard'), dlg=(sc&&sc.style.display==='block')?sc:((pc&&pc.style.display==='block')?pc:null);
+    if (dlg){ if (k==='Escape'){ dlg.style.display='none'; e.preventDefault(); } return; }   // a dialog (hub/profile) is open: Escape closes it; all other keys swallowed (no walking behind it)
     if(k==='Enter'||k==='e'||k==='E'){ if(typeof tryEnterExit==='function') tryEnterExit(); e.preventDefault(); return; }   // enter/leave a building
     if(k==='ArrowLeft'||k==='a'||k==='A'){ set(-1,true); e.preventDefault(); }
     else if(k==='ArrowRight'||k==='d'||k==='D'){ set(1,true); e.preventDefault(); } });
@@ -1892,7 +1896,7 @@ function makePico(c){ var b=document.createElement('button'); b.type='button'; b
   b.addEventListener('click', function(e){ e.stopPropagation(); openProfile(c); }); stage.appendChild(b); return b; }
 function openProfile(c){
   var card=document.getElementById('profileCard');
-  if(!card){ card=document.createElement('div'); card.id='profileCard'; card.addEventListener('click', function(e){ e.stopPropagation(); }); (stage.parentNode||document.body).appendChild(card); }
+  if(!card){ card=document.createElement('div'); card.id='profileCard'; card.setAttribute('role','dialog'); card.setAttribute('aria-modal','true'); card.setAttribute('aria-label','character profile'); card.addEventListener('click', function(e){ e.stopPropagation(); }); (stage.parentNode||document.body).appendChild(card); }
   var mine=!!c.player;
   var nm = mine ? ((playerSpec&&playerSpec.name)||'you') : (c.plate ? c.plate.textContent.replace(/^●\s*/,'') : 'a visitor');
   var mood = mine ? (myProfile.mood||'') : ((c.prof&&c.prof.mood)||'');
@@ -1935,7 +1939,7 @@ function updateHubCounts(){ REALMS.forEach(function(r){ var el=document.getEleme
   var chip=el.parentNode; if(chip && !r.hub) chip.style.opacity=(n>=REALM_CAP)?'0.6':'1'; }); }
 function openSpaces(){                                       // BEAT 7: the unified "Spaces" hub — public realms + curated spaces + a private passphrase room + install
   var card=document.getElementById('spaceCard');
-  if(!card){ card=document.createElement('div'); card.id='spaceCard'; card.addEventListener('click', function(e){ e.stopPropagation(); }); (stage.parentNode||document.body).appendChild(card); }
+  if(!card){ card=document.createElement('div'); card.id='spaceCard'; card.setAttribute('role','dialog'); card.setAttribute('aria-modal','true'); card.setAttribute('aria-label','Spaces'); card.addEventListener('click', function(e){ e.stopPropagation(); }); (stage.parentNode||document.body).appendChild(card); }
   var inPriv=_priv, link=inPriv?spaceLink(_realm):'';
   var html='<h3>\ud83c\udf00 Spaces<span id="sp-x" title="close">\u2715</span></h3>';
   if(inPriv){ html+='<div class="pf-bio">You\u2019re in a private space. Share this link \u2014 anyone who opens it lands in the same world as you.</div>'
