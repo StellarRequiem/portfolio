@@ -142,7 +142,20 @@ window.__deferredInstall=null; addEventListener("beforeinstallprompt",function(e
   #profileCard .pf-row, #spaceCard .pf-row { display: flex; gap: 8px; margin-top: 13px; }
   #profileCard .pf-row button, #spaceCard .pf-row button { flex: 1; background: rgba(86,206,255,.18); border: 1px solid rgba(86,206,255,.6); border-radius: 8px; color: #cfe; font: 12px ui-monospace,monospace; padding: 8px; cursor: pointer; }
   #spaceCard .sp-note { font: 10px ui-monospace,monospace; color: #6c8aa6; margin-top: 11px; line-height: 1.5; }
-  @media (max-width: 640px){ .dockbtn { width: 50px; height: 48px; font-size: 21px; } #musicPanel { width: 252px; } #djPanel { width: 270px; } }
+  #chatPanel { position: fixed; left: 50%; bottom: 80px; transform: translateX(-50%); z-index: 9999; display: none; flex-direction: column; width: 320px; max-width: 92vw; box-sizing: border-box; background: rgba(8,14,24,.97); border: 1px solid rgba(86,206,255,.5); border-radius: 14px; overflow: hidden; }
+  #chatHead { font: 600 12px ui-monospace,monospace; color: #9be0ff; padding: 9px 12px; border-bottom: 1px solid rgba(86,206,255,.2); }
+  #chatHead #chatX { float: right; cursor: pointer; color: #6c8aa6; padding: 0 4px; }
+  #chatHead #chatX:hover { color: #cfe; }
+  #chatFeed { height: 200px; overflow-y: auto; padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; }
+  #chatFeed .chatrow { font: 12px ui-monospace,monospace; color: #c8d8e8; word-break: break-word; line-height: 1.35; }
+  #chatFeed .chatrow b { color: #9be0ff; font-weight: 600; }
+  #chatFeed .chatrow.me b { color: #7bd86b; }
+  #chatFeed .chatrow.sys { color: #6c8aa6; font-style: italic; }
+  #chatBar { display: flex; gap: 6px; padding: 8px 12px; border-top: 1px solid rgba(86,206,255,.2); }
+  #chatInput { flex: 1; min-width: 0; background: rgba(6,16,30,.7); border: 1px solid rgba(86,206,255,.35); border-radius: 8px; color: #cfe; font: 12px ui-monospace,monospace; padding: 7px 9px; }
+  #chatSend { background: rgba(86,206,255,.18); border: 1px solid rgba(86,206,255,.6); border-radius: 8px; color: #cfe; font: 12px ui-monospace,monospace; padding: 7px 12px; cursor: pointer; }
+  #chatNote { font: 9px ui-monospace,monospace; color: #6c8aa6; padding: 0 12px 9px; line-height: 1.4; }
+  @media (max-width: 640px){ .dockbtn { width: 50px; height: 48px; font-size: 21px; } #musicPanel { width: 252px; } #djPanel { width: 270px; } #chatFeed { height: 160px; } }
 </style>
 </head>
 <body>
@@ -160,6 +173,7 @@ window.__deferredInstall=null; addEventListener("beforeinstallprompt",function(e
   <button id="animBtn" class="dockbtn" type="button" title="animate" aria-label="animate">&#129336;</button>
   <button id="copyBtn" class="dockbtn" type="button" title="copy my critter link" aria-label="copy my critter link">&#128279;</button>
   <button id="portalBtn" class="dockbtn" type="button" title="spaces" aria-label="spaces and private rooms">&#127744;</button>
+  <button id="chatBtn" class="dockbtn" type="button" title="chat" aria-label="chat">&#128172;</button>
 </div>
 <div id="reactWheel"></div>
 <div id="musicPanel"></div>
@@ -1687,6 +1701,7 @@ function bindExploreControls(){
       if (k==='Tab'){ var ff=dlg.querySelectorAll('button,input,[tabindex]'); if(ff.length){ var fst=ff[0], lst=ff[ff.length-1], ae=document.activeElement;
         if(e.shiftKey){ if(ae===fst||!dlg.contains(ae)){ lst.focus(); e.preventDefault(); } } else { if(ae===lst||!dlg.contains(ae)){ fst.focus(); e.preventDefault(); } } } return; }
       return; }
+    var ae0=document.activeElement; if (ae0 && /^(INPUT|TEXTAREA)$/.test(ae0.tagName)) return;   // typing in a field (chat input) must never walk the critter — AFTER the dialog block so Escape/Tab still work inside dialogs
     if(k==='Enter'||k==='e'||k==='E'){ if(typeof tryEnterExit==='function') tryEnterExit(); e.preventDefault(); return; }   // enter/leave a building
     if(k==='ArrowLeft'||k==='a'||k==='A'){ set(-1,true); e.preventDefault(); }
     else if(k==='ArrowRight'||k==='d'||k==='D'){ set(1,true); e.preventDefault(); } });
@@ -1702,6 +1717,7 @@ function bindExploreControls(){
   var dock=document.getElementById('dock'); if(dock) dock.style.display='flex';   // reveal the control dock (movement + tools)
   var cb=document.getElementById('copyBtn'); if(cb) cb.addEventListener('click', function(e){ e.stopPropagation(); copyMyCritter(); });   // share affordance
   var pbt=document.getElementById('portalBtn'); if(pbt) pbt.addEventListener('click', function(e){ e.stopPropagation(); openSpaces(); });   // private link-spaces portal
+  var chb=document.getElementById('chatBtn'); if(chb){ if(CHAT_ENABLED){ chb.addEventListener('click', function(e){ e.stopPropagation(); toggleChat(); }); } else { chb.style.display='none'; } }   // chat gated until launch
 }
 function b64enc(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))); }   // inverse of the #c= decoder
 function copyMyCritter(){                                  // copy a /village/#c= link for the current player critter, with a ✓ toast
@@ -1791,6 +1807,7 @@ function realmChan(id){                                     // ONE persistent ch
     var hb=document.getElementById('spaceCard'); if (hb && hb.style.display!=='none' && typeof updateHubCounts==='function') updateHubCounts();   // live counts in the Spaces hub too
   });
   ch.on('broadcast', { event:'club' }, function(m){ if (_realm===id && m && m.payload && typeof m.payload.track==='number' && typeof applyClubTrack==='function') applyClubTrack(m.payload.track); });   // DJ sync: follow the realm's club track
+  ch.on('broadcast', { event:'chat' }, function(m){ if (_realm===id && m && m.payload && typeof onChatMsg==='function') onChatMsg(m.payload); });   // in-game chat (gated; filtered on display)
   ch.subscribe(function(s){ if (s==='SUBSCRIBED' && ch._wantTrack && !ch._tracking){ ch._tracking=true; ch.track(myState()); } });
   _chans[topic]=ch; return ch;
 }
@@ -1874,7 +1891,7 @@ function spawnRemote(pid, st){
     c.pico = makePico(c); _remotes[pid] = c; critters.push(c);
   });
 }
-function despawnRemote(pid){ var c=_remotes[pid]; if (c && c.el){ c.el.remove(); if(c.plate)c.plate.remove(); if(c.bubble)c.bubble.remove(); if(c.pico)c.pico.remove(); var ix=critters.indexOf(c); if(ix>=0)critters.splice(ix,1); } delete _remotes[pid]; }   // handles both built critters and bare reservation tokens
+function despawnRemote(pid){ var c=_remotes[pid]; if (c){ if(c._chatT)clearTimeout(c._chatT); if (c.el){ c.el.remove(); if(c.plate)c.plate.remove(); if(c.bubble)c.bubble.remove(); if(c.pico)c.pico.remove(); var ix=critters.indexOf(c); if(ix>=0)critters.splice(ix,1); } } delete _remotes[pid]; }   // handles both built critters and bare reservation tokens (+ clears any pending chat-bubble timer)
 function syncRemotes(state){
   if (!EXPLORE || !state) return;
   var me = presenceKey(), seen = {};
@@ -1893,6 +1910,48 @@ document.addEventListener('visibilitychange', function(){   // a tab loaded whil
   }
 });
 addEventListener('beforeunload', function(){ try { if (_realmCh) setTrack(_realmCh, false); } catch(e){} });   // leave presence promptly on close -> fewer stale ghosts
+/* ── in-game CHAT: ephemeral broadcast on the current realm/space channel, with CLIENT-SIDE safeties (filter + rate-limit + escape + mute). GATED OFF until launch. NOTE: the publishable key means a tampered client could broadcast raw, so we filter on BOTH send AND display; true server-enforced moderation (block-before-broadcast, bans) needs the backend step (Realtime Authorization + a filter relay) — see PRIVACY_PROPOSAL.md. ── */
+var CHAT_ENABLED = false;                                   // operator flips this to launch public chat (a moderation go-live decision)
+var CHAT_MAX = 200, _chatLast = 0, _chatTimes = [], _chatMutes = {};
+var BADWORDS = ['fuck','shit','bitch','asshole','cunt','dick','piss','bastard','slut','whore','fag','retard','nigger','spic','kike','chink','tranny','faggot'];   // STARTER list — extend / wire a maintained blocklist for production
+function _chatNorm(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9@!|$]/g,'').replace(/[@4]/g,'a').replace(/3/g,'e').replace(/[1!|]/g,'i').replace(/0/g,'o').replace(/[5$]/g,'s').replace(/7/g,'t').replace(/(.)\1+/g,'$1'); }   // collapse runs so "fuuuck" normalizes too (spaced-out single-char evasion is a known starter-filter limit)
+function _chatBad(w){ var n=_chatNorm(w); for(var i=0;i<BADWORDS.length;i++){ if(n.indexOf(BADWORDS[i])>=0) return true; } return false; }
+function chatMask(s){ return String(s||'').replace(/[a-z0-9@!|$*._-]+/gi, function(w){ return _chatBad(w) ? (w.charAt(0)+new Array(w.length).join('\u2022')) : w; }); }   // mask matched tokens (keep first char + bullets)
+function chatRateOK(){ var now=Date.now(); _chatTimes=_chatTimes.filter(function(t){ return now-t<15000; }); return (now-_chatLast>=1200) && (_chatTimes.length<5); }   // >=1.2s apart, <=5 per 15s
+function sendChat(text){
+  if(!CHAT_ENABLED || !_realmCh) return;
+  var t=String(text||'').replace(/ {2,}/g,' ').trim().slice(0,CHAT_MAX); if(!t) return;
+  if(!chatRateOK()){ chatToast('easy \u2014 give it a sec'); return; }
+  _chatLast=Date.now(); _chatTimes.push(_chatLast);
+  var clean=chatMask(t), name=(playerSpec&&cleanName(playerSpec.name))||'you';
+  try { _realmCh.send({ type:'broadcast', event:'chat', payload:{ pid:presenceKey(), name:name, text:clean, t:_chatLast } }); } catch(e){}
+  renderChat(presenceKey(), name, clean, true);            // local echo
+}
+function onChatMsg(p){
+  if(!CHAT_ENABLED || !p || !p.pid || _chatMutes[p.pid]) return;   // gated / muted sender -> drop
+  if(p.pid===presenceKey()) return;                                // drop wire messages spoofing MY pid (broadcast never echoes to self; my own go via the local echo) -> no self-impersonation. (Cross-user pid-spoof is a residual that only the server relay can close — see PRIVACY_PROPOSAL.md.)
+  renderChat(p.pid, cleanName(p.name)||'someone', chatMask(String(p.text||'').slice(0,CHAT_MAX)), false);   // received = never "mine"; re-filter on DISPLAY (a tampered sender can't bypass)
+}
+function renderChat(pid, name, text, mine){
+  var c = (pid===presenceKey()) ? (typeof player!=='undefined'?player:null) : _remotes[pid];   // float a bubble over the sender's critter
+  if(c && c.bubble){ c.bubble.textContent=text; c.bubble.style.opacity='0.96'; clearTimeout(c._chatT); c._chatT=setTimeout(function(){ if(c&&c.bubble) c.bubble.style.opacity='0'; }, 5200); }
+  var feed=document.getElementById('chatFeed');
+  if(feed){ var row=document.createElement('div'); row.className='chatrow'+(mine?' me':''); row.innerHTML='<b>'+pesc(name)+'</b> '+pesc(text);
+    if(!mine && pid){ row.title='click to mute this person (this session)'; row.style.cursor='pointer'; row.addEventListener('click', function(){ _chatMutes[pid]=1; chatToast('muted '+name+' \u00b7 you won\u2019t see their messages'); }); }   // best-effort local mute (a determined sender can rotate pid)
+    feed.appendChild(row); while(feed.childNodes.length>50) feed.removeChild(feed.firstChild); feed.scrollTop=feed.scrollHeight; }
+}
+function chatToast(msg){ var f=document.getElementById('chatFeed'); if(f){ var r=document.createElement('div'); r.className='chatrow sys'; r.textContent=msg; f.appendChild(r); f.scrollTop=f.scrollHeight; } }
+function toggleChat(){ var p=document.getElementById('chatPanel')||buildChatPanel(); p.style.display=(p.style.display==='flex')?'none':'flex';
+  if(p.style.display==='flex'){ var h=document.getElementById('chatHead'); if(h) h.firstChild.nodeValue='chat \u00b7 '+( _spaceName||'realm')+' '; var i=document.getElementById('chatInput'); if(i) setTimeout(function(){ try{i.focus();}catch(e){} },30); } }
+function buildChatPanel(){ var p=document.createElement('div'); p.id='chatPanel'; p.addEventListener('click',function(e){ e.stopPropagation(); });
+  p.innerHTML='<div id="chatHead">chat <span id="chatX" title="close">\u2715</span></div><div id="chatFeed"></div><div id="chatBar"><input id="chatInput" maxlength="'+CHAT_MAX+'" placeholder="say something\u2026" aria-label="chat message"><button id="chatSend" type="button">send</button></div><div id="chatNote">be kind \u00b7 filtered + rate-limited \u00b7 everyone here can see it</div>';
+  (stage.parentNode||document.body).appendChild(p);
+  p.querySelector('#chatX').addEventListener('click',function(e){ e.stopPropagation(); p.style.display='none'; });
+  var inp=p.querySelector('#chatInput'), go=function(){ sendChat(inp.value); inp.value=''; };
+  p.querySelector('#chatSend').addEventListener('click',function(e){ e.stopPropagation(); go(); });
+  inp.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.stopPropagation(); go(); } });
+  return p;
+}
 /* ── character profiles: a clickable icon above each player -> a little editable character sheet ── */
 var myProfile = (function(){ try { return JSON.parse(localStorage.getItem('xclvxo_profile'))||{}; } catch(e){ return {}; } })();
 function saveMyProfile(p){ myProfile=p; try { localStorage.setItem('xclvxo_profile', JSON.stringify(p)); } catch(e){} }
