@@ -807,7 +807,7 @@ function stepWeather(dt){ var bk = Math.floor(Date.now()/75000); if (bk === _wxB
 function drawClouds(ts, wx, f){
   if (wx==='clear') return;
   var op = wx==='storm'?0.5:0.3;
-  CLOUDS.forEach(function(c){ c.x += c.sp; if (c.x-c.w*2 > W) c.x = -c.w*2;
+  CLOUDS.forEach(function(c){ if(!reduced) c.x += c.sp; if (c.x-c.w*2 > W) c.x = -c.w*2;
     cx.globalAlpha=op; cx.fillStyle=mix('#243446','#3a4a5a',f);
     cx.beginPath(); cx.ellipse(c.x,c.y,c.w,c.w*0.42,0,0,6.28); cx.ellipse(c.x+c.w*0.6,c.y+6,c.w*0.7,c.w*0.34,0,0,6.28); cx.ellipse(c.x-c.w*0.6,c.y+8,c.w*0.6,c.w*0.3,0,0,6.28); cx.fill(); });
   cx.globalAlpha=1;
@@ -1682,7 +1682,11 @@ function bindExploreControls(){
   addEventListener('keydown', function(e){ var k=e.key;
     var pk=document.getElementById('realmpick'); if (pk && pk.style.display!=='none') return;   // don't walk behind the open realm picker
     var sc=document.getElementById('spaceCard'), pc=document.getElementById('profileCard'), dlg=(sc&&sc.style.display==='block')?sc:((pc&&pc.style.display==='block')?pc:null);
-    if (dlg){ if (k==='Escape'){ dlg.style.display='none'; e.preventDefault(); } return; }   // a dialog (hub/profile) is open: Escape closes it; all other keys swallowed (no walking behind it)
+    if (dlg){   // a dialog (hub/profile) is open: Escape closes it; Tab is trapped inside it; all other keys swallowed (no walking behind it)
+      if (k==='Escape'){ dlg.style.display='none'; e.preventDefault(); return; }
+      if (k==='Tab'){ var ff=dlg.querySelectorAll('button,input,[tabindex]'); if(ff.length){ var fst=ff[0], lst=ff[ff.length-1], ae=document.activeElement;
+        if(e.shiftKey){ if(ae===fst||!dlg.contains(ae)){ lst.focus(); e.preventDefault(); } } else { if(ae===lst||!dlg.contains(ae)){ fst.focus(); e.preventDefault(); } } } return; }
+      return; }
     if(k==='Enter'||k==='e'||k==='E'){ if(typeof tryEnterExit==='function') tryEnterExit(); e.preventDefault(); return; }   // enter/leave a building
     if(k==='ArrowLeft'||k==='a'||k==='A'){ set(-1,true); e.preventDefault(); }
     else if(k==='ArrowRight'||k==='d'||k==='D'){ set(1,true); e.preventDefault(); } });
@@ -1806,7 +1810,8 @@ function joinRealm(id, opts){                               // EXPLORE: present 
   var ov=document.getElementById('realmpick'); if (ov) ov.style.display='none';
   showLive(1);
   withSB(function(){
-    if (prev && prev!==id){ setTrack(_chans['realm:'+prev], false); clearRemotes(); }   // leave the old space: untrack + clear its remote players
+    if (prev && prev!==id){ var pch=_chans['realm:'+prev]; setTrack(pch, false); clearRemotes();   // leave the old space: untrack + clear its remote players
+      if (pch && !realmById(prev)){ try { _sb.removeChannel(pch); } catch(e){} delete _chans['realm:'+prev]; } }   // a PRIVATE space left -> fully release its channel (realms stay subscribed for live counts; a private topic is only ever recreated by a deliberate future rejoin, so no same-topic remove/recreate race)
     _realmCh = realmChan(id); setTrack(_realmCh, true);
   });
   return true;   // success -> boot uses this to decide picker-fallback
