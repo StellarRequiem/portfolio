@@ -1807,9 +1807,15 @@ function realmChan(id){                                     // ONE persistent ch
     var hb=document.getElementById('spaceCard'); if (hb && hb.style.display!=='none' && typeof updateHubCounts==='function') updateHubCounts();   // live counts in the Spaces hub too
   });
   ch.on('broadcast', { event:'club' }, function(m){ if (_realm===id && m && m.payload && typeof m.payload.track==='number' && typeof applyClubTrack==='function') applyClubTrack(m.payload.track); });   // DJ sync: follow the realm's club track
-  ch.on('broadcast', { event:'chat' }, function(m){ if (_realm===id && m && m.payload && typeof onChatMsg==='function') onChatMsg(m.payload); });   // in-game chat (gated; filtered on display)
   ch.subscribe(function(s){ if (s==='SUBSCRIBED' && ch._wantTrack && !ch._tracking){ ch._tracking=true; ch.track(myState()); } });
   _chans[topic]=ch; return ch;
+}
+function chatChan(id){                                       // chat lives on its OWN private topic so Realtime-Auth can gate it without touching realm: (presence/DJ-sync). Receive-only here; sends go through the chat-relay Edge Function.
+  if(!CHAT_ENABLED) return null; var key='chat:'+id; if(_chans[key]) return _chans[key];
+  try { _sb.realtime.setAuth(); } catch(e){}               // anon/publishable token for private-channel authorization (operator smoke-tests anon-subscribe in CHAT_MODERATION.md step 7)
+  var ch=_sb.channel('chat:'+id, { config:{ private:true } });
+  ch.on('broadcast', { event:'chat' }, function(m){ if(_realm===id && m && m.payload && typeof onChatMsg==='function') onChatMsg(m.payload); });   // filtered on display too (belt-and-suspenders)
+  ch.subscribe(); _chans[key]=ch; return ch;
 }
 function setTrack(ch, on){                                  // present (track) in a realm or not — without tearing the channel down
   if (!ch) return;
@@ -1828,8 +1834,9 @@ function joinRealm(id, opts){                               // EXPLORE: present 
   showLive(1);
   withSB(function(){
     if (prev && prev!==id){ var pch=_chans['realm:'+prev]; setTrack(pch, false); clearRemotes();   // leave the old space: untrack + clear its remote players
-      if (pch && !realmById(prev)){ try { _sb.removeChannel(pch); } catch(e){} delete _chans['realm:'+prev]; } }   // a PRIVATE space left -> fully release its channel (realms stay subscribed for live counts; a private topic is only ever recreated by a deliberate future rejoin, so no same-topic remove/recreate race)
-    _realmCh = realmChan(id); setTrack(_realmCh, true);
+      if (pch && !realmById(prev)){ try { _sb.removeChannel(pch); } catch(e){} delete _chans['realm:'+prev]; }   // a PRIVATE space left -> fully release its channel (realms stay subscribed for live counts; a private topic is only ever recreated by a deliberate future rejoin, so no same-topic remove/recreate race)
+      var cch=_chans['chat:'+prev]; if (cch){ try { _sb.removeChannel(cch); } catch(e){} delete _chans['chat:'+prev]; } }   // release the prev space's chat topic too
+    _realmCh = realmChan(id); setTrack(_realmCh, true); chatChan(id);   // subscribe this space's private chat topic (no-op while CHAT_ENABLED=false)
   });
   return true;   // success -> boot uses this to decide picker-fallback
 }
@@ -1919,13 +1926,19 @@ function _chatBad(w){ var n=_chatNorm(w); for(var i=0;i<BADWORDS.length;i++){ if
 function chatMask(s){ return String(s||'').replace(/[a-z0-9@!|$*._-]+/gi, function(w){ return _chatBad(w) ? (w.charAt(0)+new Array(w.length).join('\u2022')) : w; }); }   // mask matched tokens (keep first char + bullets)
 function chatRateOK(){ var now=Date.now(); _chatTimes=_chatTimes.filter(function(t){ return now-t<15000; }); return (now-_chatLast>=1200) && (_chatTimes.length<5); }   // >=1.2s apart, <=5 per 15s
 function sendChat(text){
-  if(!CHAT_ENABLED || !_realmCh) return;
+  if(!CHAT_ENABLED || !_realm) return;
   var t=String(text||'').replace(/ {2,}/g,' ').trim().slice(0,CHAT_MAX); if(!t) return;
-  if(!chatRateOK()){ chatToast('easy \u2014 give it a sec'); return; }
+  if(!chatRateOK()){ chatToast('easy \u2014 give it a sec'); return; }                 // advisory rate (the relay is authoritative)
+  if(_chatBad(t)){ chatToast('let\u2019s keep it kind'); return; }                     // advisory filter -> instant feedback, fewer relay round-trips
   _chatLast=Date.now(); _chatTimes.push(_chatLast);
   var clean=chatMask(t), name=(playerSpec&&cleanName(playerSpec.name))||'you';
-  try { _realmCh.send({ type:'broadcast', event:'chat', payload:{ pid:presenceKey(), name:name, text:clean, t:_chatLast } }); } catch(e){}
-  renderChat(presenceKey(), name, clean, true);            // local echo
+  var echo=renderChat(presenceKey(), name, clean, true);                                // optimistic local echo (my own relay copy is self-dropped in onChatMsg)
+  if(!_sb || !_sb.functions) return;
+  _sb.functions.invoke('chat-relay', { body:{ realm:_realm, name:name, text:t, pid:presenceKey() } }).then(function(r){   // server filters then broadcasts to chat:<realm>; anon cannot broadcast there directly (RLS)
+    var d=r&&r.data, e=r&&r.error;
+    if(e || (d&&d.rejected)){ var reason=(d&&d.reason)||'error'; chatToast(reason==='blocked'?'message blocked':(reason==='rate'?'easy \u2014 give it a sec':'message not sent'));
+      if(echo&&echo.parentNode) echo.parentNode.removeChild(echo); }                    // withdraw the optimistic echo — it never reached anyone
+  }).catch(function(){ chatToast('message not sent'); if(echo&&echo.parentNode) echo.parentNode.removeChild(echo); });
 }
 function onChatMsg(p){
   if(!CHAT_ENABLED || !p || !p.pid || _chatMutes[p.pid]) return;   // gated / muted sender -> drop
@@ -1938,7 +1951,8 @@ function renderChat(pid, name, text, mine){
   var feed=document.getElementById('chatFeed');
   if(feed){ var row=document.createElement('div'); row.className='chatrow'+(mine?' me':''); row.innerHTML='<b>'+pesc(name)+'</b> '+pesc(text);
     if(!mine && pid){ row.title='click to mute this person (this session)'; row.style.cursor='pointer'; row.addEventListener('click', function(){ _chatMutes[pid]=1; chatToast('muted '+name+' \u00b7 you won\u2019t see their messages'); }); }   // best-effort local mute (a determined sender can rotate pid)
-    feed.appendChild(row); while(feed.childNodes.length>50) feed.removeChild(feed.firstChild); feed.scrollTop=feed.scrollHeight; }
+    feed.appendChild(row); while(feed.childNodes.length>50) feed.removeChild(feed.firstChild); feed.scrollTop=feed.scrollHeight; return row; }
+  return null;
 }
 function chatToast(msg){ var f=document.getElementById('chatFeed'); if(f){ var r=document.createElement('div'); r.className='chatrow sys'; r.textContent=msg; f.appendChild(r); f.scrollTop=f.scrollHeight; } }
 function toggleChat(){ var p=document.getElementById('chatPanel')||buildChatPanel(); p.style.display=(p.style.display==='flex')?'none':'flex';
