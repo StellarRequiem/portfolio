@@ -74,7 +74,7 @@ window.__deferredInstall=null; addEventListener("beforeinstallprompt",function(e
   .bubble.emoji { font-size: 30px; line-height: 1; padding: 3px 9px; max-width: none; border-color: rgba(86,206,255,.3); background: rgba(6,16,30,.8); }
   .note { font-size: 22px; }   /* big enough for the emoji reactions critters float at each other */
   #live b { color: #eafaff; font-weight: 600; }
-  #rswitch { pointer-events: auto; cursor: pointer; color: #8fd0ff; text-decoration: underline; margin-left: 7px; }
+  #rswitch, #rinvite { pointer-events: auto; cursor: pointer; color: #8fd0ff; text-decoration: underline; margin-left: 7px; }
   #realmpick { position: fixed; inset: 0; z-index: 10000; display: none; flex-direction: column; align-items: center; justify-content: center;
     background: rgba(2,6,13,.88); padding: 22px; box-sizing: border-box; }
   #rp-h { text-align: center; color: #dcefff; max-width: 470px; margin-bottom: 18px; }
@@ -1774,9 +1774,10 @@ function showLive(n){
   if (!presenceEl){ presenceEl = document.createElement('div'); presenceEl.id = 'live'; stage.appendChild(presenceEl); }
   var priv=_priv, rn = priv ? (_spaceName||'Private space') : (_realm ? ((realmById(_realm)||{}).name||'') : '');
   presenceEl.innerHTML = (rn?'<b>'+(priv?'\ud83d\udd12 ':'')+pesc(rn)+'</b> &middot; ':'') + '\u25cf ' + n + ' here now'
-    + (priv ? ' <span id="rswitch">&#8634; invite</span>' : (rn?' <span id="rswitch">&#8646; switch</span>':''));
+    + (priv ? ' <span id="rswitch">&#8634; invite</span>' : (rn?' <span id="rswitch">&#8646; switch</span> <span id="rinvite">&#8599; invite</span>':''));
   presenceEl.style.opacity = '1';
-  var rsw=document.getElementById('rswitch'); if (rsw) rsw.onclick=function(e){ e.stopPropagation(); openSpaces(); };   // the unified Spaces hub is the single in-world switcher (realms + curated + private + install)
+  var rsw=document.getElementById('rswitch'); if (rsw) rsw.onclick=function(e){ e.stopPropagation(); openSpaces(); };
+  var rinv=document.getElementById('rinvite'); if (rinv) rinv.onclick=function(e){ e.stopPropagation(); copyRealmInvite(); };   // copy a ?realm= link to THIS realm -> get your devices/friends into the same one   // the unified Spaces hub is the single in-world switcher (realms + curated + private + install)
   if (!ROOM){ var mob = innerWidth < 640;                  // ambient filler scales to headcount MINUS the real players we already render (no double-count)
     var base = EXPLORE ? (mob?6:9) : (mob?3:4), cap = EXPLORE ? (mob?12:20) : (mob?8:14);   // a touch fewer ambient extras now that real players render
     var rem = 0; for (var rp in _remotes){ if (_remotes[rp] && _remotes[rp].el) rem++; }
@@ -1843,6 +1844,12 @@ function joinRealm(id, opts){                               // EXPLORE: present 
 function coreRealms(){ return REALMS.filter(function(r){ return !r.hub; }); }     // the 10 first-run realms (curated hub spaces excluded)
 function hubSpaces(){ return REALMS.filter(function(r){ return r.hub; }); }        // the curated public gathering spaces
 function quietestRealm(){ var cr=coreRealms(), best=cr[0]; for (var i=1;i<cr.length;i++) if ((_counts[cr[i].id]||0)<(_counts[best.id]||0)) best=cr[i]; return best.id; }
+var DEFAULT_REALM='aurora';                                  // the shared "town" everyone lands in by default -> a small community congregates instead of scattering across 10 realms
+function busiestRealm(){ var cr=coreRealms(), best=DEFAULT_REALM, bn=-1; for (var i=0;i<cr.length;i++){ var n=_counts[cr[i].id]||0; if (n<REALM_CAP && n>bn){ bn=n; best=cr[i].id; } } return best; }   // where the most people are (non-full); falls back to the town when counts are unknown (e.g. at boot)
+function copyRealmInvite(){ if(!_realm) return; var link=location.origin+location.pathname+'?realm='+_realm;   // a link that lands the opener in THIS exact realm -> sync your devices / pull in friends
+  var done=function(){ var el=document.getElementById('rinvite'); if(el) el.textContent='\u2713 link copied'; };
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(done).catch(function(){ done(); }); }
+  else { try{ var t=document.createElement('textarea'); t.value=link; (stage||document.body).appendChild(t); t.select(); document.execCommand('copy'); t.remove(); done(); }catch(e){} } }
 function updatePickerCounts(){
   REALMS.forEach(function(r){ var el=document.getElementById('rc-'+r.id); if (!el) return;
     var n=_counts[r.id]||0, full=n>=REALM_CAP;
@@ -1862,8 +1869,8 @@ function buildPicker(){
     grid.appendChild(card);
   });
   ov.appendChild(grid);
-  var skip=document.createElement('button'); skip.id='rp-skip'; skip.type='button'; skip.textContent='\u2192 drop me in the quietest realm';
-  skip.addEventListener('click', function(e){ e.stopPropagation(); joinRealm(quietestRealm()); });   // always-available escape (no modal trap)
+  var skip=document.createElement('button'); skip.id='rp-skip'; skip.type='button'; skip.textContent='\u2192 take me where everyone is';
+  skip.addEventListener('click', function(e){ e.stopPropagation(); joinRealm(busiestRealm()); });   // congregate: send them where the most people are (not the emptiest)
   ov.appendChild(skip);
   (stage.parentNode||document.body).appendChild(ov); return ov;
 }
@@ -2148,7 +2155,7 @@ function boot(){
   }
   ROOM_CRITTERS.forEach(spawnGuest);                      // the room's composed critters
   updateCredits();
-  if (EXPLORE){ var _rr=chosenRealm(); if (!(_rr && joinRealm(_rr))) openPicker(); }   // realms: pick one, or rejoin your last / a ?realm= / ?space= link (a rejected join falls back to the picker, never a blank screen)
+  if (EXPLORE){ var _rr=chosenRealm(); if (!(_rr && joinRealm(_rr))) joinRealm(DEFAULT_REALM); }   // congregate: with no explicit choice, land everyone in the shared town (not an empty picker) so a small community actually meets. Switch realms via the 🌀 Spaces hub. (?realm=/?space=/localStorage still honored.)
   else connectPresence();                                 // a #r= room keeps the single shared "● N here now" counter
   var sb = document.getElementById('sound'); if (sb) sb.addEventListener('click', toggleSound);
   requestAnimationFrame(loop);
