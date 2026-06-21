@@ -450,7 +450,7 @@ function openReactWheel(){
   REACTIONS.forEach(function(em,i){ var ang=-Math.PI/2 + (i/n)*2*Math.PI;
     var b=document.createElement('button'); b.type='button'; b.className='reactItem'; b.textContent=em;
     b.style.left=(C+R*Math.cos(ang))+'px'; b.style.top=(C+R*Math.sin(ang))+'px';
-    b.addEventListener('click', function(e){ e.stopPropagation(); if(player) floatNote(player, em); closeToys(); });
+    b.addEventListener('click', function(e){ e.stopPropagation(); if(player) floatNote(player, em); if(typeof broadcastEmote==='function') broadcastEmote('react', em); closeToys(); });   // others SEE your reaction
     w.appendChild(b); });
 }
 function openMusicPanel(){
@@ -486,6 +486,7 @@ function setAnim(k, label){                                // trigger a player p
   player.dancing=(k==='dance');
   if (k==='jump') sfx('jump'); else if (k==='cheer') sfx('pop');
   floatNote(player, label||'✨');
+  if (typeof broadcastEmote==='function') broadcastEmote('anim', k);   // others SEE your pose play on your critter
 }
 function setupPlayerUI(){
   var rb=document.getElementById('reactBtn'), mb=document.getElementById('musicBtn'), ab=document.getElementById('animBtn');
@@ -1464,7 +1465,7 @@ function stepCritters(dt){
             : (c.mode==='perform' ? -Math.abs(Math.sin(performBob(c)))*3 : 0);
     var rs = c.scale || 1, sx = c.x - cameraX;            // sx = screen-space x (world x minus camera) for DOM sprites
     var animRot = '', ysq = 1;                            // player animation-wheel poses (EXPLORE)
-    if (c.player && c.anim){
+    if ((c.player||c.remote) && c.anim){                  // play poses for the local player AND remote players (broadcast emotes)
       if ((t0 >= (c.animUntil||0)) || (moving && c.anim==='sit')){ c.anim=null; c.dancing=false; }   // momentary poses expire; walking ends a sit
       else if (c.anim==='jump'){ var jt=Math.max(0,Math.min(1,1-(c.animUntil-t0)/2200)); hop=-Math.abs(Math.sin(jt*Math.PI))*42; }
       else if (c.anim==='cheer'){ hop=-Math.abs(Math.sin(t0*0.02))*18; }
@@ -1472,7 +1473,7 @@ function stepCritters(dt){
       else if (c.anim==='wave'){ animRot=' rotate('+(Math.sin(t0*0.018)*9).toFixed(1)+'deg)'; }
       else if (c.anim==='sit'){ hop=0; ysq=0.74; }        // squash from the foot pivot -> reads as sitting
     }
-    if (!moving && !c.dancing && !(c.player && c.anim) && !reduced) ysq *= 1 + Math.sin(t0*0.0028 + (c.bob||0))*0.018;   // gentle idle breathing
+    if (!moving && !c.dancing && !((c.player||c.remote) && c.anim) && !reduced) ysq *= 1 + Math.sin(t0*0.0028 + (c.bob||0))*0.018;   // gentle idle breathing
     c.el.style.transform = 'translate(' + sx.toFixed(1) + 'px,' + (c.y+hop).toFixed(1) + 'px) scale(' + (c.face*rs).toFixed(3) + ',' + (rs*ysq).toFixed(3) + ')' + animRot;
     if (c.legL){                                          // bipedal walk cycle: legs swing opposite on the bob phase
       var lsw = reduced ? 0 : (moving ? Math.sin(c.bob)*16 : ((c.dancing||dancing) ? Math.sin(t0*0.013)*14 : 0));
@@ -1481,8 +1482,8 @@ function stepCritters(dt){
     }
     if (c.armL){                                          // arms: wave/cheer poses, a counter-swing while walking, a sway while dancing
       var al, ar;
-      if (c.player && c.anim==='wave'){ ar = -150 + Math.sin(t0*0.022)*22; al = 12; }       // right arm up, waving
-      else if (c.player && c.anim==='cheer'){ al = 150; ar = -150; }                        // both arms thrown up
+      if ((c.player||c.remote) && c.anim==='wave'){ ar = -150 + Math.sin(t0*0.022)*22; al = 12; }       // right arm up, waving
+      else if ((c.player||c.remote) && c.anim==='cheer'){ al = 150; ar = -150; }                        // both arms thrown up
       else if (reduced){ al = 12; ar = -12; }
       else if (moving){ al = Math.sin(c.bob)*-12; ar = Math.sin(c.bob)*12; }                // gentle counter-swing to the legs
       else if (c.dancing || dancing){ al = 90 + Math.sin(t0*0.013)*35; ar = -90 + Math.sin(t0*0.013+1)*35; }   // dance arms up + sway
@@ -1839,6 +1840,7 @@ function realmChan(id){                                     // ONE persistent ch
     var hb=document.getElementById('spaceCard'); if (hb && hb.style.display!=='none' && typeof updateHubCounts==='function') updateHubCounts();   // live counts in the Spaces hub too
   });
   ch.on('broadcast', { event:'club' }, function(m){ if (_realm===id && m && m.payload && typeof m.payload.track==='number' && typeof applyClubTrack==='function') applyClubTrack(m.payload.track); });   // DJ sync: follow the realm's club track
+  ch.on('broadcast', { event:'emote' }, function(m){ if (_realm===id && m && m.payload && typeof onEmote==='function') onEmote(m.payload); });   // others' reactions + poses (on the realm: topic, where broadcastEmote sends; independent of chat)
   ch.subscribe(function(s){ if (s==='SUBSCRIBED' && ch._wantTrack && !ch._tracking){ ch._tracking=true; ch.track(myState()); } });
   _chans[topic]=ch; return ch;
 }
@@ -1991,6 +1993,13 @@ function syncRemotes(state){
   Object.keys(_remotes).forEach(function(pid){ if (!seen[pid]) despawnRemote(pid); });
 }
 function clearRemotes(){ Object.keys(_remotes).forEach(despawnRemote); }
+function broadcastEmote(kind, val){ if(!EXPLORE || !_realmCh) return; try{ _realmCh.send({ type:'broadcast', event:'emote', payload:{ pid:presenceKey(), kind:kind, val:val, t:Date.now() } }); }catch(e){} }   // others see my reaction/pose
+function onEmote(p){
+  if(!p || !p.pid || p.pid===presenceKey()) return;       // self -> already shown locally
+  var c=_remotes[p.pid]; if(!c || !c.el) return;
+  if(p.kind==='react'){ if(typeof REACTIONS!=='undefined' && REACTIONS.indexOf(p.val)>=0) floatNote(c, p.val); }   // whitelist the emoji (untrusted broadcast -> only the known reaction set)
+  else if(p.kind==='anim'){ if(typeof ANIMATIONS!=='undefined' && ANIMATIONS.some(function(a){ return a.k===p.val; })){ c.anim=p.val; c.animUntil=(typeof t0!=='undefined'?t0:0)+2400; c.dancing=(p.val==='dance'); } }   // whitelist the pose; cap duration so a remote pose never sticks
+}
 document.addEventListener('visibilitychange', function(){   // a tab loaded while hidden never finishes connecting -> connect when it becomes visible
   if (document.visibilityState==='visible' && EXPLORE && _realm && (!_realmCh || _realmCh.state!=='joined')){
     withSB(function(){ _realmCh = realmChan(_realm); setTrack(_realmCh, true); });
