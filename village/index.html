@@ -62,7 +62,7 @@ window.__deferredInstall=null; addEventListener("beforeinstallprompt",function(e
     #tag { font-size: 9px; bottom: 6px; right: 8px; }
   }
   #dock { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 9998; display: none;
-    flex-wrap: wrap; justify-content: center; max-width: 96vw;   /* 7 buttons wrap to a 2nd row on narrow phones instead of clipping past the screen edge */
+    flex-wrap: wrap; justify-content: center; max-width: 96vw;   /* the dock buttons wrap to a 2nd row on narrow phones instead of clipping past the screen edge */
     align-items: center; gap: 7px; padding: 6px; border-radius: 16px; background: rgba(6,16,30,.55);
     border: 1px solid rgba(86,206,255,.18); -webkit-tap-highlight-color: transparent; }
   .dockbtn { display: flex; align-items: center; justify-content: center; width: 54px; height: 50px;
@@ -155,6 +155,20 @@ window.__deferredInstall=null; addEventListener("beforeinstallprompt",function(e
   #chatInput { flex: 1; min-width: 0; background: rgba(6,16,30,.7); border: 1px solid rgba(86,206,255,.35); border-radius: 8px; color: #cfe; font: 12px ui-monospace,monospace; padding: 7px 9px; }
   #chatSend { background: rgba(86,206,255,.18); border: 1px solid rgba(86,206,255,.6); border-radius: 8px; color: #cfe; font: 12px ui-monospace,monospace; padding: 7px 12px; cursor: pointer; }
   #chatNote { font: 9px ui-monospace,monospace; color: #6c8aa6; padding: 0 12px 9px; line-height: 1.4; }
+  .npcmark { position: absolute; top: 0; left: 0; font: 700 17px ui-monospace,monospace; color: #ffd23f; text-shadow: 0 0 7px rgba(255,210,63,.9); cursor: pointer; z-index: 6; transition: opacity .3s; }
+  .npcplate { font-style: italic; opacity: .85; }   /* NPCs read distinct from real players (who get a leading ● bullet) */
+  #stage.inside .npcmark { display: none !important; }   /* belt-and-suspenders: hide the quest mark inside buildings via CSS too (npcTick also hides it) */
+  #questToast { position: fixed; left: 50%; bottom: 78px; transform: translateX(-50%); z-index: 10004; background: rgba(8,14,24,.96); border: 1px solid rgba(123,216,107,.6); border-radius: 10px; color: #cfe; font: 12px ui-monospace,monospace; padding: 8px 14px; max-width: 88vw; text-align: center; opacity: 0; transition: opacity .4s; pointer-events: none; }
+  #questCard { position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 10003; width: 320px; max-width: 90vw; max-height: 86vh; overflow-y: auto; box-sizing: border-box; background: rgba(8,14,24,.97); border: 1px solid rgba(123,216,107,.5); border-radius: 14px; padding: 16px; display: none; }
+  #questCard h3 { margin: 0 0 4px; color: #9be0ff; font: 600 16px ui-monospace,monospace; }
+  #questCard h3 #q-x { float: right; cursor: pointer; color: #6c8aa6; padding: 4px 8px; margin: -4px -6px 0 0; }
+  #questCard .pf-mood { color: #ffd23f; font: 13px ui-monospace,monospace; margin-bottom: 8px; }
+  #questCard .pf-bio { color: #c8d8e8; font: 12px ui-monospace,monospace; line-height: 1.5; }
+  #questCard label { display: block; font: 10px ui-monospace,monospace; color: #6c8aa6; text-transform: uppercase; letter-spacing: .08em; margin: 11px 0 4px; }
+  #questCard .qsteps { display: flex; flex-direction: column; gap: 3px; }
+  #questCard .qstep { font: 12px ui-monospace,monospace; color: #c8d8e8; } #questCard .qstep.done { color: #7bd86b; }
+  #questCard .qstamps { display: flex; gap: 8px; flex-wrap: wrap; } #questCard .qstamp { font-size: 22px; }
+  #questCard .pf-row { display: flex; gap: 8px; margin-top: 14px; } #questCard .pf-row button { flex: 1; background: rgba(123,216,107,.18); border: 1px solid rgba(123,216,107,.6); border-radius: 8px; color: #cfe; font: 12px ui-monospace,monospace; padding: 8px; cursor: pointer; }
   @media (max-width: 640px){ .dockbtn { width: 50px; height: 48px; font-size: 21px; } #musicPanel { width: 252px; } #djPanel { width: 270px; } #chatFeed { height: 160px; } }
 </style>
 </head>
@@ -174,6 +188,7 @@ window.__deferredInstall=null; addEventListener("beforeinstallprompt",function(e
   <button id="copyBtn" class="dockbtn" type="button" title="copy my critter link" aria-label="copy my critter link">&#128279;</button>
   <button id="portalBtn" class="dockbtn" type="button" title="spaces" aria-label="spaces and private rooms">&#127744;</button>
   <button id="chatBtn" class="dockbtn" type="button" title="chat" aria-label="chat">&#128172;</button>
+  <button id="questBtn" class="dockbtn" type="button" title="quests" aria-label="quests">&#128220;</button>
 </div>
 <div id="reactWheel"></div>
 <div id="musicPanel"></div>
@@ -505,6 +520,7 @@ function recolor(dataUri, hex, outfit){
       if (outfit) outfit.forEach(function(a){ try{ a.fn(g, a.c); }catch(e){} });   // bake the outfit pieces on top
       resolve(c.toDataURL());
     };
+    img.onerror = function(){ resolve(dataUri); };   // a decode failure degrades to the un-recolored sprite, never a permanently-pending promise
     img.src = dataUri;
   });
 }
@@ -1608,7 +1624,7 @@ function loop(ts){
   if (ts - _lastDraw < 32) return;                 // ~30fps cap — gentler on battery, esp. mobile / 120Hz screens
   _lastDraw = ts;
   t0 = ts; var dt = 1/30;
-  if (!hidden && !lowPower){ if(EXPLORE && !INSIDE) stepWeather(dt); stepCamera(); drawScene(ts); stepCritters(dt); if(!INSIDE){ manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); } updateFireworks(dt); demoTick(dt); ambienceTick(dt); presenceTick(); applyEventFx(); cycleTick(); }
+  if (!hidden && !lowPower){ if(EXPLORE && !INSIDE) stepWeather(dt); stepCamera(); drawScene(ts); stepCritters(dt); if(!INSIDE){ manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); } updateFireworks(dt); demoTick(dt); ambienceTick(dt); presenceTick(); applyEventFx(); cycleTick(); npcTick(dt); }
 }
 
 /* ── host state: idle / heat / audio on / volume ── */
@@ -1695,7 +1711,7 @@ function bindExploreControls(){
   function set(dir,on){ if(dir<0) keyL=on; else keyR=on; if(on) taken=true; }
   addEventListener('keydown', function(e){ var k=e.key;
     var pk=document.getElementById('realmpick'); if (pk && pk.style.display!=='none') return;   // don't walk behind the open realm picker
-    var sc=document.getElementById('spaceCard'), pc=document.getElementById('profileCard'), dlg=(sc&&sc.style.display==='block')?sc:((pc&&pc.style.display==='block')?pc:null);
+    var sc=document.getElementById('spaceCard'), pc=document.getElementById('profileCard'), qc=document.getElementById('questCard'), dlg=(sc&&sc.style.display==='block')?sc:((pc&&pc.style.display==='block')?pc:((qc&&qc.style.display==='block')?qc:null));
     if (dlg){   // a dialog (hub/profile) is open: Escape closes it; Tab is trapped inside it; all other keys swallowed (no walking behind it)
       if (k==='Escape'){ dlg.style.display='none'; e.preventDefault(); return; }
       if (k==='Tab'){ var ff=dlg.querySelectorAll('button,input,[tabindex]'); if(ff.length){ var fst=ff[0], lst=ff[ff.length-1], ae=document.activeElement;
@@ -1718,6 +1734,7 @@ function bindExploreControls(){
   var cb=document.getElementById('copyBtn'); if(cb) cb.addEventListener('click', function(e){ e.stopPropagation(); copyMyCritter(); });   // share affordance
   var pbt=document.getElementById('portalBtn'); if(pbt) pbt.addEventListener('click', function(e){ e.stopPropagation(); openSpaces(); });   // private link-spaces portal
   var chb=document.getElementById('chatBtn'); if(chb){ if(CHAT_ENABLED){ chb.addEventListener('click', function(e){ e.stopPropagation(); toggleChat(); }); } else { chb.style.display='none'; } }   // chat gated until launch
+  var qb=document.getElementById('questBtn'); if(qb) qb.addEventListener('click', function(e){ e.stopPropagation(); openQuestLog(); });   // quest log
 }
 function b64enc(o){ return btoa(unescape(encodeURIComponent(JSON.stringify(o)))); }   // inverse of the #c= decoder
 function copyMyCritter(){                                  // copy a /village/#c= link for the current player critter, with a ✓ toast
@@ -1976,7 +1993,7 @@ function buildChatPanel(){ var p=document.createElement('div'); p.id='chatPanel'
 /* ── character profiles: a clickable icon above each player -> a little editable character sheet ── */
 var myProfile = (function(){ try { return JSON.parse(localStorage.getItem('xclvxo_profile'))||{}; } catch(e){ return {}; } })();
 function saveMyProfile(p){ myProfile=p; try { localStorage.setItem('xclvxo_profile', JSON.stringify(p)); } catch(e){} }
-function pesc(s){ return String(s==null?'':s).replace(/[<>&"]/g, function(m){ return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[m]; }); }
+function pesc(s){ return String(s==null?'':s).replace(/[<>&"']/g, function(m){ return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[m]; }); }   // also escapes ' (safe for single-quoted attrs too, future-proof for data-driven content)
 function makePico(c){ var b=document.createElement('button'); b.type='button'; b.className='pico'; b.textContent='ⓘ'; b.title='profile';
   b.addEventListener('click', function(e){ e.stopPropagation(); openProfile(c); }); stage.appendChild(b); return b; }
 function openProfile(c){
@@ -2059,6 +2076,82 @@ function openSpaces(){                                       // BEAT 7: the unif
   withSB(function(){ REALMS.forEach(function(r){ realmChan(r.id); }); });   // subscribe realms + curated for live counts
   updateHubCounts();
   card.style.display='block';
+}
+/* ── NPCs + QUESTS: deterministic fixed-path NPCs + stationary quest-givers (pure f(wall-clock) -> identical on every client, no server) + a client-side quest loop (localStorage; works for guests) ── */
+var NPCS=[], _npcsBuilt=false, _npcLastLoc='__init', _npcDefsCache=null;
+function npcDefs(){ if(_npcDefsCache) return _npcDefsCache; var n=SPRITE_NAMES.length||1, pick=function(i){ return SPRITE_NAMES[i%n]||SPRITE_NAMES[0]; };
+  _npcDefsCache=[
+    { id:'guide', name:'The Guide',  base:pick(0), eye:'#5affb0', kind:'quest', xf:0.30, quest:'welcome' },
+    { id:'crier', name:'Town Crier', base:pick(2), eye:'#ffd23f', kind:'path',  x0:0.14, x1:0.40, spd:0.05 },
+    { id:'mato',  name:'Old Mato',   base:pick(4), eye:'#9b8cff', kind:'path',  x0:0.58, x1:0.86, spd:0.034 }
+  ]; return _npcDefsCache; }
+function npcName(gid){ var ds=npcDefs(); for(var i=0;i<ds.length;i++) if(ds[i].id===gid) return ds[i].name; return 'the giver'; }
+function buildNPCs(){ if(_npcsBuilt || !SPRITE_NAMES.length) return; _npcsBuilt=true;
+  npcDefs().forEach(function(d){ if(!SPRITES[d.base]) return;
+    recolor(SPRITES[d.base], d.eye, []).then(function(url){
+      var cb=buildCritterEl(url, d.eye), el=cb.el; el.classList.add('remote');   // exempt from the inside-hide CSS; we hide NPCs ourselves when INSIDE
+      el.style.transformOrigin='50% 92%'; el.style.filter='drop-shadow(0 3px 4px rgba(0,0,0,.4))';
+      if(d.kind==='quest'){ el.style.cursor='pointer'; el.setAttribute('aria-label', d.name+' \u2014 quest giver'); el.addEventListener('click', function(e){ e.stopPropagation(); openQuestDialog(d.quest); }); }
+      else el.setAttribute('aria-label', d.name);
+      stage.appendChild(el);
+      var plate=document.createElement('div'); plate.className='plate npcplate'; plate.style.color=d.eye; plate.textContent=d.name; stage.appendChild(plate);
+      var mark=null; if(d.kind==='quest'){ mark=document.createElement('div'); mark.className='npcmark'; mark.addEventListener('click', function(e){ e.stopPropagation(); openQuestDialog(d.quest); }); stage.appendChild(mark); }
+      NPCS.push({ def:d, el:el, legL:cb.legL, legR:cb.legR, plate:plate, mark:mark, x:worldW()*(d.xf!=null?d.xf:d.x0), face:1, bob:0 });
+    });
+  });
+}
+function npcX(d, now){ if(d.kind!=='path') return worldW()*(d.xf||0.3); var span=d.x1-d.x0, ph=now*d.spd+d.id.length*0.7, tri=Math.abs((ph%2)-1); return worldW()*(d.x0+span*tri); }
+function npcTick(dt){ if(!EXPLORE) return; if(!_npcsBuilt) buildNPCs();
+  var loc=(typeof myLoc==='function')?myLoc():'street'; if(loc!==_npcLastLoc){ _npcLastLoc=loc; if(loc!=='street') questOnVisit(loc); }   // visiting a room can complete quest steps
+  var inside=(typeof INSIDE!=='undefined'&&INSIDE), now=Date.now()*0.001;
+  for(var i=0;i<NPCS.length;i++){ var npc=NPCS[i], d=npc.def;
+    if(inside){ if(npc.el.style.display!=='none'){ npc.el.style.display='none'; npc.plate.style.display='none'; if(npc.mark)npc.mark.style.display='none'; } continue; }   // NPCs are street-only
+    if(npc.el.style.display==='none'){ npc.el.style.display=''; npc.plate.style.display=''; if(npc.mark)npc.mark.style.display=''; }
+    var nx=npcX(d,now), moving=false;
+    if(d.kind==='path'){ if(Math.abs(nx-npc.x)>0.05){ npc.face=(nx>npc.x)?1:-1; moving=true; npc.bob+=0.25; } npc.x=nx; } else npc.x=nx;
+    var sx=npc.x-cameraX, y=groundY()-2, hop=moving?-Math.abs(Math.sin(npc.bob))*2:0, ysq=(!moving&&!reduced)?(1+Math.sin(now*2+i)*0.02):1;
+    npc.el.style.transform='translate('+sx.toFixed(1)+'px,'+(y+hop).toFixed(1)+'px) scale('+npc.face.toFixed(0)+','+ysq.toFixed(3)+')';
+    if(npc.legL){ var lsw=(moving&&!reduced)?Math.sin(npc.bob)*14:0; npc.legL.style.transform='rotate('+lsw.toFixed(1)+'deg)'; npc.legR.style.transform='rotate('+(-lsw).toFixed(1)+'deg)'; }
+    var px=Math.max(54,Math.min(W-54, sx+SP*0.5)), top=critTop({y:y,scale:1});
+    npc.plate.style.transform='translate('+px.toFixed(1)+'px,'+(top-15).toFixed(1)+'px) translate(-50%,0)';
+    if(npc.mark){ var st=questGiverState(d.quest), show=(st==='available'||st==='turnin'); npc.mark.textContent=(st==='available')?'!':(st==='turnin'?'?':''); npc.mark.style.opacity=show?'1':'0'; npc.mark.style.transform='translate('+px.toFixed(1)+'px,'+(top-36).toFixed(1)+'px) translate(-50%,0)'; }
+  }
+}
+var QUESTS={ welcome:{ name:"Newcomer's Welcome", giver:'guide',
+  intro:"Welcome to the village! Get your bearings \u2014 step inside the Caf\u00e9, then drop by the Arcade. Come back and I'll mark you a proper Villager.",
+  steps:[ {t:'Step inside the Caf\u00e9', loc:'cafe'}, {t:'Drop by the Arcade', loc:'room:arcade'} ],
+  reward:{ stamp:'\ud83c\udf3f', title:'Villager' } } };
+function loadQuests(){ try{ var q=JSON.parse(localStorage.getItem('xclvxo_quests'))||{}; q.accepted=(q.accepted&&typeof q.accepted==='object'&&!Array.isArray(q.accepted))?q.accepted:{}; q.completed=Array.isArray(q.completed)?q.completed:[]; q.stamps=Array.isArray(q.stamps)?q.stamps:[]; return q; }catch(e){ return {accepted:{},completed:[],stamps:[]}; } }   // coerce TYPES (not just presence) so tampered/old data can't throw under strict mode
+var QS=loadQuests();
+function saveQuests(){ try{ localStorage.setItem('xclvxo_quests', JSON.stringify(QS)); }catch(e){} }
+function questGiverState(id){ var q=QUESTS[id]; if(!q) return ''; if(QS.completed.indexOf(id)>=0) return 'done'; var a=QS.accepted[id]; if(!a) return 'available'; return q.steps.every(function(s,i){return a.done[i];})?'turnin':'inprogress'; }
+function questOnVisit(loc){ var changed=false; Object.keys(QS.accepted).forEach(function(id){ var q=QUESTS[id], a=QS.accepted[id]; if(!q) return; q.steps.forEach(function(s,i){ if(!a.done[i] && s.loc===loc){ a.done[i]=true; changed=true; if(typeof player!=='undefined'&&player) floatNote(player,'\u2713'); questToast('Step done \u2014 '+s.t); } }); });
+  if(changed){ saveQuests(); Object.keys(QS.accepted).forEach(function(id){ if(questGiverState(id)==='turnin') questToast('\u201c'+QUESTS[id].name+'\u201d ready \u2014 return to '+npcName(QUESTS[id].giver)); }); } }
+function acceptQuest(id){ if(!QUESTS[id]||QS.accepted[id]||QS.completed.indexOf(id)>=0) return; QS.accepted[id]={done:QUESTS[id].steps.map(function(){return false;})}; saveQuests(); }
+function turninQuest(id){ var q=QUESTS[id]; if(!q||questGiverState(id)!=='turnin') return; QS.completed.push(id); delete QS.accepted[id]; if(q.reward) QS.stamps.push({stamp:q.reward.stamp,title:q.reward.title}); saveQuests(); if(typeof player!=='undefined'&&player) floatNote(player, q.reward?q.reward.stamp:'\u2b50'); questToast('Quest complete: '+q.name+(q.reward?(' \u2014 earned '+q.reward.stamp+' '+q.reward.title):'')); }
+function questToast(msg){ var t=document.getElementById('questToast'); if(!t){ t=document.createElement('div'); t.id='questToast'; (stage.parentNode||document.body).appendChild(t); } t.textContent=msg; t.style.opacity='1'; clearTimeout(t._qt); t._qt=setTimeout(function(){ t.style.opacity='0'; }, 3800); }
+function questCard(){ var c=document.getElementById('questCard'); if(!c){ c=document.createElement('div'); c.id='questCard'; c.setAttribute('role','dialog'); c.setAttribute('aria-modal','true'); c.setAttribute('aria-label','quests'); c.addEventListener('click',function(e){e.stopPropagation();}); (stage.parentNode||document.body).appendChild(c); } return c; }
+function openQuestDialog(id){ var q=QUESTS[id]; if(!q) return; var st=questGiverState(id), c=questCard(), body, btns;
+  if(st==='available'){ body='<div class="pf-bio">'+pesc(q.intro)+'</div>'; btns='<button id="q-accept">accept quest</button><button id="q-close">not now</button>'; }
+  else if(st==='inprogress'){ var a=QS.accepted[id]; body='<div class="pf-bio">In progress:</div><div class="qsteps">'+q.steps.map(function(s,i){return '<div class="qstep '+(a.done[i]?'done':'')+'">'+(a.done[i]?'\u2713':'\u25cb')+' '+pesc(s.t)+'</div>';}).join('')+'</div>'; btns='<button id="q-close">close</button>'; }
+  else if(st==='turnin'){ body='<div class="pf-bio">All done! Here is your reward.</div>'; btns='<button id="q-turnin">turn in</button><button id="q-close">close</button>'; }
+  else { body='<div class="pf-bio">Thanks again. Nothing more for now.</div>'; btns='<button id="q-close">close</button>'; }
+  c.innerHTML='<h3>'+pesc(npcName(q.giver))+'<span id="q-x" title="close">\u2715</span></h3><div class="pf-mood">\u201c'+pesc(q.name)+'\u201d</div>'+body+'<div class="pf-row">'+btns+'</div>';
+  c.querySelector('#q-x').addEventListener('click',function(e){e.stopPropagation();c.style.display='none';});
+  var cl=c.querySelector('#q-close'); if(cl) cl.addEventListener('click',function(e){e.stopPropagation();c.style.display='none';});
+  var ac=c.querySelector('#q-accept'); if(ac) ac.addEventListener('click',function(e){e.stopPropagation(); acceptQuest(id); c.style.display='none'; questToast('Quest accepted: '+q.name); });
+  var ti=c.querySelector('#q-turnin'); if(ti) ti.addEventListener('click',function(e){e.stopPropagation(); turninQuest(id); c.style.display='none'; });
+  c.style.display='block';
+}
+function openQuestLog(){ var c=questCard(), act=Object.keys(QS.accepted), html='<h3>\ud83d\udcdc Quests<span id="q-x" title="close">\u2715</span></h3>';
+  if(!act.length && !QS.completed.length){ html+='<div class="pf-bio">No quests yet \u2014 find an NPC with a \u201c!\u201d and say hello.</div>'; }
+  act.forEach(function(id){ var q=QUESTS[id]; if(!q) return; var a=QS.accepted[id]; html+='<label>'+pesc(q.name)+(questGiverState(id)==='turnin'?' \u00b7 ready to turn in':'')+'</label><div class="qsteps">'+q.steps.map(function(s,i){return '<div class="qstep '+(a.done[i]?'done':'')+'">'+(a.done[i]?'\u2713':'\u25cb')+' '+pesc(s.t)+'</div>';}).join('')+'</div>'; });
+  if(QS.completed.length){ html+='<label>completed</label><div class="qsteps">'+QS.completed.map(function(id){return '<div class="qstep done">\u2713 '+pesc((QUESTS[id]&&QUESTS[id].name)||id)+'</div>';}).join('')+'</div>'; }
+  if(QS.stamps.length){ html+='<label>stamps</label><div class="qstamps">'+QS.stamps.map(function(s){return '<span class="qstamp" title="'+pesc(s.title)+'">'+pesc(s.stamp)+'</span>';}).join('')+'</div>'; }
+  html+='<div class="pf-row"><button id="q-close">close</button></div>'; c.innerHTML=html;
+  c.querySelector('#q-x').addEventListener('click',function(e){e.stopPropagation();c.style.display='none';});
+  c.querySelector('#q-close').addEventListener('click',function(e){e.stopPropagation();c.style.display='none';});
+  c.style.display='block';
 }
 var DEBUG = /[?&]debug=1/.test(location.search||'');
 function debugPanel(){                                     // ?debug=1 -> a live readout of the realm presence state (for diagnosing multiplayer)
