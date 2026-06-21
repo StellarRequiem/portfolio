@@ -90,6 +90,19 @@ window.__deferredInstall=null; addEventListener("beforeinstallprompt",function(e
   .rcount { font: 11px ui-monospace, monospace; color: #8fb0c8; }
   #rp-skip { margin-top: 18px; font: 12.5px 'SF Mono', ui-monospace, monospace; color: #8fd0ff; cursor: pointer;
     background: none; border: 1px solid rgba(86,206,255,.3); border-radius: 9px; padding: 8px 14px; }
+  #charpick { position: fixed; inset: 0; z-index: 10001; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(2,6,13,.9); padding: 22px; box-sizing: border-box; }
+  #cp-h { text-align: center; color: #dcefff; max-width: 470px; margin-bottom: 18px; }
+  #cp-h h2 { font: 600 22px 'SF Mono', ui-monospace, Menlo, monospace; color: #7bd86b; text-shadow: 0 0 12px rgba(123,216,107,.35); margin: 0 0 6px; }
+  #cp-h p { font: 13px ui-monospace, monospace; color: #8fb0c8; margin: 0; line-height: 1.55; }
+  #cp-grid { display: grid; grid-template-columns: repeat(auto-fill, 104px); gap: 10px; justify-content: center; max-width: 560px; max-height: 50vh; overflow-y: auto; }
+  .charcard { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px; cursor: pointer; border: 1px solid rgba(123,216,107,.4); border-radius: 13px; background: rgba(8,18,32,.82); transition: transform .1s, background .15s; }
+  .charcard:hover { background: rgba(123,216,107,.16); transform: translateY(-2px); }
+  .charpic { width: 64px; height: 64px; background-size: contain; background-repeat: no-repeat; background-position: center bottom; image-rendering: pixelated; }
+  .charname { font: 600 12px 'SF Mono', ui-monospace, monospace; color: #eafaff; max-width: 88px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #cp-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+  .cp-btn { font: 13px 'SF Mono', ui-monospace, monospace; color: #cfe; text-decoration: none; cursor: pointer; background: rgba(8,18,32,.82); border: 1px solid rgba(86,206,255,.35); border-radius: 9px; padding: 10px 16px; }
+  .cp-btn.primary { background: rgba(123,216,107,.2); border-color: rgba(123,216,107,.7); color: #eafaff; }
+  .cp-btn:hover { background: rgba(86,206,255,.18); }
   #rp-skip:hover { background: rgba(86,206,255,.14); border-color: rgba(86,206,255,.7); }
   #stage.inside .critterBody:not(.player):not(.remote), #stage.inside .bubble, #stage.inside .plate { display: none !important; }   /* inside a building: street life hidden; you + co-located real players (JS-controlled) stay */
   #enterhint { position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%); z-index: 10000; display: none; cursor: pointer;
@@ -1711,6 +1724,7 @@ function bindExploreControls(){
   function set(dir,on){ if(dir<0) keyL=on; else keyR=on; if(on) taken=true; }
   addEventListener('keydown', function(e){ var k=e.key;
     var pk=document.getElementById('realmpick'); if (pk && pk.style.display!=='none') return;   // don't walk behind the open realm picker
+    var cpk=document.getElementById('charpick'); if (cpk && cpk.style.display!=='none') return;   // entry char-select: let native Enter/Space activate cards; don't walk / set taken
     var sc=document.getElementById('spaceCard'), pc=document.getElementById('profileCard'), qc=document.getElementById('questCard'), dlg=(sc&&sc.style.display==='block')?sc:((pc&&pc.style.display==='block')?pc:((qc&&qc.style.display==='block')?qc:null));
     if (dlg){   // a dialog (hub/profile) is open: Escape closes it; Tab is trapped inside it; all other keys swallowed (no walking behind it)
       if (k==='Escape'){ dlg.style.display='none'; e.preventDefault(); return; }
@@ -1882,12 +1896,12 @@ function buildPicker(){
   coreRealms().forEach(function(r){
     var card=document.createElement('button'); card.type='button'; card.className='realmcard'; card.id='card-'+r.id; card.style.borderColor=r.c;
     card.innerHTML='<span class="rdot" style="background:'+r.c+'"></span><span class="rname">'+r.name+'</span><span class="rcount" id="rc-'+r.id+'">\u2026</span>';
-    card.addEventListener('click', function(e){ e.stopPropagation(); joinRealm(r.id); });   // soft cap: busy realms join as overflow rather than dead-ending the user
+    card.addEventListener('click', function(e){ e.stopPropagation(); chooseRealm(r.id); });   // entry flow -> enterWorld; in-world -> joinRealm. soft cap: busy realms join as overflow
     grid.appendChild(card);
   });
   ov.appendChild(grid);
   var skip=document.createElement('button'); skip.id='rp-skip'; skip.type='button'; skip.textContent='\u2192 take me where everyone is';
-  skip.addEventListener('click', function(e){ e.stopPropagation(); joinRealm(busiestRealm()); });   // congregate: send them where the most people are (not the emptiest)
+  skip.addEventListener('click', function(e){ e.stopPropagation(); chooseRealm(busiestRealm()); });   // congregate: send them where the most people are (not the emptiest)
   ov.appendChild(skip);
   (stage.parentNode||document.body).appendChild(ov); return ov;
 }
@@ -1896,6 +1910,48 @@ function openPicker(){
   var ov=document.getElementById('realmpick'); if (!ov) ov=buildPicker();
   ov.style.display='flex'; updatePickerCounts();
   withSB(function(){ REALMS.forEach(function(r){ realmChan(r.id); }); });   // ensure every realm is subscribed for live counts (reused; only _realm tracks itself)
+}
+/* ── RS-style ENTRY: character-select (your saved roster, or a quick critter) -> world-select -> load. Guests welcome; reuses the existing accounts + creations. Always degrades to a guest entry so the village can't fail to load. ── */
+var _entrySpec=undefined, _inEntry=false, _entered=false;
+function enterWorld(spec, realm){                            // the single in-point: spawn the chosen critter + reveal the dock + join the world (used by BOTH the fast path and the entry flow)
+  if(_entered || player) return; _entered=true;             // SYNC guard: player is set async (recolor), so a double-click could double-enter without this
+  spawnPlayer(spec); setupPlayerUI();
+  if(!(realm && joinRealm(realm))) joinRealm(DEFAULT_REALM);
+  var cp=document.getElementById('charpick'); if(cp) cp.style.display='none';
+  var rp=document.getElementById('realmpick'); if(rp) rp.style.display='none';
+}
+function chooseRealm(id){ if(_inEntry){ _inEntry=false; var s=_entrySpec; _entrySpec=undefined; enterWorld(s, id); } else { joinRealm(id); } }   // the picker routes here: entry -> enterWorld; in-world switch -> joinRealm
+function openWorldSelect(spec){ _entrySpec=spec; _inEntry=true; var cp=document.getElementById('charpick'); if(cp) cp.style.display='none'; openPicker(); }
+function quickSpec(){ var n=SPRITE_NAMES.length?SPRITE_NAMES[(Math.random()*SPRITE_NAMES.length)|0]:null; return n?{v:1,base:n,eye:'#3df0bb',outfit:[],scale:1.5}:null; }
+function startEntryFlow(){
+  var guest=function(){ openCharacterSelect([], null); };
+  try{ if(!SUPABASE_URL){ guest(); return; }
+    withSB(function(){ try{ _sb.auth.getSession().then(function(r){ var u=(r&&r.data&&r.data.session)?r.data.session.user:null;
+      if(u){ _sb.from('creations').select('id,name,spec').eq('owner',u.id).eq('kind','critter').order('created_at',{ascending:false}).limit(24)
+        .then(function(res){ openCharacterSelect((res&&res.data)||[], u); }).catch(function(){ openCharacterSelect([], u); }); }
+      else openCharacterSelect([], null);
+    }).catch(function(){ guest(); }); }catch(e){ guest(); } });
+    setTimeout(function(){ if(!player && !document.getElementById('charpick')) guest(); }, 3000);   // safety net keyed on the TRUE signals (no player + no char-select) — covers auth OR data-fetch hanging; a late real char-select replaces this one
+  }catch(e){ guest(); }
+}
+function openCharacterSelect(critters, user){
+  var ov=document.getElementById('charpick'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='charpick';
+  ov.innerHTML='<div id="cp-h"><h2>Choose your character</h2><p>'+(user?'Welcome back \u2014 pick a saved critter, or start fresh.':'Jump in as a guest, or log in to load your saved critters.')+'</p></div><div id="cp-grid"></div><div id="cp-actions"></div>';
+  (stage.parentNode||document.body).appendChild(ov); ov.style.display='flex';
+  var grid=ov.querySelector('#cp-grid');
+  (critters||[]).forEach(function(row){ var spec=row&&row.spec; if(!spec||!SPRITES[spec.base]) return;
+    var card=document.createElement('button'); card.type='button'; card.className='charcard';
+    card.innerHTML='<div class="charpic"></div><span class="charname">'+pesc(cleanName(spec.name)||row.name||'critter')+'</span>';
+    card.addEventListener('click', function(e){ e.stopPropagation(); openWorldSelect(spec); }); grid.appendChild(card);
+    var eye=/^#[0-9a-fA-F]{6}$/.test(spec.eye||'')?spec.eye:'#9b8cff', of=(spec.outfit||[]).map(function(p){return {fn:ACC_BY_NAME[p&&p.item],c:(p&&p.color)||'#fff'};}).filter(function(p){return p.fn;});
+    recolor(SPRITES[spec.base], eye, of).then(function(url){ var pic=card.querySelector('.charpic'); if(pic) pic.style.backgroundImage='url('+url+')'; });
+  });
+  var act=ov.querySelector('#cp-actions');
+  var quick=document.createElement('button'); quick.type='button'; quick.className='cp-btn primary'; quick.textContent='\u25b6 quick critter';
+  quick.addEventListener('click', function(e){ e.stopPropagation(); openWorldSelect(quickSpec()); }); act.appendChild(quick);
+  var make=document.createElement('a'); make.className='cp-btn'; make.href='/create/'; make.textContent='\u270e create new'; act.appendChild(make);
+  if(!user){ var login=document.createElement('a'); login.className='cp-btn'; login.href='/account/'; login.textContent='\ud83d\udd11 log in'; act.appendChild(login); }
 }
 /* ── multiplayer: render the OTHER real players in your realm (their critter + position, carried on the same presence channel) ── */
 var _remotes = {};
@@ -2239,17 +2295,21 @@ function boot(){
   var start = reduced ? 1 : (mob ? 2 : 3), shuffled = SPRITE_NAMES.slice().sort(function(){return Math.random()-0.5;});
   for (var i=0;i<start;i++) spawnCritter(shuffled[i % shuffled.length], {});   // start sparse — the scene populates over time
   startContentFeed();                                     // personality layer: quotes + curated trivia + live news
-  if (EXPLORE){                                           // you walk AS your critter (from a /create/ #c= link, else a default)
+  if (EXPLORE){                                           // RS-style entry: character-select -> world-select -> load (direct links skip straight in)
+    bindExploreControls();
     var pm=(location.hash||'').match(/[#&]c=([^&]+)/), pspec=null;
     if(pm){ try{ pspec=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(pm[1]))))); }catch(e){} }
-    spawnPlayer(pspec); bindExploreControls(); setupPlayerUI();
+    var urlW=(location.search||'').match(/[?&](realm|space)=([a-z0-9]{2,40})/i);   // an EXPLICIT world link (not localStorage)
+    var validW=urlW && (urlW[1].toLowerCase()==='space' || realmById(urlW[2].toLowerCase()));   // a space link, or a REAL realm (a typo'd realm falls through to the entry flow, not the saved realm)
+    if(pm){ enterWorld(pspec, chosenRealm()); }            // a shared-critter #c= link -> straight in (with that critter)
+    else if(validW){ enterWorld(null, chosenRealm()); }   // an explicit, valid realm/space link -> straight in
+    else { startEntryFlow(); }                            // fresh OR returning OR typo'd-link visit -> character-select -> world-select
   } else {
     spawnGuestFromHash();                                 // in a room: a single shared critter from a /create/ link, if present
+    connectPresence();                                   // a #r= room keeps the single shared "● N here now" counter
   }
   ROOM_CRITTERS.forEach(spawnGuest);                      // the room's composed critters
   updateCredits();
-  if (EXPLORE){ var _rr=chosenRealm(); if (!(_rr && joinRealm(_rr))) joinRealm(DEFAULT_REALM); }   // congregate: with no explicit choice, land everyone in the shared town (not an empty picker) so a small community actually meets. Switch realms via the 🌀 Spaces hub. (?realm=/?space=/localStorage still honored.)
-  else connectPresence();                                 // a #r= room keeps the single shared "● N here now" counter
   var sb = document.getElementById('sound'); if (sb) sb.addEventListener('click', toggleSound);
   requestAnimationFrame(loop);
 }
