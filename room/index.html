@@ -120,6 +120,7 @@ function recolor(dataUri, hex, outfit){
       if (outfit) outfit.forEach(function(a){ try{ a.fn(g, a.c); }catch(e){} });   // bake the outfit pieces on top
       resolve(c.toDataURL());
     };
+    img.onerror = function(){ resolve(dataUri); };   // a decode failure degrades to the un-recolored sprite, never a permanently-pending promise
     img.src = dataUri;
   });
 }
