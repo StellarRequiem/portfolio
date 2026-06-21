@@ -1841,6 +1841,7 @@ function realmChan(id){                                     // ONE persistent ch
   });
   ch.on('broadcast', { event:'club' }, function(m){ if (_realm===id && m && m.payload && typeof m.payload.track==='number' && typeof applyClubTrack==='function') applyClubTrack(m.payload.track); });   // DJ sync: follow the realm's club track
   ch.on('broadcast', { event:'emote' }, function(m){ if (_realm===id && m && m.payload && typeof onEmote==='function') onEmote(m.payload); });   // others' reactions + poses (on the realm: topic, where broadcastEmote sends; independent of chat)
+  ch.on('broadcast', { event:'pos' }, function(m){ if (_realm===id && m && m.payload && typeof onPos==='function') onPos(m.payload); });   // others' LIVE position (fast) -> the remote-render branch interpolates toward it
   ch.subscribe(function(s){ if (s==='SUBSCRIBED' && ch._wantTrack && !ch._tracking){ ch._tracking=true; ch.track(myState()); } });
   _chans[topic]=ch; return ch;
 }
@@ -1994,6 +1995,7 @@ function syncRemotes(state){
 }
 function clearRemotes(){ Object.keys(_remotes).forEach(despawnRemote); }
 function broadcastEmote(kind, val){ if(!EXPLORE || !_realmCh) return; try{ _realmCh.send({ type:'broadcast', event:'emote', payload:{ pid:presenceKey(), kind:kind, val:val, t:Date.now() } }); }catch(e){} }   // others see my reaction/pose
+function onPos(p){ if(!p || !p.pid || p.pid===presenceKey()) return; var c=_remotes[p.pid]; if(!c) return; if(typeof p.nx==='number') c.rnx=p.nx; if(p.face===1||p.face===-1) c.face=p.face; }   // live remote position -> the remote-render branch interpolates c.x toward c.rnx*WORLD_W
 function onEmote(p){
   if(!p || !p.pid || p.pid===presenceKey()) return;       // self -> already shown locally
   var c=_remotes[p.pid]; if(!c || !c.el) return;
@@ -2229,7 +2231,7 @@ function debugPanel(){                                     // ?debug=1 -> a live
     +'\npresences: '+(keys.join('  ')||'none')
     +'\nrendered: '+(rem.join('  ')||'none');
 }
-var _lastPush=0, _pushX=-1, _pushFace=0, _pushLoc='';
+var _lastPush=0, _pushX=-1, _pushFace=0, _pushLoc='', _lastPos=0, _posX=-1, _posFace=0;
 function pushPresenceNow(){                                // force an immediate re-track (e.g. on entering/leaving a building) so room changes propagate at once
   if (!EXPLORE || !_realm || !_realmCh || !player) return;
   var ww=(INSIDE?INT_W:WORLD_W)||1; _lastPush=t0; _pushX=player.x/ww; _pushFace=player.face; _pushLoc=myLoc();
@@ -2238,11 +2240,15 @@ function pushPresenceNow(){                                // force an immediate
 function presenceTick(){                                   // push my critter+position+room to the realm (throttled, on movement OR room change)
   debugPanel();
   if (!EXPLORE || !_realm || !_realmCh || !player) return;
-  if (t0 - _lastPush < 350) return;
   var ww=(INSIDE?INT_W:WORLD_W)||1, nx=player.x/ww, loc=myLoc();
-  if (_pushX>=0 && Math.abs(nx-_pushX)<0.004 && player.face===_pushFace && loc===_pushLoc) return;
-  _lastPush=t0; _pushX=nx; _pushFace=player.face; _pushLoc=loc;
-  try { if (_realmCh._tracking) _realmCh.track(myState()); } catch(e){}
+  if (t0-_lastPos>=160 && (_posX<0 || Math.abs(nx-_posX)>=0.003 || player.face!==_posFace)){   // LIVE position: a fast, lightweight broadcast (~6/sec on movement) -> smooth remote motion (presence is too slow/throttled for this)
+    _lastPos=t0; _posX=nx; _posFace=player.face;
+    try { _realmCh.send({ type:'broadcast', event:'pos', payload:{ pid:presenceKey(), nx:nx, face:player.face } }); } catch(e){}
+  }
+  if (t0-_lastPush>=350 && (loc!==_pushLoc || _pushX<0 || Math.abs(nx-_pushX)>=0.05)){   // presence re-track: identity/room (+ a position fallback for late joiners) — NOT the fast path
+    _lastPush=t0; _pushX=nx; _pushFace=player.face; _pushLoc=loc;
+    try { if (_realmCh._tracking) _realmCh.track(myState()); } catch(e){}
+  }
 }
 /* ── rooms: a #r= link renders a composed room (backsplash + props + critters) — our art, client-side, no backend ── */
 var ROOM = null, ROOM_PROPS = [], ROOM_CRITTERS = [];
