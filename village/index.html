@@ -1698,8 +1698,19 @@ function drawOverworld(ts){
   var by, bx;
   for(by=r0;by<=r1;by++)for(bx=c0;bx<=c1;bx++){ var a=owCellAt(bx,by); if(a.zone===null||!owExplored[bx+','+by]) continue; var px2=(bx*OW_CELL-owCam.x)|0, py2=(by*OW_CELL-owCam.y)|0; cx.strokeStyle=mix(OW_ZONES[a.zone].c,'#ffffff',0.25); if(owCellAt(bx+1,by).zone!==a.zone){ cx.beginPath(); cx.moveTo(px2+OW_CELL,py2); cx.lineTo(px2+OW_CELL,py2+OW_CELL); cx.stroke(); } if(owCellAt(bx,by+1).zone!==a.zone){ cx.beginPath(); cx.moveTo(px2,py2+OW_CELL); cx.lineTo(px2+OW_CELL,py2+OW_CELL); cx.stroke(); } }
   var mx=(owX-owCam.x)|0, my=(owY-owCam.y)|0; cx.fillStyle='#eafaff'; cx.strokeStyle='#5ad4ff'; cx.lineWidth=2; cx.beginPath(); cx.arc(mx,my,7,0,Math.PI*2); cx.fill(); cx.stroke(); cx.strokeStyle='rgba(90,212,255,0.35)'; cx.beginPath(); cx.arc(mx,my,owReveal*OW_CELL,0,Math.PI*2); cx.stroke();
-  var here=owCellAt(mcx,mcy); owBar().textContent=(here.zone?('◆ '+OW_ZONES[here.zone].name):here.locked?'🔒 locked zone':'the wilds')+'  ·  WASD / arrows to roam · 🗺️ or Esc to exit';
+  var here=owCellAt(mcx,mcy); owBar().textContent=(t0-_owMsgT<1800 && _owMsg) ? _owMsg : ((here.zone?('◆ '+OW_ZONES[here.zone].name):here.locked?'🔒 locked zone':'the wilds')+'  ·  tap a realm to travel · WASD to roam · 🗺️/Esc exit');
 }
+function owZoneCell(zid){ var y,x; for(y=0;y<OW_ROWS;y++)for(x=0;x<OW_COLS;x++){ if(owCellAt(x,y).zone===zid) return {x:x,y:y}; } return null; }
+function owSnapTo(zid){ var c=owZoneCell(zid); if(!c) return; owX=(c.x+0.5)*OW_CELL; owY=(c.y+0.5)*OW_CELL; owCam.x=owX-W/2; owCam.y=owY-H/2; owClampCam(); var k=c.x+','+c.y; if(!owExplored[k]){ owExplored[k]=true; _owDirty=true; } }   // keep the map marker on the realm you are actually in
+var _owMsg='', _owMsgT=0;
+function owTravelAt(clientX,clientY){   // tap a zone cell on the map -> load that realm (zones map 1:1 to realms)
+  var rect=cv.getBoundingClientRect(), cc=((clientX-rect.left+owCam.x)/OW_CELL)|0, rr=((clientY-rect.top+owCam.y)/OW_CELL)|0, cell=owCellAt(cc,rr);
+  if(cell.locked){ _owMsg='🔒 that realm is locked — coming soon'; _owMsgT=t0; drawOverworld(t0); return; }
+  if(!cell.zone) return;
+  owX=(cc+0.5)*OW_CELL; owY=(rr+0.5)*OW_CELL;
+  exitOverworld(); if(typeof joinRealm==='function') joinRealm(cell.zone); if(typeof showLive==='function') showLive(1);
+}
+if(typeof cv!=='undefined' && cv) cv.addEventListener('click', function(e){ if(!OVERWORLD) return; e.stopPropagation(); owTravelAt(e.clientX, e.clientY); });
 var _lastDraw = 0;
 function loop(ts){
   requestAnimationFrame(loop);
@@ -1938,6 +1949,7 @@ function joinRealm(id, opts){                               // EXPLORE: present 
   var prev=_realm; _realm=id; liveCount=1;
   try { if (r) localStorage.setItem('xclvxo_realm', id); } catch(e){}   // auto-rejoin only PUBLIC realms; private spaces are link/passphrase-only (never silently re-entered)
   SEED = spaceSeed(id); if (typeof buildScene==='function') buildScene();   // regenerate the world from this space's seed -> everyone in it shares the same instance
+  if (typeof owSnapTo==='function') owSnapTo(id);   // keep the overworld map marker on the realm you're in
   var ov=document.getElementById('realmpick'); if (ov) ov.style.display='none';
   showLive(1);
   withSB(function(){
