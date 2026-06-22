@@ -1662,15 +1662,15 @@ var OW_KEYMAP = { A:'aurora', G:'grove', L:'lumen', E:'ember', T:'tide', N:'nova
 var OW_LAYOUT = ["..........","...AA.GG..","..TAALGG..","..TALLNG..","..TEExNN..","...EE.NN..",".........."];
 var OW_ROWS = OW_LAYOUT.length, OW_COLS = OW_LAYOUT[0].length, OW_WW = OW_COLS*OW_CELL, OW_WH = OW_ROWS*OW_CELL;
 function owCellAt(cc,rr){ if(rr<0||rr>=OW_ROWS||cc<0||cc>=OW_COLS) return {zone:null,locked:false}; var ch=OW_LAYOUT[rr][cc]; if(ch==='.') return {zone:null,locked:false}; if(ch==='x') return {zone:null,locked:true}; return {zone:OW_KEYMAP[ch]||null,locked:false}; }
-var owX=5*OW_CELL, owY=3*OW_CELL, owCam={x:0,y:0}, owReveal=1.6, _owStarted=false, _owPanned=false, _owDirty=false, _owSave=0, owKeys={};
+var owX=5*OW_CELL, owY=3*OW_CELL, owCam={x:0,y:0}, owZoom=1, owReveal=1.6, _owStarted=false, _owPanned=false, _owDirty=false, _owSave=0, owKeys={};
 var _owLastPos=0, _owPX=-1, _owPY=-1, _owPushX=-1;   // overworld multiplayer-wire throttles (separate from the in-zone nx/face ones)
 var OW_FOG='xclvxo_fog', owExplored={}; try{ owExplored=JSON.parse(localStorage.getItem(OW_FOG)||'{}')||{}; }catch(e){}
 function owSaveFog(){ try{ localStorage.setItem(OW_FOG, JSON.stringify(owExplored)); }catch(e){} }
-function owClampCam(){ owCam.x=Math.max(-W*0.5, Math.min(OW_WW-W*0.5, owCam.x)); owCam.y=Math.max(-H*0.5, Math.min(OW_WH-H*0.5, owCam.y)); }
+function owClampCam(){ var vw=W/owZoom, vh=H/owZoom; owCam.x=Math.max(-vw*0.5, Math.min(OW_WW-vw*0.5, owCam.x)); owCam.y=Math.max(-vh*0.5, Math.min(OW_WH-vh*0.5, owCam.y)); }
 function owBar(){ var b=document.getElementById('owbar'); if(!b){ b=document.createElement('div'); b.id='owbar'; b.style.cssText='position:fixed;top:46px;left:50%;transform:translateX(-50%);z-index:9999;font:12px ui-monospace,monospace;color:#9be0ff;text-shadow:0 0 8px rgba(0,0,0,.85);pointer-events:none;display:none;white-space:nowrap;'; (stage.parentNode||document.body).appendChild(b); } return b; }
 addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ exitOverworld(); } }, true);
 addEventListener('keyup', function(e){ var k=(e.key||'').toLowerCase(); if(owKeys[k]) owKeys[k]=false; });
-function enterOverworld(){ if(OVERWORLD) return; OVERWORLD=true; if(typeof closeToys==='function') closeToys(); var eh=document.getElementById('enterhint'); if(eh) eh.style.display='none'; var lv=document.getElementById('live'); if(lv) lv.style.display='none'; if(typeof stage!=='undefined'&&stage) stage.classList.add('overworld'); if(!_owStarted){ owCam.x=owX-W/2; owCam.y=owY-H/2; owClampCam(); _owStarted=true; } var mb=document.getElementById('mapBtn'); if(mb) mb.classList.add('on'); owBar().style.display='block'; }
+function enterOverworld(){ if(OVERWORLD) return; OVERWORLD=true; if(typeof closeToys==='function') closeToys(); var eh=document.getElementById('enterhint'); if(eh) eh.style.display='none'; var lv=document.getElementById('live'); if(lv) lv.style.display='none'; if(typeof stage!=='undefined'&&stage) stage.classList.add('overworld'); if(!_owStarted){ owCam.x=owX-(W/2)/owZoom; owCam.y=owY-(H/2)/owZoom; owClampCam(); _owStarted=true; } var mb=document.getElementById('mapBtn'); if(mb) mb.classList.add('on'); owBar().style.display='block'; }
 function exitOverworld(){ if(!OVERWORLD) return; OVERWORLD=false; owSaveFog(); var lv=document.getElementById('live'); if(lv) lv.style.display=''; if(typeof stage!=='undefined'&&stage) stage.classList.remove('overworld'); var mb=document.getElementById('mapBtn'); if(mb) mb.classList.remove('on'); var ob=document.getElementById('owbar'); if(ob) ob.style.display='none'; }
 function toggleOverworld(){ if(OVERWORLD) exitOverworld(); else enterOverworld(); }
 function stepOverworld(dt){
@@ -1678,41 +1678,52 @@ function stepOverworld(dt){
   if(owKeys['a']||owKeys['arrowleft'])mvx-=1; if(owKeys['d']||owKeys['arrowright'])mvx+=1;
   if(owKeys['w']||owKeys['arrowup'])mvy-=1; if(owKeys['s']||owKeys['arrowdown'])mvy+=1;
   if(mvx||mvy){ var m=Math.hypot(mvx,mvy)||1, sp=3.4; owX+=mvx/m*sp; owY+=mvy/m*sp; _owPanned=false; owX=Math.max(OW_CELL*0.5,Math.min(OW_WW-OW_CELL*0.5,owX)); owY=Math.max(OW_CELL*0.5,Math.min(OW_WH-OW_CELL*0.5,owY)); }
-  if(!_owPanned){ owCam.x+=((owX-W/2)-owCam.x)*0.12; owCam.y+=((owY-H/2)-owCam.y)*0.12; owClampCam(); }
+  if(!_owPanned){ owCam.x+=((owX-(W/2)/owZoom)-owCam.x)*0.12; owCam.y+=((owY-(H/2)/owZoom)-owCam.y)*0.12; owClampCam(); }
   var mcx=(owX/OW_CELL)|0, mcy=(owY/OW_CELL)|0, dx, dy;
   for(dy=-2;dy<=2;dy++)for(dx=-2;dx<=2;dx++){ if(Math.hypot(dx,dy)<=owReveal){ var k=(mcx+dx)+','+(mcy+dy); if(!owExplored[k]){ owExplored[k]=true; _owDirty=true; } } }
   if(_owDirty && t0-_owSave>800){ owSaveFog(); _owDirty=false; _owSave=t0; }
 }
 function drawOverworld(ts){
+  var Z=owZoom, CS=OW_CELL*Z, vw=W/Z, vh=H/Z, dsz=Math.ceil(CS)+1;
   cx.clearRect(0,0,W,H); cx.fillStyle='#04060d'; cx.fillRect(0,0,W,H);
-  var c0=Math.max(0,(owCam.x/OW_CELL|0)-1), c1=Math.min(OW_COLS-1,((owCam.x+W)/OW_CELL|0)+1);
-  var r0=Math.max(0,(owCam.y/OW_CELL|0)-1), r1=Math.min(OW_ROWS-1,((owCam.y+H)/OW_CELL|0)+1);
+  var c0=Math.max(0,(owCam.x/OW_CELL|0)-1), c1=Math.min(OW_COLS-1,((owCam.x+vw)/OW_CELL|0)+1);
+  var r0=Math.max(0,(owCam.y/OW_CELL|0)-1), r1=Math.min(OW_ROWS-1,((owCam.y+vh)/OW_CELL|0)+1);
   var mcx=(owX/OW_CELL)|0, mcy=(owY/OW_CELL)|0, ry, rx;
   for(ry=r0;ry<=r1;ry++)for(rx=c0;rx<=c1;rx++){
-    var sx=(rx*OW_CELL-owCam.x)|0, sy=(ry*OW_CELL-owCam.y)|0, cell=owCellAt(rx,ry), seen=!!owExplored[rx+','+ry], inR=Math.hypot(rx-mcx,ry-mcy)<=owReveal+0.2;
-    if(cell.zone===null && !cell.locked){ if(!seen) continue; cx.fillStyle='#10151f'; cx.fillRect(sx,sy,OW_CELL,OW_CELL); }
-    else if(cell.locked){ cx.fillStyle=seen?'#3a3344':'#0a0e16'; cx.fillRect(sx,sy,OW_CELL,OW_CELL); if(seen){ cx.fillStyle='#7a6f8a'; cx.font='15px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('🔒', sx+OW_CELL/2, sy+OW_CELL/2+6); } }
-    else { var base=OW_ZONES[cell.zone].c; if(!seen){ cx.fillStyle='#0a0e16'; cx.fillRect(sx,sy,OW_CELL,OW_CELL); continue; } cx.fillStyle=inR?mix(base,'#04060d',0.55):mix(base,'#26323f',0.62); cx.fillRect(sx,sy,OW_CELL,OW_CELL); var rng=owRng(rx,ry), s; cx.fillStyle='rgba(255,255,255,'+(inR?0.06:0.03)+')'; for(s=0;s<5;s++){ cx.fillRect(sx+(rng()*OW_CELL)|0, sy+(rng()*OW_CELL)|0, 2,2); } }
-    cx.strokeStyle='rgba(86,206,255,0.10)'; cx.lineWidth=1; cx.strokeRect(sx+0.5,sy+0.5,OW_CELL,OW_CELL);
+    var sx=((rx*OW_CELL-owCam.x)*Z)|0, sy=((ry*OW_CELL-owCam.y)*Z)|0, cell=owCellAt(rx,ry), seen=!!owExplored[rx+','+ry], inR=Math.hypot(rx-mcx,ry-mcy)<=owReveal+0.2;
+    if(cell.zone===null && !cell.locked){ if(!seen) continue; cx.fillStyle='#10151f'; cx.fillRect(sx,sy,dsz,dsz); }
+    else if(cell.locked){ cx.fillStyle=seen?'#3a3344':'#0a0e16'; cx.fillRect(sx,sy,dsz,dsz); if(seen){ cx.fillStyle='#7a6f8a'; cx.font=((15*Z)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('🔒', sx+CS/2, sy+CS/2+6*Z); } }
+    else { var base=OW_ZONES[cell.zone].c; if(!seen){ cx.fillStyle='#0a0e16'; cx.fillRect(sx,sy,dsz,dsz); continue; } cx.fillStyle=inR?mix(base,'#04060d',0.55):mix(base,'#26323f',0.62); cx.fillRect(sx,sy,dsz,dsz); var rng=owRng(rx,ry), s; cx.fillStyle='rgba(255,255,255,'+(inR?0.06:0.03)+')'; for(s=0;s<5;s++){ cx.fillRect(sx+(rng()*CS)|0, sy+(rng()*CS)|0, 2,2); } }
+    cx.strokeStyle='rgba(86,206,255,0.10)'; cx.lineWidth=1; cx.strokeRect(sx+0.5,sy+0.5,CS,CS);
   }
   cx.lineWidth=2.5;
   var by, bx;
-  for(by=r0;by<=r1;by++)for(bx=c0;bx<=c1;bx++){ var a=owCellAt(bx,by); if(a.zone===null||!owExplored[bx+','+by]) continue; var px2=(bx*OW_CELL-owCam.x)|0, py2=(by*OW_CELL-owCam.y)|0; cx.strokeStyle=mix(OW_ZONES[a.zone].c,'#ffffff',0.25); if(owCellAt(bx+1,by).zone!==a.zone){ cx.beginPath(); cx.moveTo(px2+OW_CELL,py2); cx.lineTo(px2+OW_CELL,py2+OW_CELL); cx.stroke(); } if(owCellAt(bx,by+1).zone!==a.zone){ cx.beginPath(); cx.moveTo(px2,py2+OW_CELL); cx.lineTo(px2+OW_CELL,py2+OW_CELL); cx.stroke(); } }
-  for(var rpid in _remotes){ var rc=_remotes[rpid]; if(!rc||rc.rloc!=='overworld'||rc.rox==null) continue; var rmx=(rc.rox*OW_WW-owCam.x)|0, rmy=(rc.roy*OW_WH-owCam.y)|0; if(rmx<-12||rmx>W+12||rmy<-12||rmy>H+12) continue; cx.fillStyle=(rc.spec&&rc.spec.eye)||'#9be0ff'; cx.strokeStyle='#04060d'; cx.lineWidth=2; cx.beginPath(); cx.arc(rmx,rmy,6,0,Math.PI*2); cx.fill(); cx.stroke(); cx.fillStyle='rgba(255,255,255,0.9)'; cx.beginPath(); cx.arc(rmx,rmy,2,0,Math.PI*2); cx.fill(); }   // peers also on the map -> live markers (additive {ox,oy} wire); white pip so they read against terrain
-  var mx=(owX-owCam.x)|0, my=(owY-owCam.y)|0; cx.fillStyle='#eafaff'; cx.strokeStyle='#5ad4ff'; cx.lineWidth=2; cx.beginPath(); cx.arc(mx,my,7,0,Math.PI*2); cx.fill(); cx.stroke(); cx.strokeStyle='rgba(90,212,255,0.35)'; cx.beginPath(); cx.arc(mx,my,owReveal*OW_CELL,0,Math.PI*2); cx.stroke();
-  var here=owCellAt(mcx,mcy); owBar().textContent=(t0-_owMsgT<1800 && _owMsg) ? _owMsg : ((here.zone?('◆ '+OW_ZONES[here.zone].name):here.locked?'🔒 locked zone':'the wilds')+'  ·  tap a realm to travel · WASD to roam · 🗺️/Esc exit');
+  for(by=r0;by<=r1;by++)for(bx=c0;bx<=c1;bx++){ var a=owCellAt(bx,by); if(a.zone===null||!owExplored[bx+','+by]) continue; var px2=((bx*OW_CELL-owCam.x)*Z)|0, py2=((by*OW_CELL-owCam.y)*Z)|0; cx.strokeStyle=mix(OW_ZONES[a.zone].c,'#ffffff',0.25); if(owCellAt(bx+1,by).zone!==a.zone){ cx.beginPath(); cx.moveTo(px2+CS,py2); cx.lineTo(px2+CS,py2+CS); cx.stroke(); } if(owCellAt(bx,by+1).zone!==a.zone){ cx.beginPath(); cx.moveTo(px2,py2+CS); cx.lineTo(px2+CS,py2+CS); cx.stroke(); } }
+  for(var rpid in _remotes){ var rc=_remotes[rpid]; if(!rc||rc.rloc!=='overworld'||rc.rox==null) continue; var rmx=((rc.rox*OW_WW-owCam.x)*Z)|0, rmy=((rc.roy*OW_WH-owCam.y)*Z)|0; if(rmx<-12||rmx>W+12||rmy<-12||rmy>H+12) continue; cx.fillStyle=(rc.spec&&rc.spec.eye)||'#9be0ff'; cx.strokeStyle='#04060d'; cx.lineWidth=2; cx.beginPath(); cx.arc(rmx,rmy,6,0,Math.PI*2); cx.fill(); cx.stroke(); cx.fillStyle='rgba(255,255,255,0.9)'; cx.beginPath(); cx.arc(rmx,rmy,2,0,Math.PI*2); cx.fill(); }   // peers also on the map -> live markers (additive {ox,oy} wire); white pip so they read against terrain
+  var mx=((owX-owCam.x)*Z)|0, my=((owY-owCam.y)*Z)|0; cx.fillStyle='#eafaff'; cx.strokeStyle='#5ad4ff'; cx.lineWidth=2; cx.beginPath(); cx.arc(mx,my,7,0,Math.PI*2); cx.fill(); cx.stroke(); cx.strokeStyle='rgba(90,212,255,0.35)'; cx.beginPath(); cx.arc(mx,my,owReveal*OW_CELL*Z,0,Math.PI*2); cx.stroke();
+  var here=owCellAt(mcx,mcy); owBar().textContent=(t0-_owMsgT<1800 && _owMsg) ? _owMsg : ((here.zone?('◆ '+OW_ZONES[here.zone].name):here.locked?'🔒 locked zone':'the wilds')+'  ·  tap a realm · drag to pan · pinch to zoom');
 }
 function owZoneCell(zid){ var y,x; for(y=0;y<OW_ROWS;y++)for(x=0;x<OW_COLS;x++){ if(owCellAt(x,y).zone===zid) return {x:x,y:y}; } return null; }
-function owSnapTo(zid){ var c=owZoneCell(zid); if(!c) return; owX=(c.x+0.5)*OW_CELL; owY=(c.y+0.5)*OW_CELL; owCam.x=owX-W/2; owCam.y=owY-H/2; owClampCam(); var k=c.x+','+c.y; if(!owExplored[k]){ owExplored[k]=true; _owDirty=true; } }   // keep the map marker on the realm you are actually in
+function owSnapTo(zid){ var c=owZoneCell(zid); if(!c) return; owX=(c.x+0.5)*OW_CELL; owY=(c.y+0.5)*OW_CELL; owCam.x=owX-(W/2)/owZoom; owCam.y=owY-(H/2)/owZoom; owClampCam(); var k=c.x+','+c.y; if(!owExplored[k]){ owExplored[k]=true; _owDirty=true; } }   // keep the map marker on the realm you are actually in
 var _owMsg='', _owMsgT=0;
 function owTravelAt(clientX,clientY){   // tap a zone cell on the map -> load that realm (zones map 1:1 to realms)
-  var rect=cv.getBoundingClientRect(), cc=((clientX-rect.left+owCam.x)/OW_CELL)|0, rr=((clientY-rect.top+owCam.y)/OW_CELL)|0, cell=owCellAt(cc,rr);
+  var rect=cv.getBoundingClientRect(), cc=(((clientX-rect.left)/owZoom+owCam.x)/OW_CELL)|0, rr=(((clientY-rect.top)/owZoom+owCam.y)/OW_CELL)|0, cell=owCellAt(cc,rr);
   if(cell.locked){ _owMsg='🔒 that realm is locked — coming soon'; _owMsgT=t0; drawOverworld(t0); return; }
   if(!cell.zone) return;
   owX=(cc+0.5)*OW_CELL; owY=(rr+0.5)*OW_CELL;
   exitOverworld(); if(typeof joinRealm==='function') joinRealm(cell.zone); if(typeof showLive==='function') showLive(1);
 }
-if(typeof cv!=='undefined' && cv) cv.addEventListener('click', function(e){ if(!OVERWORLD) return; e.stopPropagation(); owTravelAt(e.clientX, e.clientY); });
+/* OVERWORLD touch/pointer: 1-finger drag = pan, 2-finger = pinch-zoom, a no-drag release = tap-to-travel. Bound to the canvas only (dock buttons aren't children of it). */
+var _owPtrs={}, _owDownX=0, _owDownY=0, _owDownCamX=0, _owDownCamY=0, _owMoved=false, _owPinchD=0;
+function _owList(){ var a=[],k; for(k in _owPtrs) a.push(_owPtrs[k]); return a; }
+if(typeof cv!=='undefined' && cv){
+  cv.addEventListener('pointerdown', function(e){ if(!OVERWORLD) return; _owPtrs[e.pointerId]={x:e.clientX,y:e.clientY}; var n=_owList(); if(n.length===1){ _owDownX=e.clientX; _owDownY=e.clientY; _owDownCamX=owCam.x; _owDownCamY=owCam.y; _owMoved=false; } else if(n.length===2){ _owPinchD=Math.hypot(n[0].x-n[1].x,n[0].y-n[1].y)||1; } try{ cv.setPointerCapture(e.pointerId); }catch(_){} });
+  cv.addEventListener('pointermove', function(e){ if(!OVERWORLD||!_owPtrs[e.pointerId]) return; _owPtrs[e.pointerId]={x:e.clientX,y:e.clientY}; var n=_owList();
+    if(n.length>=2){ var d=Math.hypot(n[0].x-n[1].x,n[0].y-n[1].y)||1; if(_owPinchD>0){ owZoom=Math.max(0.6,Math.min(1.8, owZoom*(d/_owPinchD))); owClampCam(); } _owPinchD=d; _owMoved=true; _owPanned=true; return; }
+    var dx=e.clientX-_owDownX, dy=e.clientY-_owDownY; if(Math.abs(dx)>6||Math.abs(dy)>6){ _owMoved=true; owCam.x=_owDownCamX-dx/owZoom; owCam.y=_owDownCamY-dy/owZoom; _owPanned=true; owClampCam(); } });
+  var _owEnd=function(e){ if(!_owPtrs[e.pointerId]) return; var tap=(!_owMoved && _owList().length===1); delete _owPtrs[e.pointerId]; if(_owList().length<2) _owPinchD=0; if(OVERWORLD && tap){ owTravelAt(e.clientX, e.clientY); } };
+  cv.addEventListener('pointerup', _owEnd); cv.addEventListener('pointercancel', _owEnd);
+}
 var _lastDraw = 0;
 function loop(ts){
   requestAnimationFrame(loop);
