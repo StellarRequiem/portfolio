@@ -1663,6 +1663,7 @@ var OW_LAYOUT = ["..........","...AA.GG..","..TAALGG..","..TALLNG..","..TEExNN..
 var OW_ROWS = OW_LAYOUT.length, OW_COLS = OW_LAYOUT[0].length, OW_WW = OW_COLS*OW_CELL, OW_WH = OW_ROWS*OW_CELL;
 function owCellAt(cc,rr){ if(rr<0||rr>=OW_ROWS||cc<0||cc>=OW_COLS) return {zone:null,locked:false}; var ch=OW_LAYOUT[rr][cc]; if(ch==='.') return {zone:null,locked:false}; if(ch==='x') return {zone:null,locked:true}; return {zone:OW_KEYMAP[ch]||null,locked:false}; }
 var owX=5*OW_CELL, owY=3*OW_CELL, owCam={x:0,y:0}, owReveal=1.6, _owStarted=false, _owPanned=false, _owDirty=false, _owSave=0, owKeys={};
+var _owLastPos=0, _owPX=-1, _owPY=-1, _owPushX=-1;   // overworld multiplayer-wire throttles (separate from the in-zone nx/face ones)
 var OW_FOG='xclvxo_fog', owExplored={}; try{ owExplored=JSON.parse(localStorage.getItem(OW_FOG)||'{}')||{}; }catch(e){}
 function owSaveFog(){ try{ localStorage.setItem(OW_FOG, JSON.stringify(owExplored)); }catch(e){} }
 function owClampCam(){ owCam.x=Math.max(-W*0.5, Math.min(OW_WW-W*0.5, owCam.x)); owCam.y=Math.max(-H*0.5, Math.min(OW_WH-H*0.5, owCam.y)); }
@@ -1697,6 +1698,7 @@ function drawOverworld(ts){
   cx.lineWidth=2.5;
   var by, bx;
   for(by=r0;by<=r1;by++)for(bx=c0;bx<=c1;bx++){ var a=owCellAt(bx,by); if(a.zone===null||!owExplored[bx+','+by]) continue; var px2=(bx*OW_CELL-owCam.x)|0, py2=(by*OW_CELL-owCam.y)|0; cx.strokeStyle=mix(OW_ZONES[a.zone].c,'#ffffff',0.25); if(owCellAt(bx+1,by).zone!==a.zone){ cx.beginPath(); cx.moveTo(px2+OW_CELL,py2); cx.lineTo(px2+OW_CELL,py2+OW_CELL); cx.stroke(); } if(owCellAt(bx,by+1).zone!==a.zone){ cx.beginPath(); cx.moveTo(px2,py2+OW_CELL); cx.lineTo(px2+OW_CELL,py2+OW_CELL); cx.stroke(); } }
+  for(var rpid in _remotes){ var rc=_remotes[rpid]; if(!rc||rc.rloc!=='overworld'||rc.rox==null) continue; var rmx=(rc.rox*OW_WW-owCam.x)|0, rmy=(rc.roy*OW_WH-owCam.y)|0; if(rmx<-12||rmx>W+12||rmy<-12||rmy>H+12) continue; cx.fillStyle=(rc.spec&&rc.spec.eye)||'#9be0ff'; cx.strokeStyle='#04060d'; cx.lineWidth=2; cx.beginPath(); cx.arc(rmx,rmy,6,0,Math.PI*2); cx.fill(); cx.stroke(); cx.fillStyle='rgba(255,255,255,0.9)'; cx.beginPath(); cx.arc(rmx,rmy,2,0,Math.PI*2); cx.fill(); }   // peers also on the map -> live markers (additive {ox,oy} wire); white pip so they read against terrain
   var mx=(owX-owCam.x)|0, my=(owY-owCam.y)|0; cx.fillStyle='#eafaff'; cx.strokeStyle='#5ad4ff'; cx.lineWidth=2; cx.beginPath(); cx.arc(mx,my,7,0,Math.PI*2); cx.fill(); cx.stroke(); cx.strokeStyle='rgba(90,212,255,0.35)'; cx.beginPath(); cx.arc(mx,my,owReveal*OW_CELL,0,Math.PI*2); cx.stroke();
   var here=owCellAt(mcx,mcy); owBar().textContent=(t0-_owMsgT<1800 && _owMsg) ? _owMsg : ((here.zone?('◆ '+OW_ZONES[here.zone].name):here.locked?'🔒 locked zone':'the wilds')+'  ·  tap a realm to travel · WASD to roam · 🗺️/Esc exit');
 }
@@ -2044,8 +2046,8 @@ function openCharacterSelect(critters, user){
 }
 /* ── multiplayer: render the OTHER real players in your realm (their critter + position, carried on the same presence channel) ── */
 var _remotes = {};
-function myLoc(){ if (typeof INSIDE!=='undefined' && INSIDE) return INSIDE.studio?'studio':(INSIDE.cafe?'cafe':(INSIDE.room?('room:'+INSIDE.room):'bldg')); return 'street'; }   // shared rooms: street/studio/cafe/room:<id> (singletons per realm)
-function myState(){ var ww=((typeof INSIDE!=='undefined'&&INSIDE)?INT_W:WORLD_W)||1; return { spec: playerSpec||null, nx: (player?player.x/ww:0.5), face: player?player.face:1, loc: myLoc(), prof: { mood:(myProfile&&myProfile.mood)||'', bio:(myProfile&&myProfile.bio)||'' }, t: Date.now() }; }
+function myLoc(){ if (typeof OVERWORLD!=='undefined' && OVERWORLD) return 'overworld'; if (typeof INSIDE!=='undefined' && INSIDE) return INSIDE.studio?'studio':(INSIDE.cafe?'cafe':(INSIDE.room?('room:'+INSIDE.room):'bldg')); return 'street'; }   // shared rooms: street/studio/cafe/room:<id> + 'overworld' (the map) — all loc-match-gated singletons
+function myState(){ var ww=((typeof INSIDE!=='undefined'&&INSIDE)?INT_W:WORLD_W)||1; var ow=(typeof OVERWORLD!=='undefined'&&OVERWORLD); return { spec: playerSpec||null, nx: (player?player.x/ww:0.5), face: player?player.face:1, loc: myLoc(), ox: ow?owX/OW_WW:undefined, oy: ow?owY/OW_WH:undefined, prof: { mood:(myProfile&&myProfile.mood)||'', bio:(myProfile&&myProfile.bio)||'' }, t: Date.now() }; }
 function spawnRemote(pid, st){
   var spec = (st && st.spec) ? st.spec : null; if (!spec || !SPRITES[spec.base]) return;
   if (_remotes[pid]) return;
@@ -2075,13 +2077,13 @@ function syncRemotes(state){
     if (pid===me) return; seen[pid]=1;
     var st = (state[pid] && state[pid][0]) || {}, c = _remotes[pid];
     if (!c){ spawnRemote(pid, st); }
-    else if (c.el){ if (st.nx!=null) c.rnx = st.nx; if (st.loc) c.rloc = st.loc; if (st.face) c.face = st.face; if (st.prof) c.prof = st.prof; }   // only update fully-built remotes (skip reservation tokens)
+    else if (c.el){ if (st.nx!=null) c.rnx = st.nx; if (st.loc) c.rloc = st.loc; if (st.face) c.face = st.face; if (st.prof) c.prof = st.prof; if (st.ox!=null) c.rox = st.ox; if (st.oy!=null) c.roy = st.oy; }   // only update fully-built remotes (skip reservation tokens); ox/oy = overworld map position
   });
   Object.keys(_remotes).forEach(function(pid){ if (!seen[pid]) despawnRemote(pid); });
 }
 function clearRemotes(){ Object.keys(_remotes).forEach(despawnRemote); }
 function broadcastEmote(kind, val){ if(!EXPLORE || !_realmCh) return; try{ _realmCh.send({ type:'broadcast', event:'emote', payload:{ pid:presenceKey(), kind:kind, val:val, t:Date.now() } }); }catch(e){} }   // others see my reaction/pose
-function onPos(p){ if(!p || !p.pid || p.pid===presenceKey()) return; var c=_remotes[p.pid]; if(!c) return; if(typeof p.nx==='number') c.rnx=p.nx; if(p.face===1||p.face===-1) c.face=p.face; }   // live remote position -> the remote-render branch interpolates c.x toward c.rnx*WORLD_W
+function onPos(p){ if(!p || !p.pid || p.pid===presenceKey()) return; var c=_remotes[p.pid]; if(!c) return; if(p.mode==='overworld'){ c.rloc='overworld'; if(typeof p.ox==='number') c.rox=p.ox; if(typeof p.oy==='number') c.roy=p.oy; } else { if(typeof p.nx==='number') c.rnx=p.nx; if(p.face===1||p.face===-1) c.face=p.face; } }   // live remote position: in-zone nx/face (interpolated by stepCritters) OR overworld ox/oy (drawn as a map marker)
 function onEmote(p){
   if(!p || !p.pid || p.pid===presenceKey()) return;       // self -> already shown locally
   var c=_remotes[p.pid]; if(!c || !c.el) return;
@@ -2357,7 +2359,20 @@ function pushPresenceNow(){                                // force an immediate
 }
 function presenceTick(){                                   // push my critter+position+room to the realm (throttled, on movement OR room change)
   debugPanel();
-  if (!EXPLORE || !_realm || !_realmCh || !player) return;
+  if (!EXPLORE || !_realm || !_realmCh) return;
+  if (typeof OVERWORLD!=='undefined' && OVERWORLD){          // MAP mode: broadcast the overworld position so peers render me as a map marker (additive {ox,oy,mode} wire)
+    var oX=owX/OW_WW, oY=owY/OW_WH;
+    if (t0-_owLastPos>=160 && (_owPX<0 || Math.abs(oX-_owPX)>=0.004 || Math.abs(oY-_owPY)>=0.004)){
+      _owLastPos=t0; _owPX=oX; _owPY=oY;
+      try { _realmCh.send({ type:'broadcast', event:'pos', payload:{ pid:presenceKey(), ox:oX, oy:oY, mode:'overworld' } }); } catch(e){}
+    }
+    if (t0-_lastPush>=350 && (_pushLoc!=='overworld' || _owPushX<0 || Math.abs(oX-_owPushX)>=0.06)){   // presence re-track (identity + loc='overworld' + ox/oy for late-joiners)
+      _lastPush=t0; _pushLoc='overworld'; _owPushX=oX;
+      try { if (_realmCh._tracking) _realmCh.track(myState()); } catch(e){}
+    }
+    return;
+  }
+  if (!player) return;
   var ww=(INSIDE?INT_W:WORLD_W)||1, nx=player.x/ww, loc=myLoc();
   if (t0-_lastPos>=160 && (_posX<0 || Math.abs(nx-_posX)>=0.003 || player.face!==_posFace)){   // LIVE position: a fast, lightweight broadcast (~6/sec on movement) -> smooth remote motion (presence is too slow/throttled for this)
     _lastPos=t0; _posX=nx; _posFace=player.face;
