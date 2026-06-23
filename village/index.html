@@ -1670,7 +1670,7 @@ var OW_FOG='xclvxo_fog', owExplored={}; try{ owExplored=JSON.parse(localStorage.
 function owSaveFog(){ try{ localStorage.setItem(OW_FOG, JSON.stringify(owExplored)); }catch(e){} }
 function owClampCam(){ var vw=W/owZoom, vh=H/owZoom; owCam.x=Math.max(-vw*0.5, Math.min(OW_WW-vw*0.5, owCam.x)); owCam.y=Math.max(-vh*0.5, Math.min(OW_WH-vh*0.5, owCam.y)); }
 function owBar(){ var b=document.getElementById('owbar'); if(!b){ b=document.createElement('div'); b.id='owbar'; b.style.cssText='position:fixed;top:46px;left:50%;transform:translateX(-50%);z-index:9999;font:12px ui-monospace,monospace;color:#9be0ff;text-shadow:0 0 8px rgba(0,0,0,.85);pointer-events:none;display:none;white-space:nowrap;'; (stage.parentNode||document.body).appendChild(b); } return b; }
-addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ if(_charOpen){ closeChar(); } else if(_storeOpen){ closeStorage(); } else if(_craftOpen){ closeCraft(); } else if(_placeMode){ togglePlace(); } else if(_buildMenuOpen){ closeBuildMenu(); } else if(owWalk){ exitWalk(); } else { exitOverworld(); } } else if(k==='e'){ if(owWalk){ harvestNearest(); e.preventDefault(); } } else if(k==='c'){ if(owWalk){ toggleCraft(); e.preventDefault(); } } else if(k==='b'){ if(owWalk){ togglePlace(); e.preventDefault(); } } else if(k==='v'){ if(owWalk){ toggleChar(); e.preventDefault(); } } }, true);
+addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ if(_techOpen){ closeTech(); } else if(_charOpen){ closeChar(); } else if(_storeOpen){ closeStorage(); } else if(_craftOpen){ closeCraft(); } else if(_placeMode){ togglePlace(); } else if(_buildMenuOpen){ closeBuildMenu(); } else if(owWalk){ exitWalk(); } else { exitOverworld(); } } else if(k==='e'){ if(owWalk){ harvestNearest(); e.preventDefault(); } } else if(k==='c'){ if(owWalk){ toggleCraft(); e.preventDefault(); } } else if(k==='b'){ if(owWalk){ togglePlace(); e.preventDefault(); } } else if(k==='v'){ if(owWalk){ toggleChar(); e.preventDefault(); } } else if(k==='r'){ if(owWalk){ toggleTech(); e.preventDefault(); } } }, true);
 addEventListener('keyup', function(e){ var k=(e.key||'').toLowerCase(); if(owKeys[k]) owKeys[k]=false; });
 function enterOverworld(){ if(!GAME_ENABLED||OVERWORLD) return; OVERWORLD=true; if(typeof closeToys==='function') closeToys(); var eh=document.getElementById('enterhint'); if(eh) eh.style.display='none'; var lv=document.getElementById('live'); if(lv) lv.style.display='none'; if(typeof stage!=='undefined'&&stage) stage.classList.add('overworld'); if(!_owStarted){ owCam.x=owX-(W/2)/owZoom; owCam.y=owY-(H/2)/owZoom; owClampCam(); _owStarted=true; } var mb=document.getElementById('mapBtn'); if(mb) mb.classList.add('on'); owBar().style.display='block'; }
 function exitOverworld(){ if(!OVERWORLD) return; OVERWORLD=false; owSaveFog(); var lv=document.getElementById('live'); if(lv) lv.style.display=''; if(typeof stage!=='undefined'&&stage) stage.classList.remove('overworld'); var mb=document.getElementById('mapBtn'); if(mb) mb.classList.remove('on'); var ob=document.getElementById('owbar'); if(ob) ob.style.display='none'; }
@@ -1762,8 +1762,8 @@ function hearthAt(q,r){ if(Math.floor(q/OW_CHUNK)!==HEARTH_CQ||Math.floor(r/OW_C
   return {terrain:d.t, passable:d.p, plot:!!d.plot, e:0.55, hearth:true}; }
 function tileAtHex(q,r){ var hh=hearthAt(q,r); if(hh) return hh; var p=hxToPx(q,r), e=hxNoise(p.x/(HEXR*9),p.y/(HEXR*9))*0.62 + hxNoise((p.x+9000)/(HEXR*3.3),(p.y-9000)/(HEXR*3.3))*0.38; var terr,pass=true; if(e<0.30){terr='water';pass=false;} else if(e<0.37){terr='sand';} else if(e<0.73){terr='grass';} else if(e<0.84){terr='tree';pass=false;} else {terr='rock';pass=false;} return {terrain:terr,passable:pass,e:e}; }
 function owZoneOfHex(q,r){ return owCellAt(Math.floor(q/OW_CHUNK),Math.floor(r/OW_CHUNK)).zone; }
-function enterWalk(q,r){ if(owWalk) return; if(q==null){ q=((owX/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); r=((owY/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); } var p=hxToPx(q,r); pwx=p.x; pwy=p.y; wcamx=pwx; wcamy=pwy; owWalk=true; owBar().style.display='block'; renderInv(); ensureCraftBtn(); ensurePlaceBtn(); ensureCharBtn(); }
-function exitWalk(){ if(!owWalk) return; owWalk=false; var ip=document.getElementById('invPanel'); if(ip) ip.style.display='none'; var cb=document.getElementById('craftBtn'); if(cb) cb.style.display='none'; closeCraft(); closeStorage(); closeChar(); _placeMode=false; _placePending=null; closePlacePicker(); var pb=document.getElementById('placeBtn'); if(pb) pb.style.display='none'; var hb=document.getElementById('charBtn'); if(hb) hb.style.display='none'; }
+function enterWalk(q,r){ if(owWalk) return; if(q==null){ q=((owX/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); r=((owY/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); } var p=hxToPx(q,r); pwx=p.x; pwy=p.y; wcamx=pwx; wcamy=pwy; owWalk=true; owBar().style.display='block'; renderInv(); ensureCraftBtn(); ensurePlaceBtn(); ensureCharBtn(); ensureTechBtn(); }
+function exitWalk(){ if(!owWalk) return; owWalk=false; var ip=document.getElementById('invPanel'); if(ip) ip.style.display='none'; var cb=document.getElementById('craftBtn'); if(cb) cb.style.display='none'; closeCraft(); closeStorage(); closeChar(); closeTech(); _placeMode=false; _placePending=null; closePlacePicker(); var pb=document.getElementById('placeBtn'); if(pb) pb.style.display='none'; var hb=document.getElementById('charBtn'); if(hb) hb.style.display='none'; var tb=document.getElementById('techBtn'); if(tb) tb.style.display='none'; }
 function hxCorners(cxp,cyp){ var a=[],i; for(i=0;i<6;i++){ var an=Math.PI/180*(60*i-30); a.push([cxp+HEXR*Math.cos(an),cyp+HEXR*Math.sin(an)]); } return a; }
 function fillHx(cxp,cyp,fill){ var p=hxCorners(cxp,cyp),i; cx.beginPath(); cx.moveTo(p[0][0],p[0][1]); for(i=1;i<6;i++) cx.lineTo(p[i][0],p[i][1]); cx.closePath(); cx.fillStyle=fill; cx.fill(); }
 /* ── ZB2: watchable TIMED construction on the curated plots (ported from build_proto.html). Tap a
@@ -1776,7 +1776,8 @@ var PLOT_BUILDINGS={   /* NOTE: distinct from the base village's BUILDINGS[] sky
   workshop:{name:'Workshop', dur:34000, wall:'#8a8f99', roof:'#4a5560', w:34, d:28, h:20},
   well:    {name:'Well',     dur:16000, wall:'#7d8a93', roof:'#3a4650', w:20, d:20, h:10},
   hall:    {name:'Hall',     dur:48000, wall:'#b59a5e', roof:'#5a3f7a', w:40, d:32, h:26},
-  towncenter:{name:'Town Center', dur:60000, wall:'#caa15a', roof:'#6a4a8a', w:50, d:40, h:34}   // keystone: one per realm, unlocks tier-2 + storage
+  towncenter:{name:'Town Center', dur:60000, wall:'#caa15a', roof:'#6a4a8a', w:50, d:40, h:34},   // keystone: one per realm, unlocks tier-2 + storage
+  keep:{name:'Keep', dur:72000, wall:'#8a8f99', roof:'#3a4650', w:46, d:38, h:40}   // tech-gated (Architecture); not in BUILD_ORDER — surfaced via availableBlueprints()
 };
 var BUILD_ORDER=['hut','workshop','well','hall','towncenter'];
 var builds={}; try{ builds=JSON.parse(localStorage.getItem(BUILD_KEY)||'{}')||{}; }catch(e){}
@@ -1865,7 +1866,7 @@ function deplSave(){ try{ localStorage.setItem('realm_depleted_v1', JSON.stringi
    reload, no server. isDepleted prunes the entry in-memory on regrow (persists on the next deplSave). ── */
 var RESPAWN={ berries:20000, fiber:30000, water:45000, wood:60000, stone:90000 };   // per-kind regen (ms)
 function isDepleted(q,r){ var key=plotKey(q,r), t0=_depleted[key]; if(!t0) return false;
-  var n=nodeAt(q,r), dur=(RESPAWN[n?n.kind:'']||30000)*(hasFeat('naturalist')?0.5:1);   // 5a: Naturalist halves regrow
+  var n=nodeAt(q,r), dur=(RESPAWN[n?n.kind:'']||30000)*(hasFeat('naturalist')?0.5:1)*(hasTech('agronomy')?0.75:1);   // 5a Naturalist + 5b Agronomy speed regrow
   if(Date.now()-t0 >= dur){ delete _depleted[key]; return false; }                  // regrown -> prune in-memory
   return true; }
 function regrowProg(q,r){ var t0=_depleted[plotKey(q,r)]; if(!t0) return 1; var n=nodeAt(q,r); return Math.min(1,(Date.now()-t0)/(RESPAWN[n?n.kind:'']||30000)); }
@@ -1878,7 +1879,7 @@ function tryHarvest(q,r){ var key=plotKey(q,r), n=nodeAt(q,r);
   if(!n || isDepleted(q,r)) return false;                                  // no node / still regrowing
   var ph=pxToHx(pwx,pwy); if(hexDist(ph.q,ph.r,q,r)>1) return false;        // must be ON or ADJACENT — else let the tap become a move
   var tk=toolFor(n.kind), qty=1;
-  if(tk && TOOLS[tk] && TOOLS[tk].dur>0){ qty=2; TOOLS[tk].dur--; if(TOOLS[tk].dur<=0) delete TOOLS[tk]; toolsSave(); }   // a matching tool doubles yield + wears down
+  if(tk && TOOLS[tk] && TOOLS[tk].dur>0){ qty=2; if(hasTech('toolsmithing')) qty+=1; TOOLS[tk].dur--; if(TOOLS[tk].dur<=0) delete TOOLS[tk]; toolsSave(); }   // a matching tool doubles yield (+1 with Toolsmithing tech) + wears down
   if(hasFeat('forager')) qty+=1; qty += Math.floor((CHAR.attrs.vigor||0)/3);   // 5a: Forager feat + vigor attribute add yield
   _depleted[key]=Date.now(); deplSave(); grantResource(n.kind,qty); grantXP(2,'harvest');
   _hfx={ wx:hxToPx(q,r).x, wy:hxToPx(q,r).y, txt:'+'+qty+' '+n.kind, until:Date.now()+900 }; return true; }
@@ -1915,20 +1916,21 @@ var TOOLS={}; try{ TOOLS=JSON.parse(localStorage.getItem('realm_tools_v1')||'{}'
 function toolsSave(){ try{ localStorage.setItem('realm_tools_v1', JSON.stringify(TOOLS)); }catch(e){} }
 function toolFor(kind){ return kind==='wood'?'axe':(kind==='stone'?'pickaxe':null); }
 function recipeById(id){ for(var i=0;i<RECIPES.length;i++) if(RECIPES[i].id===id) return RECIPES[i]; return null; }
-function canCraft(r){ if(r.station==='towncenter' && !hasTownCenter()) return false; for(var k in r.cost){ if((INV[k]||0)<r.cost[k]) return false; } return true; }
+function canCraft(r){ if(r.station==='towncenter' && !hasTownCenter()) return false; if(!isRecipeUnlocked(r.id)) return false; for(var k in r.cost){ if((INV[k]||0)<r.cost[k]) return false; } return true; }
 function spendResource(cost){ for(var k in cost){ if((INV[k]||0)<cost[k]) return false; } for(var k2 in cost){ INV[k2]-=cost[k2]; if(INV[k2]<=0) delete INV[k2]; } return true; }
 function craftItem(id){ var r=recipeById(id); if(!r) return false;
   if(r.station==='towncenter' && !hasTownCenter()) return false;           // station-gated: needs a BUILT town center
   if(!spendResource(r.cost)) return false;                                 // re-check affordability + deduct (the only craft consumer)
   if(r.kind==='tool'){ var md=r.dur+(hasFeat('toolwright')?12:0)+(CHAR.attrs.craft||0)*2; TOOLS[r.out]={dur:md,max:md}; toolsSave(); } else { INV[r.out]=(INV[r.out]||0)+1; }   // 5a: Toolwright feat + craft attribute raise tool durability
-  invSave(); renderInv(); renderCraft(); grantXP(5,'craft'); return true; }
+  invSave(); renderInv(); renderCraft(); grantXP(5,'craft'); grantRP(2); return true; }
 var _craftOpen=false;
 function renderCraft(){ var rows=document.getElementById('craftRows'); if(!rows) return;
   rows.innerHTML=RECIPES.map(function(r){ var cost=Object.keys(r.cost).map(function(k){ return r.cost[k]+' '+k; }).join(' + ');
     var owned = r.kind==='tool' ? (TOOLS[r.out]?' [have '+TOOLS[r.out].dur+'/'+TOOLS[r.out].max+']':'') : ((INV[r.out]||0)?' x'+INV[r.out]:'');
     var locked = (r.station==='towncenter' && !hasTownCenter());
+    var _tn=recipeTechNode(r.id), techLocked=(_tn && !hasTech(_tn));
     var ok=canCraft(r);
-    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:6px"><div><b>'+r.name+'</b>'+(r.kind==='tool'?' \u2692':'')+' <span style="color:#8a9">'+cost+'</span><span style="color:#9be06b">'+owned+'</span>'+(locked?' <span style="color:#caa15a">\u26ed needs Town Center</span>':'')+'</div><button data-r="'+r.id+'" '+(ok?'':'disabled ')+'style="background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;border-radius:9px;padding:7px 11px;min-height:36px;cursor:pointer;font:12px ui-monospace,monospace;opacity:'+(ok?'1':'0.4')+'">craft</button></div>';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:6px"><div><b>'+r.name+'</b>'+(r.kind==='tool'?' \u2692':'')+' <span style="color:#8a9">'+cost+'</span><span style="color:#9be06b">'+owned+'</span>'+(locked?' <span style="color:#caa15a">\u26ed needs Town Center</span>':'')+(techLocked?' <span style="color:#caa15a">\u269b needs '+(techById(_tn)?techById(_tn).name:'tech')+'</span>':'')+'</div><button data-r="'+r.id+'" '+(ok?'':'disabled ')+'style="background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;border-radius:9px;padding:7px 11px;min-height:36px;cursor:pointer;font:12px ui-monospace,monospace;opacity:'+(ok?'1':'0.4')+'">craft</button></div>';
   }).join('');
   Array.prototype.forEach.call(rows.querySelectorAll('button'), function(b){ b.onclick=function(e){ e.stopPropagation(); craftItem(b.getAttribute('data-r')); }; }); }
 function openCraft(){ var c=document.getElementById('craftCard');
@@ -1967,11 +1969,12 @@ function openPlacePicker(){ var m=document.getElementById('placeMenu');
     m.style.cssText='position:fixed;left:50%;bottom:208px;transform:translateX(-50%);z-index:60;display:flex;flex-wrap:wrap;gap:8px;max-width:92vw;justify-content:center;background:rgba(20,26,16,.96);border:1px solid rgba(180,200,120,.5);border-radius:14px;padding:12px;';
     m.addEventListener('pointerdown',function(e){ e.stopPropagation(); }); m.addEventListener('click',function(e){ e.stopPropagation(); });
     var ttl=document.createElement('div'); ttl.textContent='place which building?'; ttl.style.cssText='width:100%;text-align:center;color:#dfe7c4;font:12px ui-monospace,monospace;margin-bottom:2px;'; m.appendChild(ttl);
-    var row=document.createElement('div'); row.style.cssText='display:flex;gap:8px;flex-wrap:wrap;justify-content:center;'; m.appendChild(row);
-    BUILD_ORDER.forEach(function(bid){ var b=PLOT_BUILDINGS[bid], btn=document.createElement('button'); btn.type='button'; btn.textContent=b.name;
-      btn.style.cssText='background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;font:12px ui-monospace,monospace;border-radius:10px;padding:10px 13px;min-height:44px;cursor:pointer;';
-      btn.addEventListener('click',function(e){ e.stopPropagation(); _placeBp=bid; _placeMode=true; _placePending=null; closePlacePicker(); ensurePlaceBtn(); }); row.appendChild(btn); });
+    var row=document.createElement('div'); row.id='placeRow'; row.style.cssText='display:flex;gap:8px;flex-wrap:wrap;justify-content:center;'; m.appendChild(row);
     (stage.parentNode||document.body).appendChild(m); }
+  var prow=document.getElementById('placeRow'); prow.innerHTML='';   // rebuild each open so tech-unlocked blueprints (e.g. Keep) appear
+  availableBlueprints().forEach(function(bid){ var b=PLOT_BUILDINGS[bid]; if(!b) return; var btn=document.createElement('button'); btn.type='button'; btn.textContent=b.name;
+    btn.style.cssText='background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;font:12px ui-monospace,monospace;border-radius:10px;padding:10px 13px;min-height:44px;cursor:pointer;';
+    btn.addEventListener('click',function(e){ e.stopPropagation(); _placeBp=bid; _placeMode=true; _placePending=null; closePlacePicker(); ensurePlaceBtn(); }); prow.appendChild(btn); });
   m.style.display='flex'; }
 function closePlacePicker(){ var m=document.getElementById('placeMenu'); if(m) m.style.display='none'; }
 function togglePlace(){ if(_placeMode){ _placeMode=false; _placePending=null; closePlacePicker(); ensurePlaceBtn(); } else { openPlacePicker(); } }
@@ -1980,7 +1983,7 @@ function togglePlace(){ if(_placeMode){ _placeMode=false; _placePending=null; cl
    center). placeBuild() is the single guarded placement chokepoint enforcing one-town-center-per-realm. ── */
 function townCenterPlaced(){ for(var k in builds){ if(builds[k].bid==='towncenter') return true; } return false; }
 function hasTownCenter(){ for(var k in builds){ var b=builds[k]; if(b.bid==='towncenter' && buildStage(b)>=BUILD_STEPS) return true; } return false; }   // a COMPLETED town center
-function placeBuild(key, bid){ if(builds[key]) return false; if(bid==='towncenter' && townCenterPlaced()) return false; builds[key]={bid:bid, t0:Date.now()}; buildSave(); grantXP(8,'build'); return true; }
+function placeBuild(key, bid){ if(builds[key]) return false; if(bid==='towncenter' && townCenterPlaced()) return false; builds[key]={bid:bid, t0:Date.now()}; buildSave(); grantXP(8,'build'); grantRP(3); return true; }
 var STORE={}; try{ STORE=JSON.parse(localStorage.getItem('realm_store_v1')||'{}')||{}; }catch(e){}
 function storeSave(){ try{ localStorage.setItem('realm_store_v1', JSON.stringify(STORE)); }catch(e){} }
 var _storeOpen=false;
@@ -2052,6 +2055,53 @@ function ensureCharBtn(){ var b=document.getElementById('charBtn');
   if(!b){ b=document.createElement('button'); b.id='charBtn'; b.type='button'; b.textContent='\u2630 char';
     b.style.cssText='position:fixed;left:8px;bottom:202px;z-index:56;background:rgba(20,26,16,.9);border:1px solid rgba(180,200,120,.5);color:#dfe7c4;font:12px ui-monospace,monospace;border-radius:10px;padding:8px 12px;min-height:40px;cursor:pointer;';
     b.addEventListener('click',function(e){ e.stopPropagation(); toggleChar(); }); (stage.parentNode||document.body).appendChild(b); }
+  b.style.display=(GAME_ENABLED && OVERWORLD && owWalk)?'block':'none'; }
+/* ── P5 · 5b: tech tree. RP earned per craft/build; researchTech() is the SINGLE guarded chokepoint
+   (re-checks RP + prereqs), persists realm_tech_v1, applies the unlock. Tier-2 recipes are tech-gated (and
+   still town-center-gated); nodes grant buffs or a new blueprint. Tech panel = "tech" btn / R key (walk-only). ── */
+var TECH=[
+  {id:'carpentry',    name:'Carpentry',    cost:8,  requires:[],                          unlocks:['beam']},
+  {id:'masonry_t',    name:'Masonry',      cost:8,  requires:[],                          unlocks:['masonry']},
+  {id:'lighting',     name:'Lighting',     cost:12, requires:['carpentry'],               unlocks:['lantern']},
+  {id:'toolsmithing', name:'Toolsmithing', cost:14, requires:['masonry_t'],               unlocks:['buff:tool_yield']},
+  {id:'agronomy',     name:'Agronomy',     cost:16, requires:['carpentry'],               unlocks:['buff:regrow']},
+  {id:'logistics',    name:'Logistics',    cost:18, requires:['masonry_t'],               unlocks:['buff:rp_boost']},
+  {id:'architecture', name:'Architecture', cost:26, requires:['lighting','toolsmithing'], unlocks:['blueprint:keep']}
+];
+var TECH_STATE={ rp:0, researched:[] };
+try{ var _t=JSON.parse(localStorage.getItem('realm_tech_v1')||'null'); if(_t){ TECH_STATE.rp=_t.rp||0; TECH_STATE.researched=_t.researched||[]; } }catch(e){}
+function techSave(){ try{ localStorage.setItem('realm_tech_v1', JSON.stringify(TECH_STATE)); }catch(e){} }
+function techById(id){ for(var i=0;i<TECH.length;i++) if(TECH[i].id===id) return TECH[i]; return null; }
+function hasTech(id){ return TECH_STATE.researched.indexOf(id)>=0; }
+function grantRP(amount){ if(amount<=0) return; TECH_STATE.rp += amount + (hasTech('logistics')?1:0); techSave(); renderTech(); }   // logistics buff: +1 RP/action
+function techPrereqsMet(t){ for(var i=0;i<t.requires.length;i++){ if(!hasTech(t.requires[i])) return false; } return true; }
+function researchTech(id){ var t=techById(id); if(!t || hasTech(id)) return false; if(!techPrereqsMet(t)) return false; if(TECH_STATE.rp < t.cost) return false;
+  TECH_STATE.rp -= t.cost; TECH_STATE.researched.push(id); techSave(); renderTech(); renderCraft(); return true; }   // single guarded research chokepoint
+function recipeTechNode(rid){ for(var i=0;i<TECH.length;i++){ if(TECH[i].unlocks.indexOf(rid)>=0) return TECH[i].id; } return null; }   // which tech (if any) gates this recipe
+function isRecipeUnlocked(rid){ var tn=recipeTechNode(rid); return !tn || hasTech(tn); }
+function availableBlueprints(){ var list=BUILD_ORDER.slice(); if(hasTech('architecture') && PLOT_BUILDINGS.keep) list.push('keep'); return list; }
+var _techOpen=false;
+function renderTech(){ var c=document.getElementById('techCard'); if(!c) return;
+  var rows=TECH.map(function(t){ var done=hasTech(t.id), avail=techPrereqsMet(t), can=(avail && !done && TECH_STATE.rp>=t.cost);
+    var reqTxt = t.requires.length ? (' \u00b7 needs '+t.requires.map(function(r){ var rt=techById(r); return rt?rt.name:r; }).join(', ')) : '';
+    var status = done ? '<span style="color:#7bd86b">\u2713 researched</span>' : (avail ? '<button data-t="'+t.id+'" '+(can?'':'disabled ')+'style="background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;border-radius:8px;padding:4px 11px;min-height:30px;cursor:pointer;font:12px ui-monospace,monospace;opacity:'+(can?'1':'0.4')+'">'+t.cost+' RP</button>' : '<span style="color:#caa15a">locked'+reqTxt+'</span>');
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:6px"><span><b>'+t.name+'</b> <span style="color:#8a9">'+t.unlocks.join(', ')+'</span></span>'+status+'</div>'; }).join('');
+  c.querySelector('#techBody').innerHTML='<div style="margin-bottom:8px">Research points: <b>'+TECH_STATE.rp+'</b> RP <span style="color:#8a9">(earn by crafting + building)</span></div>'+rows;
+  Array.prototype.forEach.call(c.querySelectorAll('[data-t]'), function(b){ b.onclick=function(e){ e.stopPropagation(); researchTech(b.getAttribute('data-t')); }; }); }
+function openTech(){ var c=document.getElementById('techCard');
+  if(!c){ c=document.createElement('div'); c.id='techCard';
+    c.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10003;width:330px;max-width:calc(100vw - 24px);max-height:84vh;overflow-y:auto;box-sizing:border-box;background:var(--panel-bg);border:1px solid rgba(123,216,107,.5);border-radius:14px;padding:16px;font:12px ui-monospace,monospace;color:#c8d8e8;';
+    c.addEventListener('click',function(e){ e.stopPropagation(); });
+    c.innerHTML='<h3 style="margin:0 0 8px;color:#7bd86b;font:600 16px ui-monospace,monospace">Tech Tree<span id="techX" style="float:right;cursor:pointer;color:#8aa;padding:4px 8px;margin:-4px -6px 0 0">\u00d7</span></h3><div id="techBody"></div>';
+    (stage.parentNode||document.body).appendChild(c);
+    c.querySelector('#techX').addEventListener('click',function(e){ e.stopPropagation(); closeTech(); }); }
+  c.style.display='block'; _techOpen=true; renderTech(); }
+function closeTech(){ _techOpen=false; var c=document.getElementById('techCard'); if(c) c.style.display='none'; }
+function toggleTech(){ if(_techOpen) closeTech(); else openTech(); }
+function ensureTechBtn(){ var b=document.getElementById('techBtn');
+  if(!b){ b=document.createElement('button'); b.id='techBtn'; b.type='button'; b.textContent='\u269b tech';
+    b.style.cssText='position:fixed;left:8px;bottom:244px;z-index:56;background:rgba(20,26,16,.9);border:1px solid rgba(180,200,120,.5);color:#dfe7c4;font:12px ui-monospace,monospace;border-radius:10px;padding:8px 12px;min-height:40px;cursor:pointer;';
+    b.addEventListener('click',function(e){ e.stopPropagation(); toggleTech(); }); (stage.parentNode||document.body).appendChild(b); }
   b.style.display=(GAME_ENABLED && OVERWORLD && owWalk)?'block':'none'; }
 /* ── 2c: the walk-mode player is the player's CHOSEN critter (recolored), not a placeholder dot.
    Recolor the chosen sprite once per spec (reusing recolor()/SPRITES/playerSpec from the social scene)
