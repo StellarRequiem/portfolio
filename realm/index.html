@@ -1670,7 +1670,7 @@ var OW_FOG='xclvxo_fog', owExplored={}; try{ owExplored=JSON.parse(localStorage.
 function owSaveFog(){ try{ localStorage.setItem(OW_FOG, JSON.stringify(owExplored)); }catch(e){} }
 function owClampCam(){ var vw=W/owZoom, vh=H/owZoom; owCam.x=Math.max(-vw*0.5, Math.min(OW_WW-vw*0.5, owCam.x)); owCam.y=Math.max(-vh*0.5, Math.min(OW_WH-vh*0.5, owCam.y)); }
 function owBar(){ var b=document.getElementById('owbar'); if(!b){ b=document.createElement('div'); b.id='owbar'; b.style.cssText='position:fixed;top:46px;left:50%;transform:translateX(-50%);z-index:9999;font:12px ui-monospace,monospace;color:#9be0ff;text-shadow:0 0 8px rgba(0,0,0,.85);pointer-events:none;display:none;white-space:nowrap;'; (stage.parentNode||document.body).appendChild(b); } return b; }
-addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ if(owWalk) exitWalk(); else exitOverworld(); } }, true);
+addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ if(_buildMenuOpen){ closeBuildMenu(); } else if(owWalk){ exitWalk(); } else { exitOverworld(); } } }, true);
 addEventListener('keyup', function(e){ var k=(e.key||'').toLowerCase(); if(owKeys[k]) owKeys[k]=false; });
 function enterOverworld(){ if(!GAME_ENABLED||OVERWORLD) return; OVERWORLD=true; if(typeof closeToys==='function') closeToys(); var eh=document.getElementById('enterhint'); if(eh) eh.style.display='none'; var lv=document.getElementById('live'); if(lv) lv.style.display='none'; if(typeof stage!=='undefined'&&stage) stage.classList.add('overworld'); if(!_owStarted){ owCam.x=owX-(W/2)/owZoom; owCam.y=owY-(H/2)/owZoom; owClampCam(); _owStarted=true; } var mb=document.getElementById('mapBtn'); if(mb) mb.classList.add('on'); owBar().style.display='block'; }
 function exitOverworld(){ if(!OVERWORLD) return; OVERWORLD=false; owSaveFog(); var lv=document.getElementById('live'); if(lv) lv.style.display=''; if(typeof stage!=='undefined'&&stage) stage.classList.remove('overworld'); var mb=document.getElementById('mapBtn'); if(mb) mb.classList.remove('on'); var ob=document.getElementById('owbar'); if(ob) ob.style.display='none'; }
@@ -1727,7 +1727,10 @@ if(typeof cv!=='undefined' && cv){
     if(owWalk){ var jm=Math.hypot(dx,dy); if(jm>8){ _owMoved=true; owJoy={x:dx/jm, y:dy/jm, mag:Math.min(1,jm/60)}; } }
     else if(Math.abs(dx)>6||Math.abs(dy)>6){ _owMoved=true; owCam.x=_owDownCamX-dx/owZoom; owCam.y=_owDownCamY-dy/owZoom; _owPanned=true; owClampCam(); } });
   var _owEnd=function(e){ if(!_owPtrs[e.pointerId]) return; var tap=(!_owMoved && _owList().length===1); delete _owPtrs[e.pointerId]; if(_owList().length<2) _owPinchD=0;
-    if(OVERWORLD){ if(owWalk){ if(tap){ var rect=cv.getBoundingClientRect(); owTarget={ x:(e.clientX-rect.left-W/2)+wcamx, y:(e.clientY-rect.top-H/2)+wcamy }; } owJoy=null; }   // walkable: tap = move-to-point; release the joystick
+    if(OVERWORLD){ if(owWalk){ if(tap){ var rect=cv.getBoundingClientRect(), wx=(e.clientX-rect.left-W/2)+wcamx, wy=(e.clientY-rect.top-H/2)+wcamy, th=pxToHx(wx,wy), tt=tileAtHex(th.q,th.r), bk=plotKey(th.q,th.r);
+        if(_buildMenuOpen){ closeBuildMenu(); }                            // a tap dismisses the build menu
+        else if(tt.plot && !builds[bk]){ openBuildMenu(th.q,th.r); }       // tap a blank plot -> build menu
+        else { owTarget={ x:wx, y:wy }; } } owJoy=null; }                  // otherwise tap = move-to-point
       else if(tap){ owTravelAt(e.clientX, e.clientY); } } };
   cv.addEventListener('pointerup', _owEnd); cv.addEventListener('pointercancel', _owEnd);
 }
@@ -1760,7 +1763,56 @@ function enterWalk(q,r){ if(owWalk) return; if(q==null){ q=((owX/OW_CELL)|0)*OW_
 function exitWalk(){ if(!owWalk) return; owWalk=false; }
 function hxCorners(cxp,cyp){ var a=[],i; for(i=0;i<6;i++){ var an=Math.PI/180*(60*i-30); a.push([cxp+HEXR*Math.cos(an),cyp+HEXR*Math.sin(an)]); } return a; }
 function fillHx(cxp,cyp,fill){ var p=hxCorners(cxp,cyp),i; cx.beginPath(); cx.moveTo(p[0][0],p[0][1]); for(i=1;i<6;i++) cx.lineTo(p[i][0],p[i][1]); cx.closePath(); cx.fillStyle=fill; cx.fill(); }
-function _passPx(px,py){ var h=pxToHx(px,py); return tileAtHex(h.q,h.r).passable; }
+/* ── ZB2: watchable TIMED construction on the curated plots (ported from build_proto.html). Tap a
+   blank plot -> pick a building -> watch it rise over ~10 deterministic stages s=f(now-t0,dur). Build
+   state is self-reported (localStorage: "q,r" -> {bid,t0}); the rendered stage is pure, watchable,
+   survives reload, no server. Cheap early-RS top-down render (footprint + rising body + roof + scaffold). ── */
+var BUILD_STEPS=10, BUILD_KEY='realm_builds_v1';
+var PLOT_BUILDINGS={   /* NOTE: distinct from the base village's BUILDINGS[] skyline array — do not rename to BUILDINGS (name collision) */
+  hut:     {name:'Hut',      dur:24000, wall:'#9c6b3f', roof:'#7a3b2a', w:30, d:24, h:16},
+  workshop:{name:'Workshop', dur:34000, wall:'#8a8f99', roof:'#4a5560', w:34, d:28, h:20},
+  well:    {name:'Well',     dur:16000, wall:'#7d8a93', roof:'#3a4650', w:20, d:20, h:10},
+  hall:    {name:'Hall',     dur:48000, wall:'#b59a5e', roof:'#5a3f7a', w:40, d:32, h:26}
+};
+var BUILD_ORDER=['hut','workshop','well','hall'];
+var builds={}; try{ builds=JSON.parse(localStorage.getItem(BUILD_KEY)||'{}')||{}; }catch(e){}
+function buildSave(){ try{ localStorage.setItem(BUILD_KEY, JSON.stringify(builds)); }catch(e){} }
+function plotKey(q,r){ return q+','+r; }
+function buildStage(rec){ var b=PLOT_BUILDINGS[rec.bid]; if(!b) return BUILD_STEPS; var s=Math.floor((Date.now()-rec.t0)/b.dur*BUILD_STEPS); return s<0?0:(s>BUILD_STEPS?BUILD_STEPS:s); }   // pure f(now-t0)
+function drawBuildOnHex(sx,sy,rec){
+  var b=PLOT_BUILDINGS[rec.bid]; if(!b) return; var s=buildStage(rec), done=(s>=BUILD_STEPS), prog=Math.min(1,(Date.now()-rec.t0)/b.dur);
+  var fx=sx, fy=sy+HEXR*0.18, w=b.w, d=b.d; cx.save();
+  cx.fillStyle='#5b4a32'; cx.fillRect(fx-w/2, fy-d/2, w, d);                                  // cleared dirt pad
+  if(s>=1){ cx.strokeStyle='#3a2f20'; cx.lineWidth=3; cx.strokeRect(fx-w/2, fy-d/2, w, d); }  // foundation staked
+  var wallStage=Math.max(0,Math.min(1,(s-2)/5)), bh=b.h*wallStage;                            // walls rise over stages 2..7
+  if(s>=2){ cx.fillStyle=b.wall; cx.fillRect(fx-w/2, fy-d/2-bh, w, d);
+    cx.fillStyle='rgba(0,0,0,0.18)'; cx.fillRect(fx-w/2, fy+d/2-bh, w, bh>0?bh:0.01);
+    cx.strokeStyle='rgba(0,0,0,0.3)'; cx.lineWidth=1; cx.strokeRect(fx-w/2, fy-d/2-bh, w, d); }
+  var roofStage=Math.max(0,Math.min(1,(s-7)/2));                                              // roof tops out over 7..9
+  if(s>=7 && roofStage>0){ cx.globalAlpha=roofStage; cx.fillStyle=b.roof; cx.fillRect(fx-w/2-3, fy-d/2-bh-3, w+6, d+6);
+    cx.globalAlpha=1; cx.strokeStyle='rgba(0,0,0,0.35)'; cx.strokeRect(fx-w/2-3, fy-d/2-bh-3, w+6, d+6); }
+  if(done){ cx.fillStyle='#2a1c12'; cx.fillRect(fx-5, fy+d/2-12, 10, 12); cx.fillStyle='#ffd27a'; cx.fillRect(fx+w/2-11, fy-d/2-bh+5, 5, 5); }  // door + lit window
+  if(!done){ cx.strokeStyle='rgba(210,190,120,0.7)'; cx.lineWidth=1.5; cx.strokeRect(fx-w/2-4, fy-d/2-bh-4, w+8, d+bh+8);   // scaffold ring
+    var bw=Math.max(w,46); cx.fillStyle='rgba(0,0,0,0.55)'; cx.fillRect(fx-bw/2, fy-d/2-bh-22, bw, 10);
+    cx.fillStyle='#9bd86b'; cx.fillRect(fx-bw/2+1, fy-d/2-bh-21, (bw-2)*prog, 8);
+    cx.fillStyle='#eef2dd'; cx.font='9px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText(b.name+'  '+s+'/'+BUILD_STEPS, fx, fy-d/2-bh-14);
+  } else { cx.fillStyle='#eef2dd'; cx.font='10px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText(b.name, fx, fy+d/2+12); }
+  cx.restore();
+}
+var _buildMenuOpen=false, _buildAtQ=0, _buildAtR=0;
+function openBuildMenu(q,r){ _buildAtQ=q; _buildAtR=r; _buildMenuOpen=true; var m=document.getElementById('buildMenu');
+  if(!m){ m=document.createElement('div'); m.id='buildMenu';
+    m.style.cssText='position:fixed;left:50%;bottom:86px;transform:translateX(-50%);z-index:60;display:flex;flex-wrap:wrap;gap:8px;max-width:92vw;justify-content:center;background:rgba(20,26,16,.96);border:1px solid rgba(180,200,120,.5);border-radius:14px;padding:12px;';
+    m.addEventListener('pointerdown',function(e){ e.stopPropagation(); }); m.addEventListener('click',function(e){ e.stopPropagation(); });
+    var ttl=document.createElement('div'); ttl.textContent='build on this plot:'; ttl.style.cssText='width:100%;text-align:center;color:#dfe7c4;font:12px ui-monospace,monospace;margin-bottom:2px;'; m.appendChild(ttl);
+    var row=document.createElement('div'); row.style.cssText='display:flex;gap:8px;flex-wrap:wrap;justify-content:center;'; m.appendChild(row);
+    BUILD_ORDER.forEach(function(bid){ var b=PLOT_BUILDINGS[bid], btn=document.createElement('button'); btn.type='button'; btn.textContent=b.name;
+      btn.style.cssText='background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;font:12px ui-monospace,monospace;border-radius:10px;padding:10px 13px;min-height:44px;cursor:pointer;';
+      btn.addEventListener('click',function(e){ e.stopPropagation(); builds[plotKey(_buildAtQ,_buildAtR)]={bid:bid,t0:Date.now()}; buildSave(); closeBuildMenu(); }); row.appendChild(btn); });
+    document.body.appendChild(m); }
+  m.style.display='flex'; }
+function closeBuildMenu(){ _buildMenuOpen=false; var m=document.getElementById('buildMenu'); if(m) m.style.display='none'; }
+function _passPx(px,py){ var h=pxToHx(px,py); if(builds[plotKey(h.q,h.r)]) return false; return tileAtHex(h.q,h.r).passable; }   // a built/under-construction plot is solid
 function stepWalk(dt){
   var mvx=0,mvy=0, sp=3.0;
   if(owJoy){ mvx=owJoy.x; mvy=owJoy.y; sp=3.0*(owJoy.mag||1); }                 // mobile virtual joystick
@@ -1774,11 +1826,11 @@ function drawWalk(ts){
   cx.clearRect(0,0,W,H); cx.fillStyle='#04060d'; cx.fillRect(0,0,W,H);
   var c1=pxToHx(wcamx-W/2,wcamy-H/2),c2=pxToHx(wcamx+W/2,wcamy-H/2),c3=pxToHx(wcamx-W/2,wcamy+H/2),c4=pxToHx(wcamx+W/2,wcamy+H/2);
   var qlo=Math.min(c1.q,c2.q,c3.q,c4.q)-1,qhi=Math.max(c1.q,c2.q,c3.q,c4.q)+1,rlo=Math.min(c1.r,c2.r,c3.r,c4.r)-1,rhi=Math.max(c1.r,c2.r,c3.r,c4.r)+1,q,r,i;
-  for(r=rlo;r<=rhi;r++)for(q=qlo;q<=qhi;q++){ var p=hxToPx(q,r),sx=p.x-wcamx+W/2,sy=p.y-wcamy+H/2; if(sx<-HEXR*2||sx>W+HEXR*2||sy<-HEXR*2||sy>H+HEXR*2) continue; var t=tileAtHex(q,r); fillHx(sx,sy,TCOLW[t.terrain]); if(t.terrain==='grass'){ fillHx(sx,sy,'rgba(255,255,255,'+(0.04+(t.e-0.37)*0.10).toFixed(3)+')'); } if(t.terrain==='tree'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle='#16320f'; cx.beginPath(); cx.arc(sx,sy,HEXR*0.5,0,7); cx.fill(); } if(t.terrain==='rock'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle=TCOLW.rock; cx.beginPath(); cx.arc(sx,sy,HEXR*0.52,0,7); cx.fill(); } if(t.plot){ cx.save(); cx.setLineDash([4,4]); cx.strokeStyle='rgba(240,245,210,0.85)'; cx.lineWidth=2; var plc=hxCorners(sx,sy); cx.beginPath(); cx.moveTo(plc[0][0],plc[0][1]); for(i=1;i<6;i++) cx.lineTo(plc[i][0],plc[i][1]); cx.closePath(); cx.stroke(); cx.setLineDash([]); cx.fillStyle='rgba(240,245,210,0.92)'; cx.font='bold '+((HEXR*0.8)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('+', sx, sy+HEXR*0.28); cx.restore(); }
+  for(r=rlo;r<=rhi;r++)for(q=qlo;q<=qhi;q++){ var p=hxToPx(q,r),sx=p.x-wcamx+W/2,sy=p.y-wcamy+H/2; if(sx<-HEXR*2||sx>W+HEXR*2||sy<-HEXR*2||sy>H+HEXR*2) continue; var t=tileAtHex(q,r); fillHx(sx,sy,TCOLW[t.terrain]); if(t.terrain==='grass'){ fillHx(sx,sy,'rgba(255,255,255,'+(0.04+(t.e-0.37)*0.10).toFixed(3)+')'); } if(t.terrain==='tree'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle='#16320f'; cx.beginPath(); cx.arc(sx,sy,HEXR*0.5,0,7); cx.fill(); } if(t.terrain==='rock'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle=TCOLW.rock; cx.beginPath(); cx.arc(sx,sy,HEXR*0.52,0,7); cx.fill(); } if(t.plot){ var _bk=plotKey(q,r); if(builds[_bk]){ drawBuildOnHex(sx,sy,builds[_bk]); } else { cx.save(); cx.setLineDash([4,4]); cx.strokeStyle='rgba(240,245,210,0.85)'; cx.lineWidth=2; var plc=hxCorners(sx,sy); cx.beginPath(); cx.moveTo(plc[0][0],plc[0][1]); for(i=1;i<6;i++) cx.lineTo(plc[i][0],plc[i][1]); cx.closePath(); cx.stroke(); cx.setLineDash([]); cx.fillStyle='rgba(240,245,210,0.92)'; cx.font='bold '+((HEXR*0.8)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('+', sx, sy+HEXR*0.28); cx.restore(); } }
     var pc=hxCorners(sx,sy); cx.strokeStyle='rgba(0,0,0,0.18)'; cx.lineWidth=1; cx.beginPath(); cx.moveTo(pc[0][0],pc[0][1]); for(i=1;i<6;i++) cx.lineTo(pc[i][0],pc[i][1]); cx.closePath(); cx.stroke(); }
   var ppx=pwx-wcamx+W/2, ppy=pwy-wcamy+H/2; cx.fillStyle='#eafaff'; cx.strokeStyle='#5ad4ff'; cx.lineWidth=2; cx.beginPath(); cx.arc(ppx,ppy,HEXR*0.46,0,7); cx.fill(); cx.stroke(); cx.fillStyle='#04060d'; cx.beginPath(); cx.arc(ppx+pwFace*5,ppy-2,2.4,0,7); cx.fill();
   if(owJoy){ var jr=40; cx.lineWidth=2; cx.strokeStyle='rgba(154,224,255,0.5)'; cx.beginPath(); cx.arc(_owDownX,_owDownY,jr,0,7); cx.stroke(); cx.fillStyle='rgba(154,224,255,0.35)'; cx.beginPath(); cx.arc(_owDownX+owJoy.x*jr*(owJoy.mag||1), _owDownY+owJoy.y*jr*(owJoy.mag||1), 15, 0,7); cx.fill(); }   // virtual joystick at the touch point
-  var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent=(z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '):'')+'on '+here.terrain+'  ·  drag/WASD to walk · tap to move · pinch out \u2192 map';
+  var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent=(z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '):'')+'on '+here.terrain+'  ·  drag/WASD to walk · tap to move · tap a plot to build · pinch out \u2192 map';
 }
 var _lastDraw = 0;
 function loop(ts){
