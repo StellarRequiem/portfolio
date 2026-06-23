@@ -1668,7 +1668,7 @@ var OW_FOG='xclvxo_fog', owExplored={}; try{ owExplored=JSON.parse(localStorage.
 function owSaveFog(){ try{ localStorage.setItem(OW_FOG, JSON.stringify(owExplored)); }catch(e){} }
 function owClampCam(){ var vw=W/owZoom, vh=H/owZoom; owCam.x=Math.max(-vw*0.5, Math.min(OW_WW-vw*0.5, owCam.x)); owCam.y=Math.max(-vh*0.5, Math.min(OW_WH-vh*0.5, owCam.y)); }
 function owBar(){ var b=document.getElementById('owbar'); if(!b){ b=document.createElement('div'); b.id='owbar'; b.style.cssText='position:fixed;top:46px;left:50%;transform:translateX(-50%);z-index:9999;font:12px ui-monospace,monospace;color:#9be0ff;text-shadow:0 0 8px rgba(0,0,0,.85);pointer-events:none;display:none;white-space:nowrap;'; (stage.parentNode||document.body).appendChild(b); } return b; }
-addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ exitOverworld(); } }, true);
+addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ if(owWalk) exitWalk(); else exitOverworld(); } }, true);
 addEventListener('keyup', function(e){ var k=(e.key||'').toLowerCase(); if(owKeys[k]) owKeys[k]=false; });
 function enterOverworld(){ if(OVERWORLD) return; OVERWORLD=true; if(typeof closeToys==='function') closeToys(); var eh=document.getElementById('enterhint'); if(eh) eh.style.display='none'; var lv=document.getElementById('live'); if(lv) lv.style.display='none'; if(typeof stage!=='undefined'&&stage) stage.classList.add('overworld'); if(!_owStarted){ owCam.x=owX-(W/2)/owZoom; owCam.y=owY-(H/2)/owZoom; owClampCam(); _owStarted=true; } var mb=document.getElementById('mapBtn'); if(mb) mb.classList.add('on'); owBar().style.display='block'; }
 function exitOverworld(){ if(!OVERWORLD) return; OVERWORLD=false; owSaveFog(); var lv=document.getElementById('live'); if(lv) lv.style.display=''; if(typeof stage!=='undefined'&&stage) stage.classList.remove('overworld'); var mb=document.getElementById('mapBtn'); if(mb) mb.classList.remove('on'); var ob=document.getElementById('owbar'); if(ob) ob.style.display='none'; }
@@ -1711,7 +1711,8 @@ function owTravelAt(clientX,clientY){   // tap a zone cell on the map -> load th
   if(cell.locked){ _owMsg='🔒 that realm is locked — coming soon'; _owMsgT=t0; drawOverworld(t0); return; }
   if(!cell.zone) return;
   owX=(cc+0.5)*OW_CELL; owY=(rr+0.5)*OW_CELL;
-  exitOverworld(); if(typeof joinRealm==='function') joinRealm(cell.zone); if(typeof showLive==='function') showLive(1);
+  if(typeof joinRealm==='function') joinRealm(cell.zone);   // realm channel/presence for this zone
+  enterWalk(cc*OW_CHUNK+(OW_CHUNK>>1), rr*OW_CHUNK+(OW_CHUNK>>1));   // drop into the zone's WALKABLE hex world (stays in OVERWORLD; owWalk on)
 }
 /* OVERWORLD touch/pointer: 1-finger drag = pan, 2-finger = pinch-zoom, a no-drag release = tap-to-travel. Bound to the canvas only (dock buttons aren't children of it). */
 var _owPtrs={}, _owDownX=0, _owDownY=0, _owDownCamX=0, _owDownCamY=0, _owMoved=false, _owPinchD=0;
@@ -1719,10 +1720,42 @@ function _owList(){ var a=[],k; for(k in _owPtrs) a.push(_owPtrs[k]); return a; 
 if(typeof cv!=='undefined' && cv){
   cv.addEventListener('pointerdown', function(e){ if(!OVERWORLD) return; _owPtrs[e.pointerId]={x:e.clientX,y:e.clientY}; var n=_owList(); if(n.length===1){ _owDownX=e.clientX; _owDownY=e.clientY; _owDownCamX=owCam.x; _owDownCamY=owCam.y; _owMoved=false; } else if(n.length===2){ _owPinchD=Math.hypot(n[0].x-n[1].x,n[0].y-n[1].y)||1; } try{ cv.setPointerCapture(e.pointerId); }catch(_){} });
   cv.addEventListener('pointermove', function(e){ if(!OVERWORLD||!_owPtrs[e.pointerId]) return; _owPtrs[e.pointerId]={x:e.clientX,y:e.clientY}; var n=_owList();
-    if(n.length>=2){ var d=Math.hypot(n[0].x-n[1].x,n[0].y-n[1].y)||1; if(_owPinchD>0){ owZoom=Math.max(0.6,Math.min(1.8, owZoom*(d/_owPinchD))); owClampCam(); } _owPinchD=d; _owMoved=true; _owPanned=true; return; }
-    var dx=e.clientX-_owDownX, dy=e.clientY-_owDownY; if(Math.abs(dx)>6||Math.abs(dy)>6){ _owMoved=true; owCam.x=_owDownCamX-dx/owZoom; owCam.y=_owDownCamY-dy/owZoom; _owPanned=true; owClampCam(); } });
-  var _owEnd=function(e){ if(!_owPtrs[e.pointerId]) return; var tap=(!_owMoved && _owList().length===1); delete _owPtrs[e.pointerId]; if(_owList().length<2) _owPinchD=0; if(OVERWORLD && tap){ owTravelAt(e.clientX, e.clientY); } };
+    if(n.length>=2){ var d=Math.hypot(n[0].x-n[1].x,n[0].y-n[1].y)||1; if(owWalk){ if(_owPinchD>0 && d<_owPinchD*0.82) exitWalk(); } else if(_owPinchD>0){ owZoom=Math.max(0.6,Math.min(1.8, owZoom*(d/_owPinchD))); owClampCam(); } _owPinchD=d; _owMoved=true; _owPanned=true; return; }
+    var dx=e.clientX-_owDownX, dy=e.clientY-_owDownY; if(!owWalk && (Math.abs(dx)>6||Math.abs(dy)>6)){ _owMoved=true; owCam.x=_owDownCamX-dx/owZoom; owCam.y=_owDownCamY-dy/owZoom; _owPanned=true; owClampCam(); } });
+  var _owEnd=function(e){ if(!_owPtrs[e.pointerId]) return; var tap=(!_owMoved && _owList().length===1); delete _owPtrs[e.pointerId]; if(_owList().length<2) _owPinchD=0; if(OVERWORLD && !owWalk && tap){ owTravelAt(e.clientX, e.clientY); } };
   cv.addEventListener('pointerup', _owEnd); cv.addEventListener('pointercancel', _owEnd);
+}
+/* ── P2: WALKABLE HEX terrain (the overworld at play scale). Pointy-top axial (q,r), pixel<->hex
+   (ported from overworld_walk_proto.html). Enter by tapping a zone on the map; walk WASD; per-hex
+   collision; pinch-out / Esc back to the territory map. tileAtHex(q,r) pure/deterministic. ── */
+var owWalk=false, HEXR=22, SQ3=Math.sqrt(3), pwx=0, pwy=0, pwFace=1, wcamx=0, wcamy=0;
+var TCOLW={ water:'#1a3a5a', sand:'#c2ab73', grass:'#3f7a3a', tree:'#234d24', rock:'#565660' };
+function hxToPx(q,r){ return { x: HEXR*SQ3*(q+r/2), y: HEXR*1.5*r }; }
+function cubeRnd(xf,yf,zf){ var rx=Math.round(xf),ry=Math.round(yf),rz=Math.round(zf),dx=Math.abs(rx-xf),dy=Math.abs(ry-yf),dz=Math.abs(rz-zf); if(dx>dy&&dx>dz)rx=-ry-rz; else if(dy>dz)ry=-rx-rz; else rz=-rx-ry; return {q:rx,r:rz}; }
+function pxToHx(px,py){ var qf=(SQ3/3*px-1/3*py)/HEXR, rf=(2/3*py)/HEXR; return cubeRnd(qf,-qf-rf,rf); }
+function hxRand(ix,iy){ return mulberry32((OW_SEED ^ (ix*374761393) ^ (iy*668265263))>>>0)(); }
+function hxNoise(x,y){ var ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy,sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy); var a=hxRand(ix,iy),b=hxRand(ix+1,iy),c=hxRand(ix,iy+1),d=hxRand(ix+1,iy+1); return (a*(1-sx)+b*sx)*(1-sy)+(c*(1-sx)+d*sx)*sy; }
+function tileAtHex(q,r){ var p=hxToPx(q,r), e=hxNoise(p.x/(HEXR*9),p.y/(HEXR*9))*0.62 + hxNoise((p.x+9000)/(HEXR*3.3),(p.y-9000)/(HEXR*3.3))*0.38; var terr,pass=true; if(e<0.30){terr='water';pass=false;} else if(e<0.37){terr='sand';} else if(e<0.73){terr='grass';} else if(e<0.84){terr='tree';pass=false;} else {terr='rock';pass=false;} return {terrain:terr,passable:pass,e:e}; }
+function owZoneOfHex(q,r){ return owCellAt(Math.floor(q/OW_CHUNK),Math.floor(r/OW_CHUNK)).zone; }
+function enterWalk(q,r){ if(owWalk) return; if(q==null){ q=((owX/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); r=((owY/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); } var p=hxToPx(q,r); pwx=p.x; pwy=p.y; wcamx=pwx; wcamy=pwy; owWalk=true; owBar().style.display='block'; }
+function exitWalk(){ if(!owWalk) return; owWalk=false; }
+function hxCorners(cxp,cyp){ var a=[],i; for(i=0;i<6;i++){ var an=Math.PI/180*(60*i-30); a.push([cxp+HEXR*Math.cos(an),cyp+HEXR*Math.sin(an)]); } return a; }
+function fillHx(cxp,cyp,fill){ var p=hxCorners(cxp,cyp),i; cx.beginPath(); cx.moveTo(p[0][0],p[0][1]); for(i=1;i<6;i++) cx.lineTo(p[i][0],p[i][1]); cx.closePath(); cx.fillStyle=fill; cx.fill(); }
+function _passPx(px,py){ var h=pxToHx(px,py); return tileAtHex(h.q,h.r).passable; }
+function stepWalk(dt){
+  var mvx=0,mvy=0;
+  if(owKeys['a']||owKeys['arrowleft'])mvx-=1; if(owKeys['d']||owKeys['arrowright'])mvx+=1;
+  if(owKeys['w']||owKeys['arrowup'])mvy-=1; if(owKeys['s']||owKeys['arrowdown'])mvy+=1;
+  if(mvx||mvy){ var m=Math.hypot(mvx,mvy)||1, sp=3.0; mvx/=m; mvy/=m; if(mvx) pwFace=mvx<0?-1:1; var nx=pwx+mvx*sp, ny=pwy+mvy*sp; if(_passPx(nx,pwy)) pwx=nx; if(_passPx(pwx,ny)) pwy=ny; }
+  wcamx+=(pwx-wcamx)*0.16; wcamy+=(pwy-wcamy)*0.16;
+}
+function drawWalk(ts){
+  cx.clearRect(0,0,W,H); cx.fillStyle='#04060d'; cx.fillRect(0,0,W,H);
+  var c1=pxToHx(wcamx-W/2,wcamy-H/2),c2=pxToHx(wcamx+W/2,wcamy-H/2),c3=pxToHx(wcamx-W/2,wcamy+H/2),c4=pxToHx(wcamx+W/2,wcamy+H/2);
+  var qlo=Math.min(c1.q,c2.q,c3.q,c4.q)-1,qhi=Math.max(c1.q,c2.q,c3.q,c4.q)+1,rlo=Math.min(c1.r,c2.r,c3.r,c4.r)-1,rhi=Math.max(c1.r,c2.r,c3.r,c4.r)+1,q,r,i;
+  for(r=rlo;r<=rhi;r++)for(q=qlo;q<=qhi;q++){ var p=hxToPx(q,r),sx=p.x-wcamx+W/2,sy=p.y-wcamy+H/2; if(sx<-HEXR*2||sx>W+HEXR*2||sy<-HEXR*2||sy>H+HEXR*2) continue; var t=tileAtHex(q,r); fillHx(sx,sy,TCOLW[t.terrain]); if(t.terrain==='grass'){ fillHx(sx,sy,'rgba(255,255,255,'+(0.04+(t.e-0.37)*0.10).toFixed(3)+')'); } if(t.terrain==='tree'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle='#16320f'; cx.beginPath(); cx.arc(sx,sy,HEXR*0.5,0,7); cx.fill(); } if(t.terrain==='rock'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle=TCOLW.rock; cx.beginPath(); cx.arc(sx,sy,HEXR*0.52,0,7); cx.fill(); } var pc=hxCorners(sx,sy); cx.strokeStyle='rgba(0,0,0,0.18)'; cx.lineWidth=1; cx.beginPath(); cx.moveTo(pc[0][0],pc[0][1]); for(i=1;i<6;i++) cx.lineTo(pc[i][0],pc[i][1]); cx.closePath(); cx.stroke(); }
+  var ppx=pwx-wcamx+W/2, ppy=pwy-wcamy+H/2; cx.fillStyle='#eafaff'; cx.strokeStyle='#5ad4ff'; cx.lineWidth=2; cx.beginPath(); cx.arc(ppx,ppy,HEXR*0.46,0,7); cx.fill(); cx.stroke(); cx.fillStyle='#04060d'; cx.beginPath(); cx.arc(ppx+pwFace*5,ppy-2,2.4,0,7); cx.fill();
+  var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent=(z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '):'')+'on '+here.terrain+'  ·  WASD to walk · pinch out / Esc \u2192 map';
 }
 var _lastDraw = 0;
 function loop(ts){
@@ -1731,7 +1764,7 @@ function loop(ts){
   _lastDraw = ts;
   t0 = ts; var dt = 1/30;
   if (!hidden && !lowPower){
-    if (OVERWORLD){ stepOverworld(dt); drawOverworld(ts); presenceTick(); }
+    if (OVERWORLD){ if(owWalk){ stepWalk(dt); drawWalk(ts); } else { stepOverworld(dt); drawOverworld(ts); } presenceTick(); }
     else { if(EXPLORE && !INSIDE) stepWeather(dt); stepCamera(); drawScene(ts); stepCritters(dt); if(!INSIDE){ manageCritters(dt); stepContentFeed(dt); schedulePerf(dt); } updateFireworks(dt); demoTick(dt); ambienceTick(dt); presenceTick(); applyEventFx(); cycleTick(); npcTick(dt); tutTick(); }
   }
 }
