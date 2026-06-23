@@ -1889,7 +1889,7 @@ function stepWalk(dt){
   if(mvx||mvy){ var m=Math.hypot(mvx,mvy)||1, bx=pwx, by=pwy; mvx/=m; mvy/=m; if(mvx) pwFace=mvx<0?-1:1; var nx=pwx+mvx*sp, ny=pwy+mvy*sp; if(_passPx(nx,pwy)) pwx=nx; if(_passPx(pwx,ny)) pwy=ny; if(owTarget && Math.abs(pwx-bx)<0.01 && Math.abs(pwy-by)<0.01) owTarget=null; }   // blocked -> give up the tap target
   wcamx+=(pwx-wcamx)*0.16; wcamy+=(pwy-wcamy)*0.16;
   _animTick++; if(_animTick%90===0) breedTick();   // ~3s: fed adults auto-breed onto an adjacent grass hex
-  if(_animTick%30===0) meterTick();                // ~1s: drift hunger/temp/fatigue on the wall-clock
+  if(_animTick%30===0){ meterTick(); rqCheck(); }   // ~1s: drift meters + advance the objective chain
 }
 /* ── P3 · 3a: deterministic resource nodes. Placement is pure f(OW_SEED,q,r) via hxRand (identical on
    every client, no server) — wood on trees, stone on rocks, fiber/berries on grass, water where grass
@@ -2161,6 +2161,27 @@ var ZEVENTS=['still','bounty','bloom','chill','still'];   // weighted toward 'st
 function zoneHashOf(id){ var h=0,i; if(!id) return 0; for(i=0;i<id.length;i++) h=(h*131 + id.charCodeAt(i))>>>0; return h; }
 function zoneEvent(zoneId){ if(!zoneId) return 'still'; var bucket=epochDay()*4 + Math.floor(timeOfDay()*4); return ZEVENTS[Math.floor(mulberry32((OW_SEED ^ zoneHashOf(zoneId) ^ (bucket*2246822519))>>>0)()*ZEVENTS.length)]; }
 function currentZoneEvent(){ var h=pxToHx(pwx,pwy); return zoneEvent(owZoneOfHex(h.q,h.r)); }
+/* ── P9 · 9a: objective chain — guides a fresh player through the loop. RQUESTS = ordered milestones with
+   deterministic done() checks against live state; rqCheck advances the current one (+XP) when met; a "what next"
+   HUD line + a Quests menu tab. Realm-namespaced (RQ*) to avoid the village's own QUESTS/questCard. ── */
+var RQUESTS=[
+  {name:'Harvest a resource', xp:4, done:function(){ return ['wood','stone','fiber','berries','water','copper','iron'].some(function(k){ return (INV[k]||0)>0; }); }},
+  {name:'Craft a tool (axe or pickaxe)', xp:6, done:function(){ return !!(TOOLS.axe||TOOLS.pickaxe); }},
+  {name:'Build a structure', xp:8, done:function(){ for(var k in builds){ if(buildStage(builds[k])>=BUILD_STEPS) return true; } return false; }},
+  {name:'Raise a Town Center', xp:12, done:function(){ return hasTownCenter(); }},
+  {name:'Research a technology', xp:10, done:function(){ return TECH_STATE.researched.length>0; }},
+  {name:'Harvest a crop', xp:8, done:function(){ return (INV.grain||0)>0 || (INV.gourd||0)>0; }},
+  {name:'Tame an animal', xp:10, done:function(){ for(var k in tamed){ return true; } return false; }},
+  {name:'Survive into a new day', xp:14, done:function(){ return epochDay() > (RQSTATE.startDay||epochDay()); }}
+];
+var RQSTATE={ done:0, startDay:epochDay() };
+try{ var _rq=JSON.parse(localStorage.getItem('realm_quests_v1')||'null'); if(_rq){ RQSTATE.done=_rq.done||0; RQSTATE.startDay=(_rq.startDay!=null?_rq.startDay:epochDay()); } }catch(e){}
+function rqSave(){ try{ localStorage.setItem('realm_quests_v1', JSON.stringify(RQSTATE)); }catch(e){} }
+function rqCheck(){ var adv=false; while(RQSTATE.done<RQUESTS.length){ var q=RQUESTS[RQSTATE.done], ok=false; try{ ok=q.done(); }catch(e){ ok=false; } if(!ok) break; RQSTATE.done++; rqSave(); grantXP(q.xp||5,'quest'); adv=true; if(owWalk) _hfx={wx:pwx, wy:pwy-HEXR, txt:'\u2713 '+q.name, until:Date.now()+1500}; } if(adv){ renderRQ(); renderChar(); } return adv; }
+function renderRQ(){ var rows=document.getElementById('rqBody'); if(!rows) return;
+  rows.innerHTML='<div style="margin-bottom:8px;color:#8a9">'+(RQSTATE.done>=RQUESTS.length?'All objectives complete \u2014 the realm is yours.':'Objective '+(RQSTATE.done+1)+' of '+RQUESTS.length)+'</div>'+
+    RQUESTS.map(function(q,i){ var st=i<RQSTATE.done?'done':(i===RQSTATE.done?'current':'locked'), ico=st==='done'?'\u2713':(st==='current'?'\u25b8':'\u00b7'), col=st==='done'?'#7bd86b':(st==='current'?'#ffe9a8':'#5c6f82');
+      return '<div style="display:flex;gap:8px;padding:4px 0;color:'+col+'"><span style="width:14px">'+ico+'</span><span>'+q.name+'</span></div>'; }).join(''); }
 /* ── P4 · 4c: Town Center keystone — ONE per realm; once BUILT it unlocks station-gated tier-2 recipes
    (canCraft/craftItem gate on hasTownCenter) and provides a STORE stash (deposit/withdraw at the town
    center). placeBuild() is the single guarded placement chokepoint enforcing one-town-center-per-realm. ── */
@@ -2307,6 +2328,7 @@ function ensureGameMenu(){ if(document.getElementById('gameMenu')) return;
     '<div class="gmTabs" id="gmTabs"></div>'+
     '<div id="gmContent">'+
       '<div class="gmTabBody" data-tab="character"><div id="charCard"><div id="charBody"></div></div></div>'+
+      '<div class="gmTabBody" data-tab="quests"><div id="rqBody"></div></div>'+
       '<div class="gmTabBody" data-tab="inventory"><div id="invPanel" style="display:flex;flex-wrap:wrap;gap:9px"></div></div>'+
       '<div class="gmTabBody" data-tab="craft"><div id="craftRows" style="display:flex;flex-direction:column;gap:7px"></div></div>'+
       '<div class="gmTabBody" data-tab="build"><div class="gmHelp" style="margin-bottom:10px">Build mode: tap a tile to place a structure (tap again to confirm). Farm mode: tap a grass tile to plant a crop (costs a seed).</div><button class="gmAct" id="gmBuildBtn" type="button">\u2692 enter build mode</button><button class="gmAct" id="gmFarmBtn" type="button" style="margin-top:8px">\ud83c\udf31 plant a crop</button></div>'+
@@ -2322,14 +2344,14 @@ function ensureGameMenu(){ if(document.getElementById('gameMenu')) return;
   var dep=document.getElementById('gmDep'); if(dep) dep.addEventListener('click', function(e){ e.stopPropagation(); if(typeof depositAll==='function') depositAll(); });
   var wd=document.getElementById('gmWd'); if(wd) wd.addEventListener('click', function(e){ e.stopPropagation(); if(typeof withdrawAll==='function') withdrawAll(); }); }
 function buildTabStrip(){ var strip=document.getElementById('gmTabs'); if(!strip) return;
-  var tabs=[['character','Character'],['inventory','Inventory'],['craft','Craft'],['build','Build'],['tech','Tech']];
+  var tabs=[['character','Character'],['quests','Quests'],['inventory','Inventory'],['craft','Craft'],['build','Build'],['tech','Tech']];
   if(typeof hasTownCenter==='function' && hasTownCenter()) tabs.push(['storage','Storage']); tabs.push(['settings','Settings']);
   strip.innerHTML=tabs.map(function(t){ return '<button class="gmTab" data-tab="'+t[0]+'" type="button">'+t[1]+'</button>'; }).join('');
   Array.prototype.forEach.call(strip.querySelectorAll('.gmTab'), function(b){ b.onclick=function(e){ e.stopPropagation(); switchTab(b.getAttribute('data-tab')); }; }); }
 function switchTab(name){ ensureGameMenu(); _activeTab=name;
   Array.prototype.forEach.call(document.querySelectorAll('#gmContent .gmTabBody'), function(d){ d.classList.toggle('active', d.getAttribute('data-tab')===name); });
   Array.prototype.forEach.call(document.querySelectorAll('#gameMenu .gmTab'), function(t){ t.classList.toggle('active', t.getAttribute('data-tab')===name); });
-  if(name==='character') renderChar(); else if(name==='inventory') renderInv(); else if(name==='craft') renderCraft(); else if(name==='tech') renderTech(); else if(name==='storage') renderStore(); else if(name==='settings') gmRenderSettings(); }
+  if(name==='character') renderChar(); else if(name==='quests') renderRQ(); else if(name==='inventory') renderInv(); else if(name==='craft') renderCraft(); else if(name==='tech') renderTech(); else if(name==='storage') renderStore(); else if(name==='settings') gmRenderSettings(); }
 function openGameMenu(tab){ ensureGameMenu(); _menuOpen=true; var m=document.getElementById('gameMenu'); if(m) m.style.display='flex'; buildTabStrip(); switchTab(tab||_activeTab||'character'); }
 function closeGameMenu(){ _menuOpen=false; _gmResetArm=false; var m=document.getElementById('gameMenu'); if(m) m.style.display='none'; }
 function toggleGameMenu(){ if(_menuOpen) closeGameMenu(); else openGameMenu(); }
@@ -2420,6 +2442,7 @@ function drawWalk(ts){
     if(weatherOf()==='rain'){ cx.fillStyle='rgba(80,110,160,0.10)'; cx.fillRect(0,0,W,H); } }
   var _st=statusOf(); if(_st.cold){ cx.fillStyle='rgba(120,180,255,0.10)'; cx.fillRect(0,0,W,H); } else if(_st.hot){ cx.fillStyle='rgba(255,120,60,0.10)'; cx.fillRect(0,0,W,H); } if(_st.tired){ cx.fillStyle='rgba(0,0,0,0.18)'; cx.fillRect(0,0,W,H); }   // 8a cosmetic status tints
   drawMeterHUD();   // 8a HUD: hunger/temp/fatigue bars (top-left)
+  if(typeof RQSTATE!=='undefined' && RQSTATE.done<RQUESTS.length){ cx.save(); cx.fillStyle='#ffe9a8'; cx.font='11px ui-monospace,monospace'; cx.textAlign='left'; cx.fillText('\u25b8 next: '+RQUESTS[RQSTATE.done].name, 12, 110); cx.restore(); }   // 9a onboarding: "what next"
   var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent= _placeMode ? ('build mode \u00b7 tap a tile, tap again to place '+(PLOT_BUILDINGS[_placeBp]?PLOT_BUILDINGS[_placeBp].name:'')+' \u00b7 B/Esc cancel') : _farmMode ? ('farm mode \u00b7 tap grass to plant '+(CROPS[_farmCrop]?CROPS[_farmCrop].name:'')+' ('+(INV.seeds||0)+' seeds) \u00b7 G/Esc cancel') : (DEPTH<0 ? ('\u26cf underground \u00b7 on '+here.terrain+' \u00b7 mine ore \u00b7 tap the \u25b2 ladder to surface') : ((z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '+zoneEvent(z)+' · '):'')+seasonOf()+' '+weatherOf()+(nightLevel()>0.5?' \u263e':'')+' · on '+here.terrain+'  ·  drag/WASD to walk · tap to move · pinch out \u2192 map'));
 }
 var _lastDraw = 0;
