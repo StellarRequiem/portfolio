@@ -2161,6 +2161,7 @@ function gmRenderSettings(){ var s=document.getElementById('gmSettings'); if(!s)
   s.innerHTML=
     '<div class="gmRow"><span>Sound</span><button class="gmToggle'+(snd?' on':'')+'" data-set="sound">'+(snd?'on':'off')+'</button></div>'+
     '<div class="gmRow"><span>Low power</span><button class="gmToggle'+(lp?' on':'')+'" data-set="lowpower">'+(lp?'on':'off')+'</button></div>'+
+    '<div class="gmRow"><span>Cloud save</span><span style="color:#8a9">'+(typeof _cloudStatus!=='undefined'?_cloudStatus:'local only')+'</span></div>'+
     '<div class="gmRow" style="display:block"><div style="margin-bottom:5px;color:#9be0ff">Controls</div><div class="gmHelp">WASD / arrows or tap-to-move \u00b7 E harvest \u00b7 tap a plot to build \u00b7 C craft \u00b7 V character \u00b7 R tech \u00b7 B build \u00b7 M menu \u00b7 Esc close</div></div>'+
     '<div class="gmRow" style="display:block"><div style="margin-bottom:6px;color:'+(_gmResetArm?'#ff9b9b':'#caa15a')+'">'+(_gmResetArm?'Erase ALL Realm progress (inventory, builds, character, tech)? Cannot be undone.':'Danger zone')+'</div>'+resetCtl+'</div>';
   Array.prototype.forEach.call(s.querySelectorAll('[data-set]'), function(b){ b.onclick=function(e){ e.stopPropagation(); var k=b.getAttribute('data-set');
@@ -2170,6 +2171,40 @@ function gmRenderSettings(){ var s=document.getElementById('gmSettings'); if(!s)
     else if(k==='reset-cancel'){ _gmResetArm=false; gmRenderSettings(); }
     else if(k==='reset-confirm'){ try{ ['realm_inv_v1','realm_tools_v1','realm_depleted_v1','realm_builds_v1','realm_char_v1','realm_tech_v1','realm_store_v1','realm_lowpower_v1','xclvxo_fog'].forEach(function(kk){ localStorage.removeItem(kk); }); }catch(_){} location.reload(); }
   }; }); }
+/* ── P5 · 5c: account-sync (best-effort, localStorage is the SOURCE OF TRUTH). When signed in, snapshot the
+   realm_* localStorage keys into a single realm_progress row (upsert on owner); on a FRESH device (empty local)
+   restore from the cloud. EVERY cloud call is caught — missing table / 401 / network / signed-out all degrade to
+   localStorage-only with zero gameplay impact. Ships DORMANT until the operator applies web/migrations/realm_progress.sql.
+   Status shows in the Settings tab. No new UI surface beyond that row (per the menu-tab convention). ── */
+var _cloudUser=null, _cloudStatus='local only', _lastPushed='', _cloudInited=false;
+var _RKEYS=['realm_inv_v1','realm_tools_v1','realm_depleted_v1','realm_builds_v1','realm_char_v1','realm_tech_v1','realm_store_v1','realm_lowpower_v1','xclvxo_fog'];
+function cloudState(){ var o={}; for(var i=0;i<_RKEYS.length;i++){ try{ var v=localStorage.getItem(_RKEYS[i]); if(v!=null) o[_RKEYS[i]]=v; }catch(e){} } return {keys:o, v:1}; }
+function _localEmpty(){ try{ return !localStorage.getItem('realm_char_v1') && !localStorage.getItem('realm_inv_v1') && !localStorage.getItem('realm_builds_v1'); }catch(e){ return false; } }
+function cloudPush(){ if(!_cloudUser) return; try{ withSB(function(sb){ try{
+    sb.from('realm_progress').upsert({ owner:_cloudUser.id, data:cloudState(), updated_at:new Date().toISOString() }, { onConflict:'owner' })
+      .then(function(res){ _cloudStatus=(res && res.error)?'local only':'synced'; }).catch(function(){ _cloudStatus='local only'; });
+  }catch(e){ _cloudStatus='local only'; } }); }catch(e){ _cloudStatus='local only'; } }
+function cloudPull(done){ if(!_cloudUser){ if(done) done(); return; } try{ withSB(function(sb){ try{
+    sb.from('realm_progress').select('data').eq('owner',_cloudUser.id).maybeSingle()
+      .then(function(res){ try{
+        var row=res && res.data; var k=row && row.data && row.data.keys;
+        if(k && _localEmpty()){ Object.keys(k).forEach(function(kk){ try{ localStorage.setItem(kk, k[kk]); }catch(e){} }); _cloudStatus='restored'; if(done) done(true); return; }
+        _cloudStatus = (res && res.error) ? 'local only' : 'synced'; if(done) done(false);
+      }catch(e){ _cloudStatus='local only'; if(done) done(false); } })
+      .catch(function(){ _cloudStatus='local only'; if(done) done(false); });
+  }catch(e){ _cloudStatus='local only'; if(done) done(false); } }); }catch(e){ _cloudStatus='local only'; if(done) done(false); } }
+function cloudTick(){ if(!_cloudUser) return; var s; try{ s=JSON.stringify(cloudState()); }catch(e){ return; } if(s===_lastPushed) return; _lastPushed=s; cloudPush(); }
+function cloudInit(){ if(_cloudInited || !GAME_ENABLED) return; _cloudInited=true;
+  try{ if(typeof SUPABASE_URL==='undefined' || !SUPABASE_URL){ _cloudStatus='local only'; return; }
+    _cloudStatus='\u2026';   // connecting
+    withSB(function(sb){ try{ sb.auth.getSession().then(function(r){ try{
+      var u=(r&&r.data&&r.data.session)?r.data.session.user:null;
+      if(!u){ _cloudUser=null; _cloudStatus='sign in to sync'; return; }
+      _cloudUser=u;
+      cloudPull(function(restored){ try{ _lastPushed=JSON.stringify(cloudState()); }catch(e){} if(restored){ try{ location.reload(); }catch(e){} } });
+      setInterval(cloudTick, 20000);   // best-effort periodic flush; only writes when the snapshot actually changed
+    }catch(e){ _cloudStatus='local only'; } }).catch(function(){ _cloudStatus='local only'; }); }catch(e){ _cloudStatus='local only'; } });
+  }catch(e){ _cloudStatus='local only'; } }
 /* ── 2c: the walk-mode player is the player's CHOSEN critter (recolored), not a placeholder dot.
    Recolor the chosen sprite once per spec (reusing recolor()/SPRITES/playerSpec from the social scene)
    into a cached Image for cheap canvas drawImage; fall back to the dot until it's ready / if none chosen. ── */
@@ -2949,6 +2984,7 @@ function boot(){
   updateCredits();
   var sb = document.getElementById('sound'); if (sb) sb.addEventListener('click', toggleSound);
   var gmb = document.getElementById('gameMenuBtn'); if (gmb && GAME_ENABLED) gmb.addEventListener('click', function(e){ e.stopPropagation(); toggleGameMenu(); });   // Realm game menu (gated; never wired in the social village)
+  if (GAME_ENABLED && typeof cloudInit==='function') cloudInit();   // best-effort account-sync (dormant until realm_progress migration is applied; localStorage stays source of truth)
   requestAnimationFrame(loop);
 }
 var _rzT = null;
