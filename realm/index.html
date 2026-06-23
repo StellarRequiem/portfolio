@@ -2101,8 +2101,8 @@ function drawAnimal(sx,sy,rec,wild){ var a=ANIMALS[rec.kind]||ANIMALS.sheep, stg
   cx.globalAlpha=1;
   if(!wild && productReady(rec)){ cx.fillStyle='#fff3b0'; cx.font='bold 12px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('\u2727', sx, sy-sz-3); }   // product-ready sparkle
   cx.restore(); }
-function tameAt(q,r){ var w=animalAt(q,r); if(!w || (INV.grain||0)<=0) return false; var ph=pxToHx(pwx,pwy); if(hexDist(ph.q,ph.r,q,r)>1) return false;
-  INV.grain-=1; if(INV.grain<=0) delete INV.grain; invSave(); var now=Date.now(); tamed[plotKey(q,r)]={kind:w.kind, bornAt:now, fedAt:now, lastYield:now, lastBred:now}; animalSave(); renderInv();
+function tameAt(q,r){ var w=animalAt(q,r); if(!w) return false; var food=(INV.grain>0)?'grain':((INV.gourd>0)?'gourd':null); if(!food) return false; var ph=pxToHx(pwx,pwy); if(hexDist(ph.q,ph.r,q,r)>1) return false;
+  INV[food]-=1; if(INV[food]<=0) delete INV[food]; invSave(); var now=Date.now(); tamed[plotKey(q,r)]={kind:w.kind, bornAt:now, fedAt:now, lastYield:now, lastBred:now}; animalSave(); renderInv();
   _hfx={wx:hxToPx(q,r).x,wy:hxToPx(q,r).y,txt:'tamed '+(ANIMALS[w.kind]?ANIMALS[w.kind].name:w.kind),until:Date.now()+900}; return true; }
 function feedAnimal(q,r){ var k=plotKey(q,r), rec=tamed[k]; if(!rec) return false; var ph=pxToHx(pwx,pwy); if(hexDist(ph.q,ph.r,q,r)>1) return false;
   var food=(INV.grain>0)?'grain':((INV.gourd>0)?'gourd':null); if(!food) return false; INV[food]-=1; if(INV[food]<=0) delete INV[food]; invSave(); rec.fedAt=Date.now(); animalSave(); renderInv();
