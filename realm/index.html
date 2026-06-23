@@ -1752,6 +1752,8 @@ if(typeof cv!=='undefined' && cv){
         if(_placeMode){ if(_placePending && _placePending.q===th.q && _placePending.r===th.r && canPlace(th.q,th.r) && placeBuild(plotKey(th.q,th.r), _placeBp)){ _placeMode=false; _placePending=null; ensurePlaceBtn(); } else { _placePending={q:th.q,r:th.r}; } }   // 4b: 1st tap = ghost, 2nd tap on a valid hex = place (placeBuild guards one-town-center-per-realm)
         else if(_buildMenuOpen){ closeBuildMenu(); }                       // a tap dismisses the build menu
         else if(tryHarvest(th.q,th.r)){ }                                  // tap an ON/ADJACENT resource node -> harvest
+        else if(DEPTH<0 && th.q===_shaftQ && th.r===_shaftR && hexDist(pxToHx(pwx,pwy).q,pxToHx(pwx,pwy).r,th.q,th.r)<=1){ ascend(); }   // underground: tap the up-ladder -> surface
+        else if(DEPTH===0 && builds[bk] && builds[bk].bid==='mineshaft' && buildStage(builds[bk])>=BUILD_STEPS && hexDist(pxToHx(pwx,pwy).q,pxToHx(pwx,pwy).r,th.q,th.r)<=1){ descend(th.q,th.r); }   // tap a built mineshaft (on/adjacent) -> descend
         else if(builds[bk] && builds[bk].bid==='towncenter' && buildStage(builds[bk])>=BUILD_STEPS && hexDist(pxToHx(pwx,pwy).q,pxToHx(pwx,pwy).r,th.q,th.r)<=1){ openGameMenu('storage'); }   // tap a built town center (on/adjacent) -> menu Storage tab
         else if(tt.plot && !builds[bk]){ openBuildMenu(th.q,th.r); }       // tap a blank plot -> build menu
         else { owTarget={ x:wx, y:wy }; } } owJoy=null; }                  // otherwise tap = move-to-point (incl. an out-of-range node)
@@ -1762,7 +1764,8 @@ if(typeof cv!=='undefined' && cv){
    (ported from overworld_walk_proto.html). Enter by tapping a zone on the map; walk WASD; per-hex
    collision; pinch-out / Esc back to the territory map. tileAtHex(q,r) pure/deterministic. ── */
 var owWalk=false, HEXR=22, SQ3=Math.sqrt(3), pwx=0, pwy=0, pwFace=1, wcamx=0, wcamy=0, owJoy=null, owTarget=null;
-var TCOLW={ water:'#1a3a5a', sand:'#c2ab73', grass:'#3f7a3a', tree:'#234d24', rock:'#565660', path:'#7a6a3f' };
+var DEPTH=0, _shaftQ=0, _shaftR=0;   // P6 6b: 0=surface, -1=underground; _shaft is the mineshaft hex (the up-ladder underground)
+var TCOLW={ water:'#1a3a5a', sand:'#c2ab73', grass:'#3f7a3a', tree:'#234d24', rock:'#565660', path:'#7a6a3f', cavefloor:'#2b2622', cavewall:'#3a3a40' };
 function hxToPx(q,r){ return { x: HEXR*SQ3*(q+r/2), y: HEXR*1.5*r }; }
 function cubeRnd(xf,yf,zf){ var rx=Math.round(xf),ry=Math.round(yf),rz=Math.round(zf),dx=Math.abs(rx-xf),dy=Math.abs(ry-yf),dz=Math.abs(rz-zf); if(dx>dy&&dx>dz)rx=-ry-rz; else if(dy>dz)ry=-rx-rz; else rz=-rx-ry; return {q:rx,r:rz}; }
 function pxToHx(px,py){ var qf=(SQ3/3*px-1/3*py)/HEXR, rf=(2/3*py)/HEXR; return cubeRnd(qf,-qf-rf,rf); }
@@ -1781,7 +1784,14 @@ var HEARTH_T={ '.':{t:'grass',p:true}, '#':{t:'path',p:true}, '~':{t:'water',p:f
 function hearthAt(q,r){ if(Math.floor(q/OW_CHUNK)!==HEARTH_CQ||Math.floor(r/OW_CHUNK)!==HEARTH_CR) return null;
   var row=HEARTH_MAP[r-HEARTH_CR*OW_CHUNK]; if(!row) return null; var d=HEARTH_T[row.charAt(q-HEARTH_CQ*OW_CHUNK)||'.']||HEARTH_T['.'];
   return {terrain:d.t, passable:d.p, plot:!!d.plot, e:0.55, hearth:true}; }
-function tileAtHex(q,r){ var hh=hearthAt(q,r); if(hh) return hh; var p=hxToPx(q,r), e=hxNoise(p.x/(HEXR*9),p.y/(HEXR*9))*0.62 + hxNoise((p.x+9000)/(HEXR*3.3),(p.y-9000)/(HEXR*3.3))*0.38; var terr,pass=true; if(e<0.30){terr='water';pass=false;} else if(e<0.37){terr='sand';} else if(e<0.73){terr='grass';} else if(e<0.84){terr='tree';pass=false;} else {terr='rock';pass=false;} return {terrain:terr,passable:pass,e:e}; }
+function caveTileAt(q,r){   // P6 6b: deterministic underground layer (z-salted; distinct from the surface). Floor near the shaft so arrival isn't a wall.
+  if(q===_shaftQ && r===_shaftR) return {terrain:'cavefloor', passable:true, e:0.5, shaft:true};   // the up-ladder
+  if(Math.abs(q-_shaftQ)<=1 && Math.abs(r-_shaftR)<=1) return {terrain:'cavefloor', passable:true, e:0.5};
+  var p=hxToPx(q,r), e=hxNoise((p.x+50000)/(HEXR*5),(p.y-50000)/(HEXR*5));
+  if(e<0.58) return {terrain:'cavefloor', passable:true, e:e};
+  return {terrain:'cavewall', passable:false, e:e};   // ore is embedded in walls (nodeAt), mined from adjacent floor
+}
+function tileAtHex(q,r){ if(DEPTH<0) return caveTileAt(q,r); var hh=hearthAt(q,r); if(hh) return hh; var p=hxToPx(q,r), e=hxNoise(p.x/(HEXR*9),p.y/(HEXR*9))*0.62 + hxNoise((p.x+9000)/(HEXR*3.3),(p.y-9000)/(HEXR*3.3))*0.38; var terr,pass=true; if(e<0.30){terr='water';pass=false;} else if(e<0.37){terr='sand';} else if(e<0.73){terr='grass';} else if(e<0.84){terr='tree';pass=false;} else {terr='rock';pass=false;} return {terrain:terr,passable:pass,e:e}; }
 function owZoneOfHex(q,r){ return owCellAt(Math.floor(q/OW_CHUNK),Math.floor(r/OW_CHUNK)).zone; }
 function enterWalk(q,r){ if(owWalk) return; if(q==null){ q=((owX/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); r=((owY/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); } var p=hxToPx(q,r); pwx=p.x; pwy=p.y; wcamx=pwx; wcamy=pwy; owWalk=true; owBar().style.display='block'; ensureGameMenu(); renderInv(); ensureGameMenuBtn(); }
 function exitWalk(){ if(!owWalk) return; owWalk=false; closeGameMenu(); var gb=document.getElementById('gameMenuBtn'); if(gb) gb.style.display='none'; closeCraft(); closeStorage(); closeChar(); closeTech(); _placeMode=false; _placePending=null; closePlacePicker(); }
@@ -1799,12 +1809,13 @@ var PLOT_BUILDINGS={   /* NOTE: distinct from the base village's BUILDINGS[] sky
   hall:    {name:'Hall',     dur:48000, wall:'#b59a5e', roof:'#5a3f7a', w:40, d:32, h:26},
   towncenter:{name:'Town Center', dur:60000, wall:'#caa15a', roof:'#6a4a8a', w:50, d:40, h:34},   // keystone: one per realm, unlocks tier-2 + storage
   smelter:{name:'Smelter', dur:54000, wall:'#6b5548', roof:'#3a2f28', w:42, d:34, h:30},   // P6: a built smelter unlocks smelting (ore -> bars); not one-per-realm
+  mineshaft:{name:'Mineshaft', dur:48000, wall:'#5a5e66', roof:'#2a2c30', w:38, d:32, h:26},   // P6 6b: tech-gated (Excavation); tap a built one to descend underground
   keep:{name:'Keep', dur:72000, wall:'#8a8f99', roof:'#3a4650', w:46, d:38, h:40}   // tech-gated (Architecture); not in BUILD_ORDER — surfaced via availableBlueprints()
 };
 var BUILD_ORDER=['hut','workshop','well','hall','towncenter','smelter'];
 var builds={}; try{ builds=JSON.parse(localStorage.getItem(BUILD_KEY)||'{}')||{}; }catch(e){}
 function buildSave(){ try{ localStorage.setItem(BUILD_KEY, JSON.stringify(builds)); }catch(e){} }
-function plotKey(q,r){ return q+','+r; }
+function plotKey(q,r){ return (DEPTH?DEPTH+':':'')+q+','+r; }   // depth-namespaced; surface (DEPTH 0) stays "q,r" (backward-compatible with existing saves)
 function buildStage(rec){ var b=PLOT_BUILDINGS[rec.bid]; if(!b) return BUILD_STEPS; var s=Math.floor((Date.now()-rec.t0)/b.dur*BUILD_STEPS); return s<0?0:(s>BUILD_STEPS?BUILD_STEPS:s); }   // pure f(now-t0)
 function drawBuildOnHex(sx,sy,rec){
   var b=PLOT_BUILDINGS[rec.bid]; if(!b) return; var s=buildStage(rec), done=(s>=BUILD_STEPS), prog=Math.min(1,(Date.now()-rec.t0)/b.dur);
@@ -1856,6 +1867,8 @@ var NODE_COL={ wood:'#caa15a', stone:'#cfd2d8', fiber:'#9be06b', berries:'#ff5d6
 var _NB6=[[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 function nodeAt(q,r){
   var t=tileAtHex(q,r); if(t.plot||t.terrain==='path') return null;
+  if(DEPTH<0){ if(t.terrain!=='cavewall') return null; var dr=hxRand((q*7+311)|0,(r*7-271)|0); if(dr>=0.5) return null;   // underground: ~half the walls bear ore...
+    var dro=hxRand((q*9+131)|0,(r*9+57)|0); return {kind: dro<0.30?'stone':(dro<0.62?'copper':'iron')}; }              // ...and it's richer in copper/iron than the surface
   var rnd=hxRand((q*2+131)|0, (r*2-67)|0);                            // independent stream from the terrain noise
   if(t.terrain==='tree')  return rnd<0.34 ? {kind:'wood'}  : null;    // the tree IS the wood node (harvest from adjacent)
   if(t.terrain==='rock'){ if(rnd>=0.32) return null; var ro=hxRand((q*5+53)|0,(r*5-89)|0); return {kind: ro<0.62?'stone':(ro<0.86?'copper':'iron')}; }   // rock node: mostly stone, some copper, rarer iron (deterministic)
@@ -1973,7 +1986,7 @@ function ensureCraftBtn(){ var b=document.getElementById('craftBtn');
    red=blocked) snaps to the tapped hex; tap the same hex again to place. Reuses the ZB2 timed construction
    (builds[] + drawBuildOnHex). Collision-aware: only empty, passable GRASS hexes with no plot/node/build. ── */
 var _placeMode=false, _placeBp='hut', _placePending=null;
-function canPlace(q,r){ var t=tileAtHex(q,r); if(!t.passable || t.terrain!=='grass' || t.plot) return false; if(builds[plotKey(q,r)]) return false; if(nodeAt(q,r)) return false; return true; }
+function canPlace(q,r){ var t=tileAtHex(q,r); if(!t.passable) return false; var okTerrain = DEPTH<0 ? (t.terrain==='cavefloor') : (t.terrain==='grass'); if(!okTerrain || t.plot) return false; if(builds[plotKey(q,r)]) return false; if(nodeAt(q,r)) return false; return true; }   // surface = grass; underground = cave floor
 function drawGhost(sx,sy,bid,valid){ var b=PLOT_BUILDINGS[bid]||PLOT_BUILDINGS.hut, i; cx.save();
   var pc=hxCorners(sx,sy); cx.globalAlpha=0.45; cx.fillStyle=valid?'rgba(120,220,120,0.45)':'rgba(220,90,90,0.45)';
   cx.beginPath(); cx.moveTo(pc[0][0],pc[0][1]); for(i=1;i<6;i++) cx.lineTo(pc[i][0],pc[i][1]); cx.closePath(); cx.fill();
@@ -2085,7 +2098,8 @@ var TECH=[
   {id:'toolsmithing', name:'Toolsmithing', cost:14, requires:['masonry_t'],               unlocks:['buff:tool_yield']},
   {id:'agronomy',     name:'Agronomy',     cost:16, requires:['carpentry'],               unlocks:['buff:regrow']},
   {id:'logistics',    name:'Logistics',    cost:18, requires:['masonry_t'],               unlocks:['buff:rp_boost']},
-  {id:'architecture', name:'Architecture', cost:26, requires:['lighting','toolsmithing'], unlocks:['blueprint:keep']}
+  {id:'architecture', name:'Architecture', cost:26, requires:['lighting','toolsmithing'], unlocks:['blueprint:keep']},
+  {id:'excavation', name:'Excavation', cost:20, requires:['masonry_t'], unlocks:['blueprint:mineshaft']}
 ];
 var TECH_STATE={ rp:0, researched:[] };
 try{ var _t=JSON.parse(localStorage.getItem('realm_tech_v1')||'null'); if(_t){ TECH_STATE.rp=_t.rp||0; TECH_STATE.researched=_t.researched||[]; } }catch(e){}
@@ -2098,7 +2112,9 @@ function researchTech(id){ var t=techById(id); if(!t || hasTech(id)) return fals
   TECH_STATE.rp -= t.cost; TECH_STATE.researched.push(id); techSave(); renderTech(); renderCraft(); return true; }   // single guarded research chokepoint
 function recipeTechNode(rid){ for(var i=0;i<TECH.length;i++){ if(TECH[i].unlocks.indexOf(rid)>=0) return TECH[i].id; } return null; }   // which tech (if any) gates this recipe
 function isRecipeUnlocked(rid){ var tn=recipeTechNode(rid); return !tn || hasTech(tn); }
-function availableBlueprints(){ var list=BUILD_ORDER.slice(); if(hasTech('architecture') && PLOT_BUILDINGS.keep) list.push('keep'); return list; }
+function availableBlueprints(){ var list=BUILD_ORDER.slice(); if(hasTech('architecture') && PLOT_BUILDINGS.keep) list.push('keep'); if(hasTech('excavation') && PLOT_BUILDINGS.mineshaft) list.push('mineshaft'); return list; }
+function descend(q,r){ _shaftQ=q; _shaftR=r; DEPTH=-1; var p=hxToPx(q,r); pwx=p.x; pwy=p.y; wcamx=pwx; wcamy=pwy; owJoy=null; owTarget=null; }   // P6 6b: enter the mine (player lands on the forced-floor shaft hex)
+function ascend(){ DEPTH=0; var p=hxToPx(_shaftQ,_shaftR); pwx=p.x; pwy=p.y; wcamx=pwx; wcamy=pwy; owJoy=null; owTarget=null; }   // back to the surface mineshaft
 var _techOpen=false;
 function renderTech(){ var c=document.getElementById('techCard'); if(!c) return;
   var rows=TECH.map(function(t){ var done=hasTech(t.id), avail=techPrereqsMet(t), can=(avail && !done && TECH_STATE.rp>=t.cost);
@@ -2227,7 +2243,7 @@ function drawWalk(ts){
   cx.clearRect(0,0,W,H); cx.fillStyle='#04060d'; cx.fillRect(0,0,W,H);
   var c1=pxToHx(wcamx-W/2,wcamy-H/2),c2=pxToHx(wcamx+W/2,wcamy-H/2),c3=pxToHx(wcamx-W/2,wcamy+H/2),c4=pxToHx(wcamx+W/2,wcamy+H/2);
   var qlo=Math.min(c1.q,c2.q,c3.q,c4.q)-1,qhi=Math.max(c1.q,c2.q,c3.q,c4.q)+1,rlo=Math.min(c1.r,c2.r,c3.r,c4.r)-1,rhi=Math.max(c1.r,c2.r,c3.r,c4.r)+1,q,r,i;
-  for(r=rlo;r<=rhi;r++)for(q=qlo;q<=qhi;q++){ var p=hxToPx(q,r),sx=p.x-wcamx+W/2,sy=p.y-wcamy+H/2; if(sx<-HEXR*2||sx>W+HEXR*2||sy<-HEXR*2||sy>H+HEXR*2) continue; var t=tileAtHex(q,r); fillHx(sx,sy,TCOLW[t.terrain]); if(t.terrain==='grass'){ fillHx(sx,sy,'rgba(255,255,255,'+(0.04+(t.e-0.37)*0.10).toFixed(3)+')'); } if(t.terrain==='tree'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle='#16320f'; cx.beginPath(); cx.arc(sx,sy,HEXR*0.5,0,7); cx.fill(); } if(t.terrain==='rock'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle=TCOLW.rock; cx.beginPath(); cx.arc(sx,sy,HEXR*0.52,0,7); cx.fill(); } var _bk=plotKey(q,r); if(builds[_bk]){ drawBuildOnHex(sx,sy,builds[_bk]); } else { if(t.plot){ cx.save(); cx.setLineDash([4,4]); cx.strokeStyle='rgba(240,245,210,0.85)'; cx.lineWidth=2; var plc=hxCorners(sx,sy); cx.beginPath(); cx.moveTo(plc[0][0],plc[0][1]); for(i=1;i<6;i++) cx.lineTo(plc[i][0],plc[i][1]); cx.closePath(); cx.stroke(); cx.setLineDash([]); cx.fillStyle='rgba(240,245,210,0.92)'; cx.font='bold '+((HEXR*0.8)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('+', sx, sy+HEXR*0.28); cx.restore(); } var _nd=nodeAt(q,r); if(_nd){ if(isDepleted(q,r)) drawRegrow(sx,sy,regrowProg(q,r)); else drawNode(sx,sy,_nd.kind); } }
+  for(r=rlo;r<=rhi;r++)for(q=qlo;q<=qhi;q++){ var p=hxToPx(q,r),sx=p.x-wcamx+W/2,sy=p.y-wcamy+H/2; if(sx<-HEXR*2||sx>W+HEXR*2||sy<-HEXR*2||sy>H+HEXR*2) continue; var t=tileAtHex(q,r); fillHx(sx,sy,TCOLW[t.terrain]); if(t.terrain==='grass'){ fillHx(sx,sy,'rgba(255,255,255,'+(0.04+(t.e-0.37)*0.10).toFixed(3)+')'); } if(t.terrain==='tree'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle='#16320f'; cx.beginPath(); cx.arc(sx,sy,HEXR*0.5,0,7); cx.fill(); } if(t.terrain==='rock'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle=TCOLW.rock; cx.beginPath(); cx.arc(sx,sy,HEXR*0.52,0,7); cx.fill(); } if(t.shaft){ cx.fillStyle='#9be0ff'; cx.font='bold '+((HEXR)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('\u25b2', sx, sy+HEXR*0.34); } var _bk=plotKey(q,r); if(builds[_bk]){ drawBuildOnHex(sx,sy,builds[_bk]); } else { if(t.plot){ cx.save(); cx.setLineDash([4,4]); cx.strokeStyle='rgba(240,245,210,0.85)'; cx.lineWidth=2; var plc=hxCorners(sx,sy); cx.beginPath(); cx.moveTo(plc[0][0],plc[0][1]); for(i=1;i<6;i++) cx.lineTo(plc[i][0],plc[i][1]); cx.closePath(); cx.stroke(); cx.setLineDash([]); cx.fillStyle='rgba(240,245,210,0.92)'; cx.font='bold '+((HEXR*0.8)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('+', sx, sy+HEXR*0.28); cx.restore(); } var _nd=nodeAt(q,r); if(_nd){ if(isDepleted(q,r)) drawRegrow(sx,sy,regrowProg(q,r)); else drawNode(sx,sy,_nd.kind); } }
     var pc=hxCorners(sx,sy); cx.strokeStyle='rgba(0,0,0,0.18)'; cx.lineWidth=1; cx.beginPath(); cx.moveTo(pc[0][0],pc[0][1]); for(i=1;i<6;i++) cx.lineTo(pc[i][0],pc[i][1]); cx.closePath(); cx.stroke(); }
   drawRemoteBuilds();   // 4d: faint cosmetic remote structures (never block your world)
   if(_placeMode && _placePending){ var gp=hxToPx(_placePending.q,_placePending.r); drawGhost(gp.x-wcamx+W/2, gp.y-wcamy+H/2, _placeBp, canPlace(_placePending.q,_placePending.r)); }   // 4b ghost preview
@@ -2241,7 +2257,7 @@ function drawWalk(ts){
   }
   if(_hfx){ var _ha=(_hfx.until-Date.now())/900; if(_ha>0){ var hx=_hfx.wx-wcamx+W/2, hy=_hfx.wy-wcamy+H/2-(1-_ha)*22; cx.save(); cx.globalAlpha=Math.min(1,_ha*1.4); cx.font='bold 13px ui-monospace,monospace'; cx.textAlign='center'; cx.strokeStyle='rgba(0,0,0,0.6)'; cx.lineWidth=3; cx.strokeText(_hfx.txt,hx,hy); cx.fillStyle='#eef2dd'; cx.fillText(_hfx.txt,hx,hy); cx.restore(); } else { _hfx=null; } }   // fading "+1 kind" harvest popup
   if(owJoy){ var jr=40; cx.lineWidth=2; cx.strokeStyle='rgba(154,224,255,0.5)'; cx.beginPath(); cx.arc(_owDownX,_owDownY,jr,0,7); cx.stroke(); cx.fillStyle='rgba(154,224,255,0.35)'; cx.beginPath(); cx.arc(_owDownX+owJoy.x*jr*(owJoy.mag||1), _owDownY+owJoy.y*jr*(owJoy.mag||1), 15, 0,7); cx.fill(); }   // virtual joystick at the touch point
-  var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent= _placeMode ? ('build mode \u00b7 tap a tile, tap again to place '+(PLOT_BUILDINGS[_placeBp]?PLOT_BUILDINGS[_placeBp].name:'')+' \u00b7 B/Esc cancel') : ((z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '):'')+'on '+here.terrain+'  ·  drag/WASD to walk · tap to move · tap a plot to build · pinch out \u2192 map');
+  var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent= _placeMode ? ('build mode \u00b7 tap a tile, tap again to place '+(PLOT_BUILDINGS[_placeBp]?PLOT_BUILDINGS[_placeBp].name:'')+' \u00b7 B/Esc cancel') : (DEPTH<0 ? ('\u26cf underground \u00b7 on '+here.terrain+' \u00b7 mine ore \u00b7 tap the \u25b2 ladder to surface') : ((z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '):'')+'on '+here.terrain+'  ·  drag/WASD to walk · tap to move · tap a plot to build · pinch out \u2192 map'));
 }
 var _lastDraw = 0;
 function loop(ts){
