@@ -1691,7 +1691,7 @@ var OW_FOG='xclvxo_fog', owExplored={}; try{ owExplored=JSON.parse(localStorage.
 function owSaveFog(){ try{ localStorage.setItem(OW_FOG, JSON.stringify(owExplored)); }catch(e){} }
 function owClampCam(){ var vw=W/owZoom, vh=H/owZoom; owCam.x=Math.max(-vw*0.5, Math.min(OW_WW-vw*0.5, owCam.x)); owCam.y=Math.max(-vh*0.5, Math.min(OW_WH-vh*0.5, owCam.y)); }
 function owBar(){ var b=document.getElementById('owbar'); if(!b){ b=document.createElement('div'); b.id='owbar'; b.style.cssText='position:fixed;top:46px;left:50%;transform:translateX(-50%);z-index:9999;font:12px ui-monospace,monospace;color:#9be0ff;text-shadow:0 0 8px rgba(0,0,0,.85);pointer-events:none;display:none;white-space:nowrap;'; (stage.parentNode||document.body).appendChild(b); } return b; }
-addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ if(_menuOpen){ closeGameMenu(); } else if(_techOpen){ closeTech(); } else if(_charOpen){ closeChar(); } else if(_storeOpen){ closeStorage(); } else if(_craftOpen){ closeCraft(); } else if(_placeMode){ togglePlace(); } else if(_buildMenuOpen){ closeBuildMenu(); } else if(owWalk){ exitWalk(); } else { exitOverworld(); } } else if(k==='e'){ if(owWalk){ harvestNearest(); e.preventDefault(); } } else if(k==='c'){ if(owWalk){ openGameMenu('craft'); e.preventDefault(); } } else if(k==='b'){ if(owWalk){ togglePlace(); e.preventDefault(); } } else if(k==='v'){ if(owWalk){ openGameMenu('character'); e.preventDefault(); } } else if(k==='r'){ if(owWalk){ openGameMenu('tech'); e.preventDefault(); } } else if(k==='m'){ if(owWalk){ toggleGameMenu(); e.preventDefault(); } } }, true);
+addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ if(_menuOpen){ closeGameMenu(); } else if(_techOpen){ closeTech(); } else if(_charOpen){ closeChar(); } else if(_storeOpen){ closeStorage(); } else if(_craftOpen){ closeCraft(); } else if(_placeMode){ togglePlace(); } else if(_farmMode){ toggleFarm(); } else if(_buildMenuOpen){ closeBuildMenu(); } else if(owWalk){ exitWalk(); } else { exitOverworld(); } } else if(k==='e'){ if(owWalk){ harvestNearest(); e.preventDefault(); } } else if(k==='c'){ if(owWalk){ openGameMenu('craft'); e.preventDefault(); } } else if(k==='b'){ if(owWalk){ togglePlace(); e.preventDefault(); } } else if(k==='g'){ if(owWalk){ toggleFarm(); e.preventDefault(); } } else if(k==='v'){ if(owWalk){ openGameMenu('character'); e.preventDefault(); } } else if(k==='r'){ if(owWalk){ openGameMenu('tech'); e.preventDefault(); } } else if(k==='m'){ if(owWalk){ toggleGameMenu(); e.preventDefault(); } } }, true);
 addEventListener('keyup', function(e){ var k=(e.key||'').toLowerCase(); if(owKeys[k]) owKeys[k]=false; });
 function enterOverworld(){ if(!GAME_ENABLED||OVERWORLD) return; OVERWORLD=true; if(typeof closeToys==='function') closeToys(); var eh=document.getElementById('enterhint'); if(eh) eh.style.display='none'; var lv=document.getElementById('live'); if(lv) lv.style.display='none'; if(typeof stage!=='undefined'&&stage) stage.classList.add('overworld'); if(!_owStarted){ owCam.x=owX-(W/2)/owZoom; owCam.y=owY-(H/2)/owZoom; owClampCam(); _owStarted=true; } var mb=document.getElementById('mapBtn'); if(mb) mb.classList.add('on'); owBar().style.display='block'; }
 function exitOverworld(){ if(!OVERWORLD) return; OVERWORLD=false; owSaveFog(); var lv=document.getElementById('live'); if(lv) lv.style.display=''; if(typeof stage!=='undefined'&&stage) stage.classList.remove('overworld'); var mb=document.getElementById('mapBtn'); if(mb) mb.classList.remove('on'); var ob=document.getElementById('owbar'); if(ob) ob.style.display='none'; }
@@ -1750,8 +1750,10 @@ if(typeof cv!=='undefined' && cv){
   var _owEnd=function(e){ if(!_owPtrs[e.pointerId]) return; var tap=(!_owMoved && _owList().length===1); delete _owPtrs[e.pointerId]; if(_owList().length<2) _owPinchD=0;
     if(OVERWORLD){ if(owWalk){ if(tap){ var rect=cv.getBoundingClientRect(), wx=(e.clientX-rect.left-W/2)+wcamx, wy=(e.clientY-rect.top-H/2)+wcamy, th=pxToHx(wx,wy), tt=tileAtHex(th.q,th.r), bk=plotKey(th.q,th.r);
         if(_placeMode){ if(_placePending && _placePending.q===th.q && _placePending.r===th.r && canPlace(th.q,th.r) && placeBuild(plotKey(th.q,th.r), _placeBp)){ _placeMode=false; _placePending=null; ensurePlaceBtn(); } else { _placePending={q:th.q,r:th.r}; } }   // 4b: 1st tap = ghost, 2nd tap on a valid hex = place (placeBuild guards one-town-center-per-realm)
+        else if(_farmMode){ if(plantAt(th.q,th.r)){ _farmMode=false; } else { owTarget={ x:wx, y:wy }; } }   // 7a farm mode: tap an adjacent grass hex -> plant (else walk closer)
         else if(_buildMenuOpen){ closeBuildMenu(); }                       // a tap dismisses the build menu
         else if(tryHarvest(th.q,th.r)){ }                                  // tap an ON/ADJACENT resource node -> harvest
+        else if(harvestCropAt(th.q,th.r)){ }                               // 7a: tap a ripe crop -> harvest yield
         else if(DEPTH<0 && th.q===_shaftQ && th.r===_shaftR && hexDist(pxToHx(pwx,pwy).q,pxToHx(pwx,pwy).r,th.q,th.r)<=1){ ascend(); }   // underground: tap the up-ladder -> surface
         else if(DEPTH===0 && builds[bk] && builds[bk].bid==='mineshaft' && buildStage(builds[bk])>=BUILD_STEPS && hexDist(pxToHx(pwx,pwy).q,pxToHx(pwx,pwy).r,th.q,th.r)<=1){ descend(th.q,th.r); }   // tap a built mineshaft (on/adjacent) -> descend
         else if(builds[bk] && builds[bk].bid==='towncenter' && buildStage(builds[bk])>=BUILD_STEPS && hexDist(pxToHx(pwx,pwy).q,pxToHx(pwx,pwy).r,th.q,th.r)<=1){ openGameMenu('storage'); }   // tap a built town center (on/adjacent) -> menu Storage tab
@@ -1794,7 +1796,7 @@ function caveTileAt(q,r){   // P6 6b: deterministic underground layer (z-salted;
 function tileAtHex(q,r){ if(DEPTH<0) return caveTileAt(q,r); var hh=hearthAt(q,r); if(hh) return hh; var p=hxToPx(q,r), e=hxNoise(p.x/(HEXR*9),p.y/(HEXR*9))*0.62 + hxNoise((p.x+9000)/(HEXR*3.3),(p.y-9000)/(HEXR*3.3))*0.38; var terr,pass=true; if(e<0.30){terr='water';pass=false;} else if(e<0.37){terr='sand';} else if(e<0.73){terr='grass';} else if(e<0.84){terr='tree';pass=false;} else {terr='rock';pass=false;} return {terrain:terr,passable:pass,e:e}; }
 function owZoneOfHex(q,r){ return owCellAt(Math.floor(q/OW_CHUNK),Math.floor(r/OW_CHUNK)).zone; }
 function enterWalk(q,r){ if(owWalk) return; if(q==null){ q=((owX/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); r=((owY/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); } var p=hxToPx(q,r); pwx=p.x; pwy=p.y; wcamx=pwx; wcamy=pwy; owWalk=true; owBar().style.display='block'; ensureGameMenu(); renderInv(); ensureGameMenuBtn(); }
-function exitWalk(){ if(!owWalk) return; owWalk=false; closeGameMenu(); var gb=document.getElementById('gameMenuBtn'); if(gb) gb.style.display='none'; closeCraft(); closeStorage(); closeChar(); closeTech(); _placeMode=false; _placePending=null; closePlacePicker(); }
+function exitWalk(){ if(!owWalk) return; owWalk=false; closeGameMenu(); var gb=document.getElementById('gameMenuBtn'); if(gb) gb.style.display='none'; closeCraft(); closeStorage(); closeChar(); closeTech(); _placeMode=false; _placePending=null; closePlacePicker(); _farmMode=false; closeFarmPicker(); }
 function hxCorners(cxp,cyp){ var a=[],i; for(i=0;i<6;i++){ var an=Math.PI/180*(60*i-30); a.push([cxp+HEXR*Math.cos(an),cyp+HEXR*Math.sin(an)]); } return a; }
 function fillHx(cxp,cyp,fill){ var p=hxCorners(cxp,cyp),i; cx.beginPath(); cx.moveTo(p[0][0],p[0][1]); for(i=1;i<6;i++) cx.lineTo(p[i][0],p[i][1]); cx.closePath(); cx.fillStyle=fill; cx.fill(); }
 /* ── ZB2: watchable TIMED construction on the curated plots (ported from build_proto.html). Tap a
@@ -1908,7 +1910,7 @@ function regrowProg(q,r){ var t0=_depleted[plotKey(q,r)]; if(!t0) return 1; var 
 function drawRegrow(sx,sy,prog){ cx.save(); cx.globalAlpha=0.32; cx.strokeStyle='#6b7a52'; cx.lineWidth=1.5; cx.beginPath(); cx.arc(sx,sy,3.5,0,7); cx.stroke();
   if(prog>0){ cx.globalAlpha=0.5; cx.strokeStyle='#9be06b'; cx.lineWidth=2; cx.beginPath(); cx.arc(sx,sy,6,-Math.PI/2,-Math.PI/2+prog*6.283); cx.stroke(); } cx.restore(); }
 function hexDist(aq,ar,bq,br){ return (Math.abs(aq-bq)+Math.abs(ar-br)+Math.abs((-aq-ar)-(-bq-br)))/2; }   // axial->cube distance
-function grantResource(kind, qty){ if(!NODE_COL[kind]) return false; INV[kind]=(INV[kind]||0)+(qty||1); invSave(); renderInv(); return true; }   // the ONLY inventory mutator
+function grantResource(kind, qty){ if(!kind) return false; INV[kind]=(INV[kind]||0)+(qty||1); invSave(); renderInv(); return true; }   // the ONLY inventory mutator (accepts gather kinds AND crop yields like grain/gourd)
 var _hfx=null;   // transient "+1 kind" harvest popup (world-space; drawn fading in drawWalk)
 function tryHarvest(q,r){ var key=plotKey(q,r), n=nodeAt(q,r);
   if(!n || isDepleted(q,r)) return false;                                  // no node / still regrowing
@@ -1923,7 +1925,7 @@ function harvestNearest(){ var ph=pxToHx(pwx,pwy), C=[[0,0]].concat(_NB6), i;   
 function renderInv(){ var p=document.getElementById('invPanel'); if(!p) return;   // #invPanel now lives in the game-menu Inventory tab (created by ensureGameMenu); no floating strip
   var order=['wood','stone','fiber','berries','water','copper','iron'];
   var html=order.map(function(k){ return '<span style="display:inline-flex;align-items:center;gap:4px"><i style="width:9px;height:9px;border-radius:2px;background:'+NODE_COL[k]+';display:inline-block"></i>'+(INV[k]||0)+'</span>'; }).join('');
-  var extra=['plank','block','rope','torch','snack','waterskin','copper_bar','iron_bar','beam','masonry','lantern'].filter(function(k){ return INV[k]; }).map(function(k){ return '<span style="opacity:.85">'+k.replace('_',' ')+' '+INV[k]+'</span>'; });
+  var extra=['plank','block','rope','torch','snack','waterskin','copper_bar','iron_bar','beam','masonry','lantern','seeds','grain','gourd'].filter(function(k){ return INV[k]; }).map(function(k){ return '<span style="opacity:.85">'+k.replace('_',' ')+' '+INV[k]+'</span>'; });
   ['axe','pickaxe'].forEach(function(tk){ if(TOOLS[tk]) extra.push('<span style="color:#d8d2c0">'+tk+' '+TOOLS[tk].dur+'/'+TOOLS[tk].max+'</span>'); });
   if(extra.length) html+='<span style="opacity:.35">|</span>'+extra.join('');
   p.innerHTML=html;
@@ -1944,7 +1946,8 @@ var RECIPES=[
   {id:'masonry', name:'Masonry', cost:{block:2,plank:1}, out:'masonry', kind:'item', station:'towncenter'},
   {id:'lantern', name:'Lantern', cost:{torch:1,block:1}, out:'lantern', kind:'item', station:'towncenter'},
   {id:'copper_bar', name:'Copper Bar', cost:{copper:2}, out:'copper_bar', kind:'item', station:'smelter'},
-  {id:'iron_bar', name:'Iron Bar', cost:{iron:2}, out:'iron_bar', kind:'item', station:'smelter'}
+  {id:'iron_bar', name:'Iron Bar', cost:{iron:2}, out:'iron_bar', kind:'item', station:'smelter'},
+  {id:'seeds', name:'Seeds', cost:{berries:1}, out:'seeds', kind:'item'}
 ];
 var TOOLS={}; try{ TOOLS=JSON.parse(localStorage.getItem('realm_tools_v1')||'{}')||{}; }catch(e){}
 function toolsSave(){ try{ localStorage.setItem('realm_tools_v1', JSON.stringify(TOOLS)); }catch(e){} }
@@ -2006,7 +2009,44 @@ function openPlacePicker(){ var m=document.getElementById('placeMenu');
     btn.addEventListener('click',function(e){ e.stopPropagation(); _placeBp=bid; _placeMode=true; _placePending=null; closePlacePicker(); ensurePlaceBtn(); }); prow.appendChild(btn); });
   m.style.display='flex'; }
 function closePlacePicker(){ var m=document.getElementById('placeMenu'); if(m) m.style.display='none'; }
-function togglePlace(){ if(_placeMode){ _placeMode=false; _placePending=null; closePlacePicker(); ensurePlaceBtn(); } else { openPlacePicker(); } }
+function togglePlace(){ if(_placeMode){ _placeMode=false; _placePending=null; closePlacePicker(); ensurePlaceBtn(); } else { _farmMode=false; openPlacePicker(); } }
+/* ── P7 · 7a: farming. Farm mode -> tap an adjacent grass hex to plant a crop (costs 1 seed); growth =
+   pure f(plantedAt,now,dur) clamped 0..CROP_STEPS (same shape as buildStage/regrow); tap a ripe crop to
+   harvest -> yield via grantResource. farms{} is DEPTH-namespaced via plotKey, persists/resumes. Seeds are
+   crafted from berries (RECIPES). New UI = the Build tab "plant" button + G key, not a floating button. ── */
+var CROP_STEPS=6;
+var CROPS={ wheat:{name:'Wheat', dur:30000, yield:'grain', amt:3, col:'#e6c25a'}, gourd:{name:'Gourd', dur:48000, yield:'gourd', amt:2, col:'#e08a3a'} };
+var CROP_ORDER=['wheat','gourd'];
+var farms={}; try{ farms=JSON.parse(localStorage.getItem('realm_farms_v1')||'{}')||{}; }catch(e){}
+function farmSave(){ try{ localStorage.setItem('realm_farms_v1', JSON.stringify(farms)); }catch(e){} }
+function cropStage(rec){ var c=CROPS[rec.crop]; if(!c) return CROP_STEPS; var s=Math.floor((Date.now()-rec.t0)/c.dur*CROP_STEPS); return s<0?0:(s>CROP_STEPS?CROP_STEPS:s); }
+function canFarm(q,r){ var t=tileAtHex(q,r); if(!t.passable || t.terrain!=='grass' || t.plot) return false; if(builds[plotKey(q,r)]||farms[plotKey(q,r)]) return false; if(nodeAt(q,r)) return false; return true; }
+function drawCrop(sx,sy,rec){ var c=CROPS[rec.crop]||CROPS.wheat, s=cropStage(rec), ripe=(s>=CROP_STEPS), i; cx.save();
+  cx.fillStyle='#5b4a32'; cx.fillRect(sx-HEXR*0.5, sy+HEXR*0.16, HEXR, HEXR*0.22);   // tilled soil
+  var h=HEXR*0.18 + (HEXR*0.66)*(s/CROP_STEPS); cx.strokeStyle=ripe?c.col:'#6fae4a'; cx.lineWidth=2; cx.lineCap='round';
+  for(i=-1;i<=1;i++){ cx.beginPath(); cx.moveTo(sx+i*5, sy+HEXR*0.18); cx.lineTo(sx+i*5, sy+HEXR*0.18-h); cx.stroke(); }
+  if(ripe){ cx.fillStyle=c.col; for(i=-1;i<=1;i++){ cx.beginPath(); cx.arc(sx+i*5, sy+HEXR*0.18-h, 2.7, 0,7); cx.fill(); } cx.fillStyle='#eef2dd'; cx.font='bold 11px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('\u2713', sx, sy-HEXR*0.46); }
+  cx.restore(); }
+function plantAt(q,r){ if(!canFarm(q,r) || (INV.seeds||0)<=0) return false; var ph=pxToHx(pwx,pwy); if(hexDist(ph.q,ph.r,q,r)>1) return false;
+  INV.seeds-=1; if(INV.seeds<=0) delete INV.seeds; invSave(); farms[plotKey(q,r)]={crop:_farmCrop, t0:Date.now()}; farmSave(); renderInv();
+  _hfx={wx:hxToPx(q,r).x, wy:hxToPx(q,r).y, txt:'planted '+(CROPS[_farmCrop]?CROPS[_farmCrop].name:_farmCrop), until:Date.now()+900}; return true; }
+function harvestCropAt(q,r){ var k=plotKey(q,r), rec=farms[k]; if(!rec || cropStage(rec)<CROP_STEPS) return false; var ph=pxToHx(pwx,pwy); if(hexDist(ph.q,ph.r,q,r)>1) return false;
+  var c=CROPS[rec.crop]||CROPS.wheat; delete farms[k]; farmSave(); grantResource(c.yield, c.amt); grantXP(3,'harvest');
+  _hfx={wx:hxToPx(q,r).x, wy:hxToPx(q,r).y, txt:'+'+c.amt+' '+c.yield, until:Date.now()+900}; return true; }
+var _farmMode=false, _farmCrop='wheat';
+function openFarmPicker(){ _placeMode=false; _placePending=null; var m=document.getElementById('farmMenu');
+  if(!m){ m=document.createElement('div'); m.id='farmMenu';
+    m.style.cssText='position:fixed;left:50%;bottom:208px;transform:translateX(-50%);z-index:60;display:flex;flex-wrap:wrap;gap:8px;max-width:92vw;justify-content:center;background:rgba(20,26,16,.96);border:1px solid rgba(180,200,120,.5);border-radius:14px;padding:12px;';
+    m.addEventListener('pointerdown',function(e){ e.stopPropagation(); }); m.addEventListener('click',function(e){ e.stopPropagation(); });
+    var ttl=document.createElement('div'); ttl.textContent='plant which crop? (1 seed)'; ttl.style.cssText='width:100%;text-align:center;color:#dfe7c4;font:12px ui-monospace,monospace;margin-bottom:2px;'; m.appendChild(ttl);
+    var row=document.createElement('div'); row.style.cssText='display:flex;gap:8px;flex-wrap:wrap;justify-content:center;'; m.appendChild(row);
+    CROP_ORDER.forEach(function(cid){ var c=CROPS[cid], btn=document.createElement('button'); btn.type='button'; btn.textContent=c.name;
+      btn.style.cssText='background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;font:12px ui-monospace,monospace;border-radius:10px;padding:10px 13px;min-height:44px;cursor:pointer;';
+      btn.addEventListener('click',function(e){ e.stopPropagation(); _farmCrop=cid; _farmMode=true; closeFarmPicker(); }); row.appendChild(btn); });
+    (stage.parentNode||document.body).appendChild(m); }
+  m.style.display='flex'; }
+function closeFarmPicker(){ var m=document.getElementById('farmMenu'); if(m) m.style.display='none'; }
+function toggleFarm(){ if(_farmMode){ _farmMode=false; closeFarmPicker(); } else { openFarmPicker(); } }
 /* ── P4 · 4c: Town Center keystone — ONE per realm; once BUILT it unlocks station-gated tier-2 recipes
    (canCraft/craftItem gate on hasTownCenter) and provides a STORE stash (deposit/withdraw at the town
    center). placeBuild() is the single guarded placement chokepoint enforcing one-town-center-per-realm. ── */
@@ -2154,7 +2194,7 @@ function ensureGameMenu(){ if(document.getElementById('gameMenu')) return;
       '<div class="gmTabBody" data-tab="character"><div id="charCard"><div id="charBody"></div></div></div>'+
       '<div class="gmTabBody" data-tab="inventory"><div id="invPanel" style="display:flex;flex-wrap:wrap;gap:9px"></div></div>'+
       '<div class="gmTabBody" data-tab="craft"><div id="craftRows" style="display:flex;flex-direction:column;gap:7px"></div></div>'+
-      '<div class="gmTabBody" data-tab="build"><div class="gmHelp" style="margin-bottom:10px">Enter build mode, then tap a tile to place a structure (tap again to confirm).</div><button class="gmAct" id="gmBuildBtn" type="button">\u2692 enter build mode</button></div>'+
+      '<div class="gmTabBody" data-tab="build"><div class="gmHelp" style="margin-bottom:10px">Build mode: tap a tile to place a structure (tap again to confirm). Farm mode: tap a grass tile to plant a crop (costs a seed).</div><button class="gmAct" id="gmBuildBtn" type="button">\u2692 enter build mode</button><button class="gmAct" id="gmFarmBtn" type="button" style="margin-top:8px">\ud83c\udf31 plant a crop</button></div>'+
       '<div class="gmTabBody" data-tab="tech"><div id="techCard"><div id="techBody"></div></div></div>'+
       '<div class="gmTabBody" data-tab="storage"><div id="storeRows" style="display:flex;flex-wrap:wrap;gap:8px;min-height:18px;margin-bottom:10px"></div><div style="display:flex;gap:8px"><button class="gmAct" id="gmDep" type="button" style="flex:1">deposit all</button><button class="gmAct" id="gmWd" type="button" style="flex:1">withdraw all</button></div></div>'+
       '<div class="gmTabBody" data-tab="settings"><div id="gmSettings"></div></div>'+
@@ -2163,6 +2203,7 @@ function ensureGameMenu(){ if(document.getElementById('gameMenu')) return;
   (stage.parentNode||document.body).appendChild(m);
   m.querySelector('#gmX').addEventListener('click', function(e){ e.stopPropagation(); closeGameMenu(); });
   var bb=document.getElementById('gmBuildBtn'); if(bb) bb.addEventListener('click', function(e){ e.stopPropagation(); closeGameMenu(); if(typeof togglePlace==='function') togglePlace(); });
+  var fb=document.getElementById('gmFarmBtn'); if(fb) fb.addEventListener('click', function(e){ e.stopPropagation(); closeGameMenu(); if(typeof toggleFarm==='function') toggleFarm(); });
   var dep=document.getElementById('gmDep'); if(dep) dep.addEventListener('click', function(e){ e.stopPropagation(); if(typeof depositAll==='function') depositAll(); });
   var wd=document.getElementById('gmWd'); if(wd) wd.addEventListener('click', function(e){ e.stopPropagation(); if(typeof withdrawAll==='function') withdrawAll(); }); }
 function buildTabStrip(){ var strip=document.getElementById('gmTabs'); if(!strip) return;
@@ -2243,7 +2284,7 @@ function drawWalk(ts){
   cx.clearRect(0,0,W,H); cx.fillStyle='#04060d'; cx.fillRect(0,0,W,H);
   var c1=pxToHx(wcamx-W/2,wcamy-H/2),c2=pxToHx(wcamx+W/2,wcamy-H/2),c3=pxToHx(wcamx-W/2,wcamy+H/2),c4=pxToHx(wcamx+W/2,wcamy+H/2);
   var qlo=Math.min(c1.q,c2.q,c3.q,c4.q)-1,qhi=Math.max(c1.q,c2.q,c3.q,c4.q)+1,rlo=Math.min(c1.r,c2.r,c3.r,c4.r)-1,rhi=Math.max(c1.r,c2.r,c3.r,c4.r)+1,q,r,i;
-  for(r=rlo;r<=rhi;r++)for(q=qlo;q<=qhi;q++){ var p=hxToPx(q,r),sx=p.x-wcamx+W/2,sy=p.y-wcamy+H/2; if(sx<-HEXR*2||sx>W+HEXR*2||sy<-HEXR*2||sy>H+HEXR*2) continue; var t=tileAtHex(q,r); fillHx(sx,sy,TCOLW[t.terrain]); if(t.terrain==='grass'){ fillHx(sx,sy,'rgba(255,255,255,'+(0.04+(t.e-0.37)*0.10).toFixed(3)+')'); } if(t.terrain==='tree'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle='#16320f'; cx.beginPath(); cx.arc(sx,sy,HEXR*0.5,0,7); cx.fill(); } if(t.terrain==='rock'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle=TCOLW.rock; cx.beginPath(); cx.arc(sx,sy,HEXR*0.52,0,7); cx.fill(); } if(t.shaft){ cx.fillStyle='#9be0ff'; cx.font='bold '+((HEXR)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('\u25b2', sx, sy+HEXR*0.34); } var _bk=plotKey(q,r); if(builds[_bk]){ drawBuildOnHex(sx,sy,builds[_bk]); } else { if(t.plot){ cx.save(); cx.setLineDash([4,4]); cx.strokeStyle='rgba(240,245,210,0.85)'; cx.lineWidth=2; var plc=hxCorners(sx,sy); cx.beginPath(); cx.moveTo(plc[0][0],plc[0][1]); for(i=1;i<6;i++) cx.lineTo(plc[i][0],plc[i][1]); cx.closePath(); cx.stroke(); cx.setLineDash([]); cx.fillStyle='rgba(240,245,210,0.92)'; cx.font='bold '+((HEXR*0.8)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('+', sx, sy+HEXR*0.28); cx.restore(); } var _nd=nodeAt(q,r); if(_nd){ if(isDepleted(q,r)) drawRegrow(sx,sy,regrowProg(q,r)); else drawNode(sx,sy,_nd.kind); } }
+  for(r=rlo;r<=rhi;r++)for(q=qlo;q<=qhi;q++){ var p=hxToPx(q,r),sx=p.x-wcamx+W/2,sy=p.y-wcamy+H/2; if(sx<-HEXR*2||sx>W+HEXR*2||sy<-HEXR*2||sy>H+HEXR*2) continue; var t=tileAtHex(q,r); fillHx(sx,sy,TCOLW[t.terrain]); if(t.terrain==='grass'){ fillHx(sx,sy,'rgba(255,255,255,'+(0.04+(t.e-0.37)*0.10).toFixed(3)+')'); } if(t.terrain==='tree'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle='#16320f'; cx.beginPath(); cx.arc(sx,sy,HEXR*0.5,0,7); cx.fill(); } if(t.terrain==='rock'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle=TCOLW.rock; cx.beginPath(); cx.arc(sx,sy,HEXR*0.52,0,7); cx.fill(); } if(t.shaft){ cx.fillStyle='#9be0ff'; cx.font='bold '+((HEXR)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('\u25b2', sx, sy+HEXR*0.34); } var _bk=plotKey(q,r); if(builds[_bk]){ drawBuildOnHex(sx,sy,builds[_bk]); } else { if(t.plot){ cx.save(); cx.setLineDash([4,4]); cx.strokeStyle='rgba(240,245,210,0.85)'; cx.lineWidth=2; var plc=hxCorners(sx,sy); cx.beginPath(); cx.moveTo(plc[0][0],plc[0][1]); for(i=1;i<6;i++) cx.lineTo(plc[i][0],plc[i][1]); cx.closePath(); cx.stroke(); cx.setLineDash([]); cx.fillStyle='rgba(240,245,210,0.92)'; cx.font='bold '+((HEXR*0.8)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('+', sx, sy+HEXR*0.28); cx.restore(); } var _nd=nodeAt(q,r); if(_nd){ if(isDepleted(q,r)) drawRegrow(sx,sy,regrowProg(q,r)); else drawNode(sx,sy,_nd.kind); } else if(farms[_bk]){ drawCrop(sx,sy,farms[_bk]); } }
     var pc=hxCorners(sx,sy); cx.strokeStyle='rgba(0,0,0,0.18)'; cx.lineWidth=1; cx.beginPath(); cx.moveTo(pc[0][0],pc[0][1]); for(i=1;i<6;i++) cx.lineTo(pc[i][0],pc[i][1]); cx.closePath(); cx.stroke(); }
   drawRemoteBuilds();   // 4d: faint cosmetic remote structures (never block your world)
   if(_placeMode && _placePending){ var gp=hxToPx(_placePending.q,_placePending.r); drawGhost(gp.x-wcamx+W/2, gp.y-wcamy+H/2, _placeBp, canPlace(_placePending.q,_placePending.r)); }   // 4b ghost preview
@@ -2257,7 +2298,7 @@ function drawWalk(ts){
   }
   if(_hfx){ var _ha=(_hfx.until-Date.now())/900; if(_ha>0){ var hx=_hfx.wx-wcamx+W/2, hy=_hfx.wy-wcamy+H/2-(1-_ha)*22; cx.save(); cx.globalAlpha=Math.min(1,_ha*1.4); cx.font='bold 13px ui-monospace,monospace'; cx.textAlign='center'; cx.strokeStyle='rgba(0,0,0,0.6)'; cx.lineWidth=3; cx.strokeText(_hfx.txt,hx,hy); cx.fillStyle='#eef2dd'; cx.fillText(_hfx.txt,hx,hy); cx.restore(); } else { _hfx=null; } }   // fading "+1 kind" harvest popup
   if(owJoy){ var jr=40; cx.lineWidth=2; cx.strokeStyle='rgba(154,224,255,0.5)'; cx.beginPath(); cx.arc(_owDownX,_owDownY,jr,0,7); cx.stroke(); cx.fillStyle='rgba(154,224,255,0.35)'; cx.beginPath(); cx.arc(_owDownX+owJoy.x*jr*(owJoy.mag||1), _owDownY+owJoy.y*jr*(owJoy.mag||1), 15, 0,7); cx.fill(); }   // virtual joystick at the touch point
-  var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent= _placeMode ? ('build mode \u00b7 tap a tile, tap again to place '+(PLOT_BUILDINGS[_placeBp]?PLOT_BUILDINGS[_placeBp].name:'')+' \u00b7 B/Esc cancel') : (DEPTH<0 ? ('\u26cf underground \u00b7 on '+here.terrain+' \u00b7 mine ore \u00b7 tap the \u25b2 ladder to surface') : ((z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '):'')+'on '+here.terrain+'  ·  drag/WASD to walk · tap to move · tap a plot to build · pinch out \u2192 map'));
+  var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent= _placeMode ? ('build mode \u00b7 tap a tile, tap again to place '+(PLOT_BUILDINGS[_placeBp]?PLOT_BUILDINGS[_placeBp].name:'')+' \u00b7 B/Esc cancel') : _farmMode ? ('farm mode \u00b7 tap grass to plant '+(CROPS[_farmCrop]?CROPS[_farmCrop].name:'')+' ('+(INV.seeds||0)+' seeds) \u00b7 G/Esc cancel') : (DEPTH<0 ? ('\u26cf underground \u00b7 on '+here.terrain+' \u00b7 mine ore \u00b7 tap the \u25b2 ladder to surface') : ((z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '):'')+'on '+here.terrain+'  ·  drag/WASD to walk · tap to move · tap a plot to build · pinch out \u2192 map'));
 }
 var _lastDraw = 0;
 function loop(ts){
