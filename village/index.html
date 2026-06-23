@@ -1932,7 +1932,7 @@ function deplSave(){ try{ localStorage.setItem('realm_depleted_v1', JSON.stringi
    reload, no server. isDepleted prunes the entry in-memory on regrow (persists on the next deplSave). ── */
 var RESPAWN={ berries:20000, fiber:30000, water:45000, wood:60000, stone:90000, copper:100000, iron:120000 };   // per-kind regen (ms)
 function isDepleted(q,r){ var key=plotKey(q,r), t0=_depleted[key]; if(!t0) return false;
-  var n=nodeAt(q,r), dur=(RESPAWN[n?n.kind:'']||30000)*(hasFeat('naturalist')?0.5:1)*(hasTech('agronomy')?0.75:1);   // 5a Naturalist + 5b Agronomy speed regrow
+  var n=nodeAt(q,r), dur=(RESPAWN[n?n.kind:'']||30000)*(hasFeat('naturalist')?0.5:1)*(hasTech('agronomy')?0.75:1)*(zoneEvent(owZoneOfHex(q,r))==='bloom'?0.5:1);   // 5a Naturalist + 5b Agronomy + 8d zone bloom speed regrow
   if(Date.now()-t0 >= dur){ delete _depleted[key]; return false; }                  // regrown -> prune in-memory
   return true; }
 function regrowProg(q,r){ var t0=_depleted[plotKey(q,r)]; if(!t0) return 1; var n=nodeAt(q,r); return Math.min(1,(Date.now()-t0)/(RESPAWN[n?n.kind:'']||30000)); }
@@ -1946,7 +1946,7 @@ function tryHarvest(q,r){ var key=plotKey(q,r), n=nodeAt(q,r);
   var ph=pxToHx(pwx,pwy); if(hexDist(ph.q,ph.r,q,r)>1) return false;        // must be ON or ADJACENT — else let the tap become a move
   var tk=toolFor(n.kind), qty=1;
   if(tk && TOOLS[tk] && TOOLS[tk].dur>0){ qty=2; if(hasTech('toolsmithing')) qty+=1; TOOLS[tk].dur--; if(TOOLS[tk].dur<=0) delete TOOLS[tk]; toolsSave(); }   // a matching tool doubles yield (+1 with Toolsmithing tech) + wears down
-  if(hasFeat('forager')) qty+=1; qty += Math.floor((CHAR.attrs.vigor||0)/3);   // 5a: Forager feat + vigor attribute add yield
+  if(hasFeat('forager')) qty+=1; qty += Math.floor((CHAR.attrs.vigor||0)/3); if(zoneEvent(owZoneOfHex(q,r))==='bounty') qty+=1;   // 5a Forager+vigor + 8d zone bounty add yield
   _depleted[key]=Date.now(); deplSave(); grantResource(n.kind,qty); grantXP(2,'harvest');
   _hfx={ wx:hxToPx(q,r).x, wy:hxToPx(q,r).y, txt:'+'+qty+' '+n.kind, until:Date.now()+900 }; return true; }
 function harvestNearest(){ var ph=pxToHx(pwx,pwy), C=[[0,0]].concat(_NB6), i;   // self + 6 neighbors (desktop "E" convenience)
@@ -2130,7 +2130,7 @@ function _clampM(v){ return v<0?0:(v>100?100:v); }
 function meterTick(){ var now=Date.now(), dt=(now-METERS.lastTick)/1000; if(dt<=0){ METERS.lastTick=now; return; } if(dt>86400) dt=86400;   // account offline time, capped at 1 day
   METERS.hunger=_clampM(METERS.hunger - dt*(100/1200));     // ~full->empty over ~20 min
   METERS.fatigue=_clampM(METERS.fatigue - dt*(100/1800));   // ~30 min
-  var target=(DEPTH<0)?34:((INV.torch>0)?60:50); if(DEPTH>=0){ if(weatherOf()==='rain') target-=8; target-=nightLevel()*8; if(seasonOf()==='winter') target-=8; else if(seasonOf()==='summer') target+=6; }   // 8b: weather/night/season shift temp
+  var target=(DEPTH<0)?34:((INV.torch>0)?60:50); if(DEPTH>=0){ if(weatherOf()==='rain') target-=8; target-=nightLevel()*8; if(seasonOf()==='winter') target-=8; else if(seasonOf()==='summer') target+=6; if(currentZoneEvent()==='chill') target-=8; }   // 8b weather/night/season + 8d zone chill shift temp
   METERS.temp=_clampM(METERS.temp + (target-METERS.temp)*Math.min(1, dt/120));   // drift toward context target
   METERS.lastTick=now; meterSave(); }
 function statusOf(){ return { hungry:METERS.hunger<25, tired:METERS.fatigue<25, cold:METERS.temp<30, hot:METERS.temp>72 }; }
@@ -2154,6 +2154,13 @@ function seasonOf(){ return SEASONS[Math.floor(epochDay()/SEASON_DAYS)%4]; }
 function weatherOf(){ var b=Math.floor(timeOfDay()*4); return mulberry32((OW_SEED ^ (epochDay()*2654435761) ^ (b*40503))>>>0)()<0.32 ? 'rain' : 'clear'; }
 function seasonMult(){ var s=seasonOf(); return s==='summer'?1.4:(s==='winter'?0.6:1.0); }   // crop growth speed by season
 function nightLevel(){ return Math.max(0, Math.cos(timeOfDay()*6.283)); }   // 1 at midnight, 0 around noon
+/* ── P8 · 8d: zone events — each overworld zone has a current event that changes per time-bucket, pure
+   deterministic mulberry32(OW_SEED ^ zoneHash ^ bucket). bounty = +1 node yield · bloom = 2x node regrow ·
+   chill = colder · still = nothing. Light, non-blocking, identical on every client; keyed off the player's zone. ── */
+var ZEVENTS=['still','bounty','bloom','chill','still'];   // weighted toward 'still' (calm is common)
+function zoneHashOf(id){ var h=0,i; if(!id) return 0; for(i=0;i<id.length;i++) h=(h*131 + id.charCodeAt(i))>>>0; return h; }
+function zoneEvent(zoneId){ if(!zoneId) return 'still'; var bucket=epochDay()*4 + Math.floor(timeOfDay()*4); return ZEVENTS[Math.floor(mulberry32((OW_SEED ^ zoneHashOf(zoneId) ^ (bucket*2246822519))>>>0)()*ZEVENTS.length)]; }
+function currentZoneEvent(){ var h=pxToHx(pwx,pwy); return zoneEvent(owZoneOfHex(h.q,h.r)); }
 /* ── P4 · 4c: Town Center keystone — ONE per realm; once BUILT it unlocks station-gated tier-2 recipes
    (canCraft/craftItem gate on hasTownCenter) and provides a STORE stash (deposit/withdraw at the town
    center). placeBuild() is the single guarded placement chokepoint enforcing one-town-center-per-realm. ── */
@@ -2413,7 +2420,7 @@ function drawWalk(ts){
     if(weatherOf()==='rain'){ cx.fillStyle='rgba(80,110,160,0.10)'; cx.fillRect(0,0,W,H); } }
   var _st=statusOf(); if(_st.cold){ cx.fillStyle='rgba(120,180,255,0.10)'; cx.fillRect(0,0,W,H); } else if(_st.hot){ cx.fillStyle='rgba(255,120,60,0.10)'; cx.fillRect(0,0,W,H); } if(_st.tired){ cx.fillStyle='rgba(0,0,0,0.18)'; cx.fillRect(0,0,W,H); }   // 8a cosmetic status tints
   drawMeterHUD();   // 8a HUD: hunger/temp/fatigue bars (top-left)
-  var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent= _placeMode ? ('build mode \u00b7 tap a tile, tap again to place '+(PLOT_BUILDINGS[_placeBp]?PLOT_BUILDINGS[_placeBp].name:'')+' \u00b7 B/Esc cancel') : _farmMode ? ('farm mode \u00b7 tap grass to plant '+(CROPS[_farmCrop]?CROPS[_farmCrop].name:'')+' ('+(INV.seeds||0)+' seeds) \u00b7 G/Esc cancel') : (DEPTH<0 ? ('\u26cf underground \u00b7 on '+here.terrain+' \u00b7 mine ore \u00b7 tap the \u25b2 ladder to surface') : ((z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '):'')+seasonOf()+' '+weatherOf()+(nightLevel()>0.5?' \u263e':'')+' · on '+here.terrain+'  ·  drag/WASD to walk · tap to move · pinch out \u2192 map'));
+  var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent= _placeMode ? ('build mode \u00b7 tap a tile, tap again to place '+(PLOT_BUILDINGS[_placeBp]?PLOT_BUILDINGS[_placeBp].name:'')+' \u00b7 B/Esc cancel') : _farmMode ? ('farm mode \u00b7 tap grass to plant '+(CROPS[_farmCrop]?CROPS[_farmCrop].name:'')+' ('+(INV.seeds||0)+' seeds) \u00b7 G/Esc cancel') : (DEPTH<0 ? ('\u26cf underground \u00b7 on '+here.terrain+' \u00b7 mine ore \u00b7 tap the \u25b2 ladder to surface') : ((z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '+zoneEvent(z)+' · '):'')+seasonOf()+' '+weatherOf()+(nightLevel()>0.5?' \u263e':'')+' · on '+here.terrain+'  ·  drag/WASD to walk · tap to move · pinch out \u2192 map'));
 }
 var _lastDraw = 0;
 function loop(ts){
