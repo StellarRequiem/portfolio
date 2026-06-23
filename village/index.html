@@ -1670,7 +1670,7 @@ var OW_FOG='xclvxo_fog', owExplored={}; try{ owExplored=JSON.parse(localStorage.
 function owSaveFog(){ try{ localStorage.setItem(OW_FOG, JSON.stringify(owExplored)); }catch(e){} }
 function owClampCam(){ var vw=W/owZoom, vh=H/owZoom; owCam.x=Math.max(-vw*0.5, Math.min(OW_WW-vw*0.5, owCam.x)); owCam.y=Math.max(-vh*0.5, Math.min(OW_WH-vh*0.5, owCam.y)); }
 function owBar(){ var b=document.getElementById('owbar'); if(!b){ b=document.createElement('div'); b.id='owbar'; b.style.cssText='position:fixed;top:46px;left:50%;transform:translateX(-50%);z-index:9999;font:12px ui-monospace,monospace;color:#9be0ff;text-shadow:0 0 8px rgba(0,0,0,.85);pointer-events:none;display:none;white-space:nowrap;'; (stage.parentNode||document.body).appendChild(b); } return b; }
-addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ if(_buildMenuOpen){ closeBuildMenu(); } else if(owWalk){ exitWalk(); } else { exitOverworld(); } } else if(k==='e'){ if(owWalk){ harvestNearest(); e.preventDefault(); } } }, true);
+addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ if(_buildMenuOpen){ closeBuildMenu(); } else if(owWalk){ exitWalk(); } else { exitOverworld(); } } else if(k==='e'){ if(owWalk){ harvestNearest(); e.preventDefault(); } } else if(k==='c'){ if(owWalk){ toggleCraft(); e.preventDefault(); } } }, true);
 addEventListener('keyup', function(e){ var k=(e.key||'').toLowerCase(); if(owKeys[k]) owKeys[k]=false; });
 function enterOverworld(){ if(!GAME_ENABLED||OVERWORLD) return; OVERWORLD=true; if(typeof closeToys==='function') closeToys(); var eh=document.getElementById('enterhint'); if(eh) eh.style.display='none'; var lv=document.getElementById('live'); if(lv) lv.style.display='none'; if(typeof stage!=='undefined'&&stage) stage.classList.add('overworld'); if(!_owStarted){ owCam.x=owX-(W/2)/owZoom; owCam.y=owY-(H/2)/owZoom; owClampCam(); _owStarted=true; } var mb=document.getElementById('mapBtn'); if(mb) mb.classList.add('on'); owBar().style.display='block'; }
 function exitOverworld(){ if(!OVERWORLD) return; OVERWORLD=false; owSaveFog(); var lv=document.getElementById('live'); if(lv) lv.style.display=''; if(typeof stage!=='undefined'&&stage) stage.classList.remove('overworld'); var mb=document.getElementById('mapBtn'); if(mb) mb.classList.remove('on'); var ob=document.getElementById('owbar'); if(ob) ob.style.display='none'; }
@@ -1760,8 +1760,8 @@ function hearthAt(q,r){ if(Math.floor(q/OW_CHUNK)!==HEARTH_CQ||Math.floor(r/OW_C
   return {terrain:d.t, passable:d.p, plot:!!d.plot, e:0.55, hearth:true}; }
 function tileAtHex(q,r){ var hh=hearthAt(q,r); if(hh) return hh; var p=hxToPx(q,r), e=hxNoise(p.x/(HEXR*9),p.y/(HEXR*9))*0.62 + hxNoise((p.x+9000)/(HEXR*3.3),(p.y-9000)/(HEXR*3.3))*0.38; var terr,pass=true; if(e<0.30){terr='water';pass=false;} else if(e<0.37){terr='sand';} else if(e<0.73){terr='grass';} else if(e<0.84){terr='tree';pass=false;} else {terr='rock';pass=false;} return {terrain:terr,passable:pass,e:e}; }
 function owZoneOfHex(q,r){ return owCellAt(Math.floor(q/OW_CHUNK),Math.floor(r/OW_CHUNK)).zone; }
-function enterWalk(q,r){ if(owWalk) return; if(q==null){ q=((owX/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); r=((owY/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); } var p=hxToPx(q,r); pwx=p.x; pwy=p.y; wcamx=pwx; wcamy=pwy; owWalk=true; owBar().style.display='block'; renderInv(); }
-function exitWalk(){ if(!owWalk) return; owWalk=false; var ip=document.getElementById('invPanel'); if(ip) ip.style.display='none'; }
+function enterWalk(q,r){ if(owWalk) return; if(q==null){ q=((owX/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); r=((owY/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); } var p=hxToPx(q,r); pwx=p.x; pwy=p.y; wcamx=pwx; wcamy=pwy; owWalk=true; owBar().style.display='block'; renderInv(); ensureCraftBtn(); }
+function exitWalk(){ if(!owWalk) return; owWalk=false; var ip=document.getElementById('invPanel'); if(ip) ip.style.display='none'; var cb=document.getElementById('craftBtn'); if(cb) cb.style.display='none'; closeCraft(); }
 function hxCorners(cxp,cyp){ var a=[],i; for(i=0;i<6;i++){ var an=Math.PI/180*(60*i-30); a.push([cxp+HEXR*Math.cos(an),cyp+HEXR*Math.sin(an)]); } return a; }
 function fillHx(cxp,cyp,fill){ var p=hxCorners(cxp,cyp),i; cx.beginPath(); cx.moveTo(p[0][0],p[0][1]); for(i=1;i<6;i++) cx.lineTo(p[i][0],p[i][1]); cx.closePath(); cx.fillStyle=fill; cx.fill(); }
 /* ── ZB2: watchable TIMED construction on the curated plots (ported from build_proto.html). Tap a
@@ -1874,8 +1874,10 @@ var _hfx=null;   // transient "+1 kind" harvest popup (world-space; drawn fading
 function tryHarvest(q,r){ var key=plotKey(q,r), n=nodeAt(q,r);
   if(!n || isDepleted(q,r)) return false;                                  // no node / still regrowing
   var ph=pxToHx(pwx,pwy); if(hexDist(ph.q,ph.r,q,r)>1) return false;        // must be ON or ADJACENT — else let the tap become a move
-  _depleted[key]=Date.now(); deplSave(); grantResource(n.kind,1);
-  _hfx={ wx:hxToPx(q,r).x, wy:hxToPx(q,r).y, txt:'+1 '+n.kind, until:Date.now()+900 }; return true; }
+  var tk=toolFor(n.kind), qty=1;
+  if(tk && TOOLS[tk] && TOOLS[tk].dur>0){ qty=2; TOOLS[tk].dur--; if(TOOLS[tk].dur<=0) delete TOOLS[tk]; toolsSave(); }   // a matching tool doubles yield + wears down
+  _depleted[key]=Date.now(); deplSave(); grantResource(n.kind,qty);
+  _hfx={ wx:hxToPx(q,r).x, wy:hxToPx(q,r).y, txt:'+'+qty+' '+n.kind, until:Date.now()+900 }; return true; }
 function harvestNearest(){ var ph=pxToHx(pwx,pwy), C=[[0,0]].concat(_NB6), i;   // self + 6 neighbors (desktop "E" convenience)
   for(i=0;i<C.length;i++){ if(tryHarvest(ph.q+C[i][0], ph.r+C[i][1])) return true; } return false; }
 function renderInv(){ var p=document.getElementById('invPanel');
@@ -1883,8 +1885,58 @@ function renderInv(){ var p=document.getElementById('invPanel');
     p.style.cssText='position:fixed;top:74px;left:8px;z-index:55;display:none;gap:9px;align-items:center;background:rgba(20,26,16,.82);border:1px solid rgba(180,200,120,.4);border-radius:11px;padding:6px 10px;font:12px ui-monospace,monospace;color:#dfe7c4;pointer-events:none;';
     (stage.parentNode||document.body).appendChild(p); }
   var order=['wood','stone','fiber','berries','water'];
-  p.innerHTML=order.map(function(k){ return '<span style="display:inline-flex;align-items:center;gap:4px"><i style="width:9px;height:9px;border-radius:2px;background:'+NODE_COL[k]+';display:inline-block"></i>'+(INV[k]||0)+'</span>'; }).join('');
+  var html=order.map(function(k){ return '<span style="display:inline-flex;align-items:center;gap:4px"><i style="width:9px;height:9px;border-radius:2px;background:'+NODE_COL[k]+';display:inline-block"></i>'+(INV[k]||0)+'</span>'; }).join('');
+  var extra=['plank','block','rope','torch','snack','waterskin'].filter(function(k){ return INV[k]; }).map(function(k){ return '<span style="opacity:.85">'+k+' '+INV[k]+'</span>'; });
+  ['axe','pickaxe'].forEach(function(tk){ if(TOOLS[tk]) extra.push('<span style="color:#d8d2c0">'+tk+' '+TOOLS[tk].dur+'/'+TOOLS[tk].max+'</span>'); });
+  if(extra.length) html+='<span style="opacity:.35">|</span>'+extra.join('');
+  p.innerHTML=html;
   p.style.display=(GAME_ENABLED && OVERWORLD && owWalk)?'flex':'none'; }
+/* ── P4 · 4a: crafting. ~8 tier-1 recipes; craftItem() is the SINGLE guarded chokepoint (re-checks
+   affordability, spends inputs via spendResource, grants the output / a durable tool). Tools (axe/pickaxe)
+   wear down on the matching harvest and double its yield. All persisted; panel shows items + tool durability. ── */
+var RECIPES=[
+  {id:'plank', name:'Plank', cost:{wood:2}, out:'plank', kind:'item'},
+  {id:'block', name:'Stone Block', cost:{stone:2}, out:'block', kind:'item'},
+  {id:'rope', name:'Rope', cost:{fiber:3}, out:'rope', kind:'item'},
+  {id:'torch', name:'Torch', cost:{wood:1,fiber:1}, out:'torch', kind:'item'},
+  {id:'snack', name:'Berry Snack', cost:{berries:3}, out:'snack', kind:'item'},
+  {id:'waterskin', name:'Waterskin', cost:{fiber:2,water:1}, out:'waterskin', kind:'item'},
+  {id:'axe', name:'Axe', cost:{wood:1,stone:1}, out:'axe', kind:'tool', dur:24},
+  {id:'pickaxe', name:'Pickaxe', cost:{wood:1,stone:2}, out:'pickaxe', kind:'tool', dur:24}
+];
+var TOOLS={}; try{ TOOLS=JSON.parse(localStorage.getItem('realm_tools_v1')||'{}')||{}; }catch(e){}
+function toolsSave(){ try{ localStorage.setItem('realm_tools_v1', JSON.stringify(TOOLS)); }catch(e){} }
+function toolFor(kind){ return kind==='wood'?'axe':(kind==='stone'?'pickaxe':null); }
+function recipeById(id){ for(var i=0;i<RECIPES.length;i++) if(RECIPES[i].id===id) return RECIPES[i]; return null; }
+function canCraft(r){ for(var k in r.cost){ if((INV[k]||0)<r.cost[k]) return false; } return true; }
+function spendResource(cost){ for(var k in cost){ if((INV[k]||0)<cost[k]) return false; } for(var k2 in cost){ INV[k2]-=cost[k2]; if(INV[k2]<=0) delete INV[k2]; } return true; }
+function craftItem(id){ var r=recipeById(id); if(!r) return false;
+  if(!spendResource(r.cost)) return false;                                 // re-check affordability + deduct (the only craft consumer)
+  if(r.kind==='tool'){ TOOLS[r.out]={dur:r.dur,max:r.dur}; toolsSave(); } else { INV[r.out]=(INV[r.out]||0)+1; }
+  invSave(); renderInv(); renderCraft(); return true; }
+var _craftOpen=false;
+function renderCraft(){ var rows=document.getElementById('craftRows'); if(!rows) return;
+  rows.innerHTML=RECIPES.map(function(r){ var cost=Object.keys(r.cost).map(function(k){ return r.cost[k]+' '+k; }).join(' + ');
+    var owned = r.kind==='tool' ? (TOOLS[r.out]?' [have '+TOOLS[r.out].dur+'/'+TOOLS[r.out].max+']':'') : ((INV[r.out]||0)?' x'+INV[r.out]:'');
+    var ok=canCraft(r);
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:6px"><div><b>'+r.name+'</b>'+(r.kind==='tool'?' \u2692':'')+' <span style="color:#8a9">'+cost+'</span><span style="color:#9be06b">'+owned+'</span></div><button data-r="'+r.id+'" '+(ok?'':'disabled ')+'style="background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;border-radius:9px;padding:7px 11px;min-height:36px;cursor:pointer;font:12px ui-monospace,monospace;opacity:'+(ok?'1':'0.4')+'">craft</button></div>';
+  }).join('');
+  Array.prototype.forEach.call(rows.querySelectorAll('button'), function(b){ b.onclick=function(e){ e.stopPropagation(); craftItem(b.getAttribute('data-r')); }; }); }
+function openCraft(){ var c=document.getElementById('craftCard');
+  if(!c){ c=document.createElement('div'); c.id='craftCard';
+    c.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10003;width:320px;max-width:calc(100vw - 24px);max-height:84vh;overflow-y:auto;box-sizing:border-box;background:var(--panel-bg);border:1px solid rgba(123,216,107,.5);border-radius:14px;padding:16px;font:12px ui-monospace,monospace;color:#c8d8e8;';
+    c.addEventListener('click',function(e){ e.stopPropagation(); });
+    c.innerHTML='<h3 style="margin:0 0 8px;color:#7bd86b;font:600 16px ui-monospace,monospace">Crafting<span id="craftX" style="float:right;cursor:pointer;color:#8aa;padding:4px 8px;margin:-4px -6px 0 0">\u00d7</span></h3><div id="craftRows" style="display:flex;flex-direction:column;gap:7px"></div>';
+    (stage.parentNode||document.body).appendChild(c);
+    c.querySelector('#craftX').addEventListener('click',function(e){ e.stopPropagation(); closeCraft(); }); }
+  c.style.display='block'; _craftOpen=true; renderCraft(); }
+function closeCraft(){ _craftOpen=false; var c=document.getElementById('craftCard'); if(c) c.style.display='none'; }
+function toggleCraft(){ if(_craftOpen) closeCraft(); else openCraft(); }
+function ensureCraftBtn(){ var b=document.getElementById('craftBtn');
+  if(!b){ b=document.createElement('button'); b.id='craftBtn'; b.type='button'; b.textContent='\u2692 craft';
+    b.style.cssText='position:fixed;left:8px;bottom:118px;z-index:56;background:rgba(20,26,16,.9);border:1px solid rgba(180,200,120,.5);color:#dfe7c4;font:12px ui-monospace,monospace;border-radius:10px;padding:8px 12px;min-height:40px;cursor:pointer;';
+    b.addEventListener('click',function(e){ e.stopPropagation(); toggleCraft(); }); (stage.parentNode||document.body).appendChild(b); }
+  b.style.display=(GAME_ENABLED && OVERWORLD && owWalk)?'block':'none'; }
 /* ── 2c: the walk-mode player is the player's CHOSEN critter (recolored), not a placeholder dot.
    Recolor the chosen sprite once per spec (reusing recolor()/SPRITES/playerSpec from the social scene)
    into a cached Image for cheap canvas drawImage; fall back to the dot until it's ready / if none chosen. ── */
