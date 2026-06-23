@@ -2024,7 +2024,7 @@ var CROPS={ wheat:{name:'Wheat', dur:30000, yield:'grain', amt:3, col:'#e6c25a'}
 var CROP_ORDER=['wheat','gourd'];
 var farms={}; try{ farms=JSON.parse(localStorage.getItem('realm_farms_v1')||'{}')||{}; }catch(e){}
 function farmSave(){ try{ localStorage.setItem('realm_farms_v1', JSON.stringify(farms)); }catch(e){} }
-function cropStage(rec){ var c=CROPS[rec.crop]; if(!c) return CROP_STEPS; var s=Math.floor((Date.now()-rec.t0)/c.dur*CROP_STEPS); return s<0?0:(s>CROP_STEPS?CROP_STEPS:s); }
+function cropStage(rec){ var c=CROPS[rec.crop]; if(!c) return CROP_STEPS; var s=Math.floor((Date.now()-rec.t0)*seasonMult()/c.dur*CROP_STEPS); return s<0?0:(s>CROP_STEPS?CROP_STEPS:s); }   // 8b: season speeds/slows growth
 function canFarm(q,r){ var t=tileAtHex(q,r); if(!t.passable || t.terrain!=='grass' || t.plot) return false; if(builds[plotKey(q,r)]||farms[plotKey(q,r)]) return false; if(nodeAt(q,r)) return false; return true; }
 function drawCrop(sx,sy,rec){ var c=CROPS[rec.crop]||CROPS.wheat, s=cropStage(rec), ripe=(s>=CROP_STEPS), i; cx.save();
   cx.fillStyle='#5b4a32'; cx.fillRect(sx-HEXR*0.5, sy+HEXR*0.16, HEXR, HEXR*0.22);   // tilled soil
@@ -2106,7 +2106,8 @@ function _clampM(v){ return v<0?0:(v>100?100:v); }
 function meterTick(){ var now=Date.now(), dt=(now-METERS.lastTick)/1000; if(dt<=0){ METERS.lastTick=now; return; } if(dt>86400) dt=86400;   // account offline time, capped at 1 day
   METERS.hunger=_clampM(METERS.hunger - dt*(100/1200));     // ~full->empty over ~20 min
   METERS.fatigue=_clampM(METERS.fatigue - dt*(100/1800));   // ~30 min
-  var target=(DEPTH<0)?34:((INV.torch>0)?60:50); METERS.temp=_clampM(METERS.temp + (target-METERS.temp)*Math.min(1, dt/120));   // drift toward context target
+  var target=(DEPTH<0)?34:((INV.torch>0)?60:50); if(DEPTH>=0){ if(weatherOf()==='rain') target-=8; target-=nightLevel()*8; if(seasonOf()==='winter') target-=8; else if(seasonOf()==='summer') target+=6; }   // 8b: weather/night/season shift temp
+  METERS.temp=_clampM(METERS.temp + (target-METERS.temp)*Math.min(1, dt/120));   // drift toward context target
   METERS.lastTick=now; meterSave(); }
 function statusOf(){ return { hungry:METERS.hunger<25, tired:METERS.fatigue<25, cold:METERS.temp<30, hot:METERS.temp>72 }; }
 function eat(){ var food=(INV.snack>0)?'snack':((INV.grain>0)?'grain':((INV.gourd>0)?'gourd':((INV.egg>0)?'egg':((INV.berries>0)?'berries':null)))); if(!food) return false;
@@ -2118,6 +2119,17 @@ function metersHtml(){ var rows=[['hunger',METERS.hunger,'#e6c25a'],['temp',METE
     +'<div style="display:flex;gap:8px;margin-top:6px"><button data-act="eat" class="gmAct" style="flex:1">eat (F)</button><button data-act="rest" class="gmAct" style="flex:1">rest</button></div>'; }
 function drawMeterHUD(){ var bars=[['#e6c25a',METERS.hunger],['#6fd0ff',METERS.temp],['#9be06b',METERS.fatigue]], bx=12, by=74, bw=82, bh=6, i; cx.save();
   for(i=0;i<bars.length;i++){ var y=by+i*9; cx.fillStyle='rgba(0,0,0,0.5)'; cx.fillRect(bx,y,bw,bh); cx.fillStyle=bars[i][0]; cx.fillRect(bx,y,bw*Math.max(0,Math.min(1,bars[i][1]/100)),bh); } cx.restore(); }
+/* ── P8 · 8b: deterministic clock — day/night + seasons + weather, pure f(wall-clock, OW_SEED). 1 realm day =
+   6 real minutes; a season = 3 days, cycling spring/summer/autumn/winter; weather per (epochDay,timeBucket) via
+   mulberry32. No stored state. Effects: a day/night + season + weather tint overlay (drawWalk), a season growth
+   multiplier folded into cropStage, and weather/night nudging the temp meter. Cosmetic-leaning; no hard gates. ── */
+var REALM_DAY_MS=360000, SEASONS=['spring','summer','autumn','winter'], SEASON_DAYS=3;
+function epochDay(){ return Math.floor(Date.now()/REALM_DAY_MS); }
+function timeOfDay(){ return (Date.now()%REALM_DAY_MS)/REALM_DAY_MS; }   // 0..1 (0/1 = midnight, .5 = noon)
+function seasonOf(){ return SEASONS[Math.floor(epochDay()/SEASON_DAYS)%4]; }
+function weatherOf(){ var b=Math.floor(timeOfDay()*4); return mulberry32((OW_SEED ^ (epochDay()*2654435761) ^ (b*40503))>>>0)()<0.32 ? 'rain' : 'clear'; }
+function seasonMult(){ var s=seasonOf(); return s==='summer'?1.4:(s==='winter'?0.6:1.0); }   // crop growth speed by season
+function nightLevel(){ return Math.max(0, Math.cos(timeOfDay()*6.283)); }   // 1 at midnight, 0 around noon
 /* ── P4 · 4c: Town Center keystone — ONE per realm; once BUILT it unlocks station-gated tier-2 recipes
    (canCraft/craftItem gate on hasTownCenter) and provides a STORE stash (deposit/withdraw at the town
    center). placeBuild() is the single guarded placement chokepoint enforcing one-town-center-per-realm. ── */
@@ -2370,9 +2382,14 @@ function drawWalk(ts){
   }
   if(_hfx){ var _ha=(_hfx.until-Date.now())/900; if(_ha>0){ var hx=_hfx.wx-wcamx+W/2, hy=_hfx.wy-wcamy+H/2-(1-_ha)*22; cx.save(); cx.globalAlpha=Math.min(1,_ha*1.4); cx.font='bold 13px ui-monospace,monospace'; cx.textAlign='center'; cx.strokeStyle='rgba(0,0,0,0.6)'; cx.lineWidth=3; cx.strokeText(_hfx.txt,hx,hy); cx.fillStyle='#eef2dd'; cx.fillText(_hfx.txt,hx,hy); cx.restore(); } else { _hfx=null; } }   // fading "+1 kind" harvest popup
   if(owJoy){ var jr=40; cx.lineWidth=2; cx.strokeStyle='rgba(154,224,255,0.5)'; cx.beginPath(); cx.arc(_owDownX,_owDownY,jr,0,7); cx.stroke(); cx.fillStyle='rgba(154,224,255,0.35)'; cx.beginPath(); cx.arc(_owDownX+owJoy.x*jr*(owJoy.mag||1), _owDownY+owJoy.y*jr*(owJoy.mag||1), 15, 0,7); cx.fill(); }   // virtual joystick at the touch point
+  if(DEPTH>=0){ var _nl=nightLevel(), _td=timeOfDay(), _sea=seasonOf();   // 8b day/night + season + weather overlays (surface)
+    if(_nl>0.02){ cx.fillStyle='rgba(18,26,64,'+(0.55*_nl).toFixed(3)+')'; cx.fillRect(0,0,W,H); }
+    if((_td>0.20&&_td<0.30)||(_td>0.70&&_td<0.80)){ cx.fillStyle='rgba(255,160,80,0.10)'; cx.fillRect(0,0,W,H); }   // dawn/dusk warm
+    if(_sea==='autumn'){ cx.fillStyle='rgba(200,120,40,0.07)'; cx.fillRect(0,0,W,H); } else if(_sea==='winter'){ cx.fillStyle='rgba(180,210,255,0.08)'; cx.fillRect(0,0,W,H); }
+    if(weatherOf()==='rain'){ cx.fillStyle='rgba(80,110,160,0.10)'; cx.fillRect(0,0,W,H); } }
   var _st=statusOf(); if(_st.cold){ cx.fillStyle='rgba(120,180,255,0.10)'; cx.fillRect(0,0,W,H); } else if(_st.hot){ cx.fillStyle='rgba(255,120,60,0.10)'; cx.fillRect(0,0,W,H); } if(_st.tired){ cx.fillStyle='rgba(0,0,0,0.18)'; cx.fillRect(0,0,W,H); }   // 8a cosmetic status tints
   drawMeterHUD();   // 8a HUD: hunger/temp/fatigue bars (top-left)
-  var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent= _placeMode ? ('build mode \u00b7 tap a tile, tap again to place '+(PLOT_BUILDINGS[_placeBp]?PLOT_BUILDINGS[_placeBp].name:'')+' \u00b7 B/Esc cancel') : _farmMode ? ('farm mode \u00b7 tap grass to plant '+(CROPS[_farmCrop]?CROPS[_farmCrop].name:'')+' ('+(INV.seeds||0)+' seeds) \u00b7 G/Esc cancel') : (DEPTH<0 ? ('\u26cf underground \u00b7 on '+here.terrain+' \u00b7 mine ore \u00b7 tap the \u25b2 ladder to surface') : ((z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '):'')+'on '+here.terrain+'  ·  drag/WASD to walk · tap to move · tap a plot to build · pinch out \u2192 map'));
+  var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent= _placeMode ? ('build mode \u00b7 tap a tile, tap again to place '+(PLOT_BUILDINGS[_placeBp]?PLOT_BUILDINGS[_placeBp].name:'')+' \u00b7 B/Esc cancel') : _farmMode ? ('farm mode \u00b7 tap grass to plant '+(CROPS[_farmCrop]?CROPS[_farmCrop].name:'')+' ('+(INV.seeds||0)+' seeds) \u00b7 G/Esc cancel') : (DEPTH<0 ? ('\u26cf underground \u00b7 on '+here.terrain+' \u00b7 mine ore \u00b7 tap the \u25b2 ladder to surface') : ((z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '):'')+seasonOf()+' '+weatherOf()+(nightLevel()>0.5?' \u263e':'')+' · on '+here.terrain+'  ·  drag/WASD to walk · tap to move · pinch out \u2192 map'));
 }
 var _lastDraw = 0;
 function loop(ts){
