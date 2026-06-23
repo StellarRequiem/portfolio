@@ -1670,7 +1670,7 @@ var OW_FOG='xclvxo_fog', owExplored={}; try{ owExplored=JSON.parse(localStorage.
 function owSaveFog(){ try{ localStorage.setItem(OW_FOG, JSON.stringify(owExplored)); }catch(e){} }
 function owClampCam(){ var vw=W/owZoom, vh=H/owZoom; owCam.x=Math.max(-vw*0.5, Math.min(OW_WW-vw*0.5, owCam.x)); owCam.y=Math.max(-vh*0.5, Math.min(OW_WH-vh*0.5, owCam.y)); }
 function owBar(){ var b=document.getElementById('owbar'); if(!b){ b=document.createElement('div'); b.id='owbar'; b.style.cssText='position:fixed;top:46px;left:50%;transform:translateX(-50%);z-index:9999;font:12px ui-monospace,monospace;color:#9be0ff;text-shadow:0 0 8px rgba(0,0,0,.85);pointer-events:none;display:none;white-space:nowrap;'; (stage.parentNode||document.body).appendChild(b); } return b; }
-addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ if(_buildMenuOpen){ closeBuildMenu(); } else if(owWalk){ exitWalk(); } else { exitOverworld(); } } }, true);
+addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ if(_buildMenuOpen){ closeBuildMenu(); } else if(owWalk){ exitWalk(); } else { exitOverworld(); } } else if(k==='e'){ if(owWalk){ harvestNearest(); e.preventDefault(); } } }, true);
 addEventListener('keyup', function(e){ var k=(e.key||'').toLowerCase(); if(owKeys[k]) owKeys[k]=false; });
 function enterOverworld(){ if(!GAME_ENABLED||OVERWORLD) return; OVERWORLD=true; if(typeof closeToys==='function') closeToys(); var eh=document.getElementById('enterhint'); if(eh) eh.style.display='none'; var lv=document.getElementById('live'); if(lv) lv.style.display='none'; if(typeof stage!=='undefined'&&stage) stage.classList.add('overworld'); if(!_owStarted){ owCam.x=owX-(W/2)/owZoom; owCam.y=owY-(H/2)/owZoom; owClampCam(); _owStarted=true; } var mb=document.getElementById('mapBtn'); if(mb) mb.classList.add('on'); owBar().style.display='block'; }
 function exitOverworld(){ if(!OVERWORLD) return; OVERWORLD=false; owSaveFog(); var lv=document.getElementById('live'); if(lv) lv.style.display=''; if(typeof stage!=='undefined'&&stage) stage.classList.remove('overworld'); var mb=document.getElementById('mapBtn'); if(mb) mb.classList.remove('on'); var ob=document.getElementById('owbar'); if(ob) ob.style.display='none'; }
@@ -1729,8 +1729,9 @@ if(typeof cv!=='undefined' && cv){
   var _owEnd=function(e){ if(!_owPtrs[e.pointerId]) return; var tap=(!_owMoved && _owList().length===1); delete _owPtrs[e.pointerId]; if(_owList().length<2) _owPinchD=0;
     if(OVERWORLD){ if(owWalk){ if(tap){ var rect=cv.getBoundingClientRect(), wx=(e.clientX-rect.left-W/2)+wcamx, wy=(e.clientY-rect.top-H/2)+wcamy, th=pxToHx(wx,wy), tt=tileAtHex(th.q,th.r), bk=plotKey(th.q,th.r);
         if(_buildMenuOpen){ closeBuildMenu(); }                            // a tap dismisses the build menu
+        else if(tryHarvest(th.q,th.r)){ }                                  // tap an ON/ADJACENT resource node -> harvest
         else if(tt.plot && !builds[bk]){ openBuildMenu(th.q,th.r); }       // tap a blank plot -> build menu
-        else { owTarget={ x:wx, y:wy }; } } owJoy=null; }                  // otherwise tap = move-to-point
+        else { owTarget={ x:wx, y:wy }; } } owJoy=null; }                  // otherwise tap = move-to-point (incl. an out-of-range node)
       else if(tap){ owTravelAt(e.clientX, e.clientY); } } };
   cv.addEventListener('pointerup', _owEnd); cv.addEventListener('pointercancel', _owEnd);
 }
@@ -1759,8 +1760,8 @@ function hearthAt(q,r){ if(Math.floor(q/OW_CHUNK)!==HEARTH_CQ||Math.floor(r/OW_C
   return {terrain:d.t, passable:d.p, plot:!!d.plot, e:0.55, hearth:true}; }
 function tileAtHex(q,r){ var hh=hearthAt(q,r); if(hh) return hh; var p=hxToPx(q,r), e=hxNoise(p.x/(HEXR*9),p.y/(HEXR*9))*0.62 + hxNoise((p.x+9000)/(HEXR*3.3),(p.y-9000)/(HEXR*3.3))*0.38; var terr,pass=true; if(e<0.30){terr='water';pass=false;} else if(e<0.37){terr='sand';} else if(e<0.73){terr='grass';} else if(e<0.84){terr='tree';pass=false;} else {terr='rock';pass=false;} return {terrain:terr,passable:pass,e:e}; }
 function owZoneOfHex(q,r){ return owCellAt(Math.floor(q/OW_CHUNK),Math.floor(r/OW_CHUNK)).zone; }
-function enterWalk(q,r){ if(owWalk) return; if(q==null){ q=((owX/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); r=((owY/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); } var p=hxToPx(q,r); pwx=p.x; pwy=p.y; wcamx=pwx; wcamy=pwy; owWalk=true; owBar().style.display='block'; }
-function exitWalk(){ if(!owWalk) return; owWalk=false; }
+function enterWalk(q,r){ if(owWalk) return; if(q==null){ q=((owX/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); r=((owY/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); } var p=hxToPx(q,r); pwx=p.x; pwy=p.y; wcamx=pwx; wcamy=pwy; owWalk=true; owBar().style.display='block'; renderInv(); }
+function exitWalk(){ if(!owWalk) return; owWalk=false; var ip=document.getElementById('invPanel'); if(ip) ip.style.display='none'; }
 function hxCorners(cxp,cyp){ var a=[],i; for(i=0;i<6;i++){ var an=Math.PI/180*(60*i-30); a.push([cxp+HEXR*Math.cos(an),cyp+HEXR*Math.sin(an)]); } return a; }
 function fillHx(cxp,cyp,fill){ var p=hxCorners(cxp,cyp),i; cx.beginPath(); cx.moveTo(p[0][0],p[0][1]); for(i=1;i<6;i++) cx.lineTo(p[i][0],p[i][1]); cx.closePath(); cx.fillStyle=fill; cx.fill(); }
 /* ── ZB2: watchable TIMED construction on the curated plots (ported from build_proto.html). Tap a
@@ -1849,6 +1850,30 @@ function drawNode(sx,sy,kind){ cx.save(); var i;
   else if(kind==='water'){ cx.strokeStyle=NODE_COL.water; cx.lineWidth=2; cx.beginPath(); cx.arc(sx,sy,5,0,7); cx.stroke(); cx.globalAlpha=0.6; cx.beginPath(); cx.arc(sx,sy,2.5,0,7); cx.stroke(); }
   cx.restore();
 }
+/* ── P3 · 3b: harvest -> inventory. grantResource() is the SINGLE guarded chokepoint that mutates the
+   inventory; a node DEPLETES on harvest (self-reported in localStorage = anti-double-grant; regen is 3c).
+   Tap or press E on a node you're on/adjacent to -> +1 of its kind -> dock inventory panel + persist. ── */
+var INV={}; try{ INV=JSON.parse(localStorage.getItem('realm_inv_v1')||'{}')||{}; }catch(e){}
+function invSave(){ try{ localStorage.setItem('realm_inv_v1', JSON.stringify(INV)); }catch(e){} }
+var _depleted={}; try{ _depleted=JSON.parse(localStorage.getItem('realm_depleted_v1')||'{}')||{}; }catch(e){}
+function deplSave(){ try{ localStorage.setItem('realm_depleted_v1', JSON.stringify(_depleted)); }catch(e){} }
+function hexDist(aq,ar,bq,br){ return (Math.abs(aq-bq)+Math.abs(ar-br)+Math.abs((-aq-ar)-(-bq-br)))/2; }   // axial->cube distance
+function grantResource(kind, qty){ if(!NODE_COL[kind]) return false; INV[kind]=(INV[kind]||0)+(qty||1); invSave(); renderInv(); return true; }   // the ONLY inventory mutator
+var _hfx=null;   // transient "+1 kind" harvest popup (world-space; drawn fading in drawWalk)
+function tryHarvest(q,r){ var key=plotKey(q,r), n=nodeAt(q,r);
+  if(!n || _depleted[key]) return false;                                   // no node / already harvested this session
+  var ph=pxToHx(pwx,pwy); if(hexDist(ph.q,ph.r,q,r)>1) return false;        // must be ON or ADJACENT — else let the tap become a move
+  _depleted[key]=Date.now(); deplSave(); grantResource(n.kind,1);
+  _hfx={ wx:hxToPx(q,r).x, wy:hxToPx(q,r).y, txt:'+1 '+n.kind, until:Date.now()+900 }; return true; }
+function harvestNearest(){ var ph=pxToHx(pwx,pwy), C=[[0,0]].concat(_NB6), i;   // self + 6 neighbors (desktop "E" convenience)
+  for(i=0;i<C.length;i++){ if(tryHarvest(ph.q+C[i][0], ph.r+C[i][1])) return true; } return false; }
+function renderInv(){ var p=document.getElementById('invPanel');
+  if(!p){ p=document.createElement('div'); p.id='invPanel';
+    p.style.cssText='position:fixed;top:74px;left:8px;z-index:55;display:none;gap:9px;align-items:center;background:rgba(20,26,16,.82);border:1px solid rgba(180,200,120,.4);border-radius:11px;padding:6px 10px;font:12px ui-monospace,monospace;color:#dfe7c4;pointer-events:none;';
+    (stage.parentNode||document.body).appendChild(p); }
+  var order=['wood','stone','fiber','berries','water'];
+  p.innerHTML=order.map(function(k){ return '<span style="display:inline-flex;align-items:center;gap:4px"><i style="width:9px;height:9px;border-radius:2px;background:'+NODE_COL[k]+';display:inline-block"></i>'+(INV[k]||0)+'</span>'; }).join('');
+  p.style.display=(GAME_ENABLED && OVERWORLD && owWalk)?'flex':'none'; }
 /* ── 2c: the walk-mode player is the player's CHOSEN critter (recolored), not a placeholder dot.
    Recolor the chosen sprite once per spec (reusing recolor()/SPRITES/playerSpec from the social scene)
    into a cached Image for cheap canvas drawImage; fall back to the dot until it's ready / if none chosen. ── */
@@ -1866,7 +1891,7 @@ function drawWalk(ts){
   var c1=pxToHx(wcamx-W/2,wcamy-H/2),c2=pxToHx(wcamx+W/2,wcamy-H/2),c3=pxToHx(wcamx-W/2,wcamy+H/2),c4=pxToHx(wcamx+W/2,wcamy+H/2);
   var qlo=Math.min(c1.q,c2.q,c3.q,c4.q)-1,qhi=Math.max(c1.q,c2.q,c3.q,c4.q)+1,rlo=Math.min(c1.r,c2.r,c3.r,c4.r)-1,rhi=Math.max(c1.r,c2.r,c3.r,c4.r)+1,q,r,i;
   for(r=rlo;r<=rhi;r++)for(q=qlo;q<=qhi;q++){ var p=hxToPx(q,r),sx=p.x-wcamx+W/2,sy=p.y-wcamy+H/2; if(sx<-HEXR*2||sx>W+HEXR*2||sy<-HEXR*2||sy>H+HEXR*2) continue; var t=tileAtHex(q,r); fillHx(sx,sy,TCOLW[t.terrain]); if(t.terrain==='grass'){ fillHx(sx,sy,'rgba(255,255,255,'+(0.04+(t.e-0.37)*0.10).toFixed(3)+')'); } if(t.terrain==='tree'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle='#16320f'; cx.beginPath(); cx.arc(sx,sy,HEXR*0.5,0,7); cx.fill(); } if(t.terrain==='rock'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle=TCOLW.rock; cx.beginPath(); cx.arc(sx,sy,HEXR*0.52,0,7); cx.fill(); } if(t.plot){ var _bk=plotKey(q,r); if(builds[_bk]){ drawBuildOnHex(sx,sy,builds[_bk]); } else { cx.save(); cx.setLineDash([4,4]); cx.strokeStyle='rgba(240,245,210,0.85)'; cx.lineWidth=2; var plc=hxCorners(sx,sy); cx.beginPath(); cx.moveTo(plc[0][0],plc[0][1]); for(i=1;i<6;i++) cx.lineTo(plc[i][0],plc[i][1]); cx.closePath(); cx.stroke(); cx.setLineDash([]); cx.fillStyle='rgba(240,245,210,0.92)'; cx.font='bold '+((HEXR*0.8)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('+', sx, sy+HEXR*0.28); cx.restore(); } }
-    var _nd=nodeAt(q,r); if(_nd) drawNode(sx,sy,_nd.kind);
+    var _nd=nodeAt(q,r); if(_nd && !_depleted[plotKey(q,r)]) drawNode(sx,sy,_nd.kind);
     var pc=hxCorners(sx,sy); cx.strokeStyle='rgba(0,0,0,0.18)'; cx.lineWidth=1; cx.beginPath(); cx.moveTo(pc[0][0],pc[0][1]); for(i=1;i<6;i++) cx.lineTo(pc[i][0],pc[i][1]); cx.closePath(); cx.stroke(); }
   var ppx=pwx-wcamx+W/2, ppy=pwy-wcamy+H/2; ensureWalkSprite();
   cx.save(); cx.globalAlpha=0.26; cx.fillStyle='#04060d'; cx.beginPath(); cx.ellipse(ppx, ppy+HEXR*0.42, HEXR*0.5, HEXR*0.2, 0, 0, 7); cx.fill(); cx.restore();   // ground shadow
@@ -1876,6 +1901,7 @@ function drawWalk(ts){
   } else {   // fallback: the placeholder dot (no critter chosen yet / sprite still recoloring)
     cx.fillStyle='#eafaff'; cx.strokeStyle='#5ad4ff'; cx.lineWidth=2; cx.beginPath(); cx.arc(ppx,ppy,HEXR*0.46,0,7); cx.fill(); cx.stroke(); cx.fillStyle='#04060d'; cx.beginPath(); cx.arc(ppx+pwFace*5,ppy-2,2.4,0,7); cx.fill();
   }
+  if(_hfx){ var _ha=(_hfx.until-Date.now())/900; if(_ha>0){ var hx=_hfx.wx-wcamx+W/2, hy=_hfx.wy-wcamy+H/2-(1-_ha)*22; cx.save(); cx.globalAlpha=Math.min(1,_ha*1.4); cx.font='bold 13px ui-monospace,monospace'; cx.textAlign='center'; cx.strokeStyle='rgba(0,0,0,0.6)'; cx.lineWidth=3; cx.strokeText(_hfx.txt,hx,hy); cx.fillStyle='#eef2dd'; cx.fillText(_hfx.txt,hx,hy); cx.restore(); } else { _hfx=null; } }   // fading "+1 kind" harvest popup
   if(owJoy){ var jr=40; cx.lineWidth=2; cx.strokeStyle='rgba(154,224,255,0.5)'; cx.beginPath(); cx.arc(_owDownX,_owDownY,jr,0,7); cx.stroke(); cx.fillStyle='rgba(154,224,255,0.35)'; cx.beginPath(); cx.arc(_owDownX+owJoy.x*jr*(owJoy.mag||1), _owDownY+owJoy.y*jr*(owJoy.mag||1), 15, 0,7); cx.fill(); }   // virtual joystick at the touch point
   var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent=(z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '):'')+'on '+here.terrain+'  ·  drag/WASD to walk · tap to move · tap a plot to build · pinch out \u2192 map';
 }
