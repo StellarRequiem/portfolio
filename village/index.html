@@ -1798,9 +1798,10 @@ var PLOT_BUILDINGS={   /* NOTE: distinct from the base village's BUILDINGS[] sky
   well:    {name:'Well',     dur:16000, wall:'#7d8a93', roof:'#3a4650', w:20, d:20, h:10},
   hall:    {name:'Hall',     dur:48000, wall:'#b59a5e', roof:'#5a3f7a', w:40, d:32, h:26},
   towncenter:{name:'Town Center', dur:60000, wall:'#caa15a', roof:'#6a4a8a', w:50, d:40, h:34},   // keystone: one per realm, unlocks tier-2 + storage
+  smelter:{name:'Smelter', dur:54000, wall:'#6b5548', roof:'#3a2f28', w:42, d:34, h:30},   // P6: a built smelter unlocks smelting (ore -> bars); not one-per-realm
   keep:{name:'Keep', dur:72000, wall:'#8a8f99', roof:'#3a4650', w:46, d:38, h:40}   // tech-gated (Architecture); not in BUILD_ORDER — surfaced via availableBlueprints()
 };
-var BUILD_ORDER=['hut','workshop','well','hall','towncenter'];
+var BUILD_ORDER=['hut','workshop','well','hall','towncenter','smelter'];
 var builds={}; try{ builds=JSON.parse(localStorage.getItem(BUILD_KEY)||'{}')||{}; }catch(e){}
 function buildSave(){ try{ localStorage.setItem(BUILD_KEY, JSON.stringify(builds)); }catch(e){} }
 function plotKey(q,r){ return q+','+r; }
@@ -1851,13 +1852,13 @@ function stepWalk(dt){
 /* ── P3 · 3a: deterministic resource nodes. Placement is pure f(OW_SEED,q,r) via hxRand (identical on
    every client, no server) — wood on trees, stone on rocks, fiber/berries on grass, water where grass
    borders water; never on path/plot. Data + render only this slice (harvest->inventory is 3b, respawn 3c). ── */
-var NODE_COL={ wood:'#caa15a', stone:'#cfd2d8', fiber:'#9be06b', berries:'#ff5d6c', water:'#6fd0ff' };
+var NODE_COL={ wood:'#caa15a', stone:'#cfd2d8', fiber:'#9be06b', berries:'#ff5d6c', water:'#6fd0ff', copper:'#c87f4a', iron:'#9aa3b0' };
 var _NB6=[[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 function nodeAt(q,r){
   var t=tileAtHex(q,r); if(t.plot||t.terrain==='path') return null;
   var rnd=hxRand((q*2+131)|0, (r*2-67)|0);                            // independent stream from the terrain noise
   if(t.terrain==='tree')  return rnd<0.34 ? {kind:'wood'}  : null;    // the tree IS the wood node (harvest from adjacent)
-  if(t.terrain==='rock')  return rnd<0.32 ? {kind:'stone'} : null;    // the rock IS the stone node
+  if(t.terrain==='rock'){ if(rnd>=0.32) return null; var ro=hxRand((q*5+53)|0,(r*5-89)|0); return {kind: ro<0.62?'stone':(ro<0.86?'copper':'iron')}; }   // rock node: mostly stone, some copper, rarer iron (deterministic)
   if(t.terrain==='grass'){
     if(rnd>=0.055) return null;
     var r2=hxRand((q*3+211)|0,(r*3+97)|0), i, nearWater=false;
@@ -1869,7 +1870,7 @@ function nodeAt(q,r){
 }
 function drawNode(sx,sy,kind){ cx.save(); var i;
   if(kind==='wood'){ cx.fillStyle='#7a4a22'; cx.beginPath(); cx.arc(sx,sy-2,4.5,0,7); cx.fill(); cx.strokeStyle=NODE_COL.wood; cx.lineWidth=1.5; cx.stroke(); }
-  else if(kind==='stone'){ cx.fillStyle=NODE_COL.stone; cx.strokeStyle='#7d8088'; cx.lineWidth=1.2; cx.beginPath(); cx.moveTo(sx,sy-6); cx.lineTo(sx+5,sy); cx.lineTo(sx,sy+5); cx.lineTo(sx-5,sy); cx.closePath(); cx.fill(); cx.stroke(); }
+  else if(kind==='stone'||kind==='copper'||kind==='iron'){ cx.fillStyle=NODE_COL[kind]; cx.strokeStyle='#5a5e66'; cx.lineWidth=1.2; cx.beginPath(); cx.moveTo(sx,sy-6); cx.lineTo(sx+5,sy); cx.lineTo(sx,sy+5); cx.lineTo(sx-5,sy); cx.closePath(); cx.fill(); cx.stroke(); if(kind!=='stone'){ cx.fillStyle='#fff8e0'; cx.globalAlpha=0.7; cx.beginPath(); cx.arc(sx-1,sy-1,1.2,0,7); cx.fill(); cx.beginPath(); cx.arc(sx+2,sy+1,1,0,7); cx.fill(); cx.globalAlpha=1; } }   // ore = stone diamond in its colour + bright flecks
   else if(kind==='fiber'){ cx.strokeStyle=NODE_COL.fiber; cx.lineWidth=2; cx.lineCap='round'; for(i=-1;i<=1;i++){ cx.beginPath(); cx.moveTo(sx+i*4, sy+5); cx.lineTo(sx+i*4-1, sy-5); cx.stroke(); } }
   else if(kind==='berries'){ cx.fillStyle=NODE_COL.berries; var dd=[[-3,1],[3,1],[0,-3]]; for(i=0;i<3;i++){ cx.beginPath(); cx.arc(sx+dd[i][0],sy+dd[i][1],2.6,0,7); cx.fill(); } }
   else if(kind==='water'){ cx.strokeStyle=NODE_COL.water; cx.lineWidth=2; cx.beginPath(); cx.arc(sx,sy,5,0,7); cx.stroke(); cx.globalAlpha=0.6; cx.beginPath(); cx.arc(sx,sy,2.5,0,7); cx.stroke(); }
@@ -1885,7 +1886,7 @@ function deplSave(){ try{ localStorage.setItem('realm_depleted_v1', JSON.stringi
 /* ── P3 · 3c: per-node wall-clock RESPAWN. A node is depleted only while now - harvest_t0 < RESPAWN[kind];
    after that it regrows (renders + harvestable again). Pure f(harvest_t0, now) — deterministic, survives
    reload, no server. isDepleted prunes the entry in-memory on regrow (persists on the next deplSave). ── */
-var RESPAWN={ berries:20000, fiber:30000, water:45000, wood:60000, stone:90000 };   // per-kind regen (ms)
+var RESPAWN={ berries:20000, fiber:30000, water:45000, wood:60000, stone:90000, copper:100000, iron:120000 };   // per-kind regen (ms)
 function isDepleted(q,r){ var key=plotKey(q,r), t0=_depleted[key]; if(!t0) return false;
   var n=nodeAt(q,r), dur=(RESPAWN[n?n.kind:'']||30000)*(hasFeat('naturalist')?0.5:1)*(hasTech('agronomy')?0.75:1);   // 5a Naturalist + 5b Agronomy speed regrow
   if(Date.now()-t0 >= dur){ delete _depleted[key]; return false; }                  // regrown -> prune in-memory
@@ -1907,9 +1908,9 @@ function tryHarvest(q,r){ var key=plotKey(q,r), n=nodeAt(q,r);
 function harvestNearest(){ var ph=pxToHx(pwx,pwy), C=[[0,0]].concat(_NB6), i;   // self + 6 neighbors (desktop "E" convenience)
   for(i=0;i<C.length;i++){ if(tryHarvest(ph.q+C[i][0], ph.r+C[i][1])) return true; } return false; }
 function renderInv(){ var p=document.getElementById('invPanel'); if(!p) return;   // #invPanel now lives in the game-menu Inventory tab (created by ensureGameMenu); no floating strip
-  var order=['wood','stone','fiber','berries','water'];
+  var order=['wood','stone','fiber','berries','water','copper','iron'];
   var html=order.map(function(k){ return '<span style="display:inline-flex;align-items:center;gap:4px"><i style="width:9px;height:9px;border-radius:2px;background:'+NODE_COL[k]+';display:inline-block"></i>'+(INV[k]||0)+'</span>'; }).join('');
-  var extra=['plank','block','rope','torch','snack','waterskin'].filter(function(k){ return INV[k]; }).map(function(k){ return '<span style="opacity:.85">'+k+' '+INV[k]+'</span>'; });
+  var extra=['plank','block','rope','torch','snack','waterskin','copper_bar','iron_bar','beam','masonry','lantern'].filter(function(k){ return INV[k]; }).map(function(k){ return '<span style="opacity:.85">'+k.replace('_',' ')+' '+INV[k]+'</span>'; });
   ['axe','pickaxe'].forEach(function(tk){ if(TOOLS[tk]) extra.push('<span style="color:#d8d2c0">'+tk+' '+TOOLS[tk].dur+'/'+TOOLS[tk].max+'</span>'); });
   if(extra.length) html+='<span style="opacity:.35">|</span>'+extra.join('');
   p.innerHTML=html;
@@ -1928,16 +1929,18 @@ var RECIPES=[
   {id:'pickaxe', name:'Pickaxe', cost:{wood:1,stone:2}, out:'pickaxe', kind:'tool', dur:24},
   {id:'beam', name:'Reinforced Beam', cost:{plank:2,rope:1}, out:'beam', kind:'item', station:'towncenter'},
   {id:'masonry', name:'Masonry', cost:{block:2,plank:1}, out:'masonry', kind:'item', station:'towncenter'},
-  {id:'lantern', name:'Lantern', cost:{torch:1,block:1}, out:'lantern', kind:'item', station:'towncenter'}
+  {id:'lantern', name:'Lantern', cost:{torch:1,block:1}, out:'lantern', kind:'item', station:'towncenter'},
+  {id:'copper_bar', name:'Copper Bar', cost:{copper:2}, out:'copper_bar', kind:'item', station:'smelter'},
+  {id:'iron_bar', name:'Iron Bar', cost:{iron:2}, out:'iron_bar', kind:'item', station:'smelter'}
 ];
 var TOOLS={}; try{ TOOLS=JSON.parse(localStorage.getItem('realm_tools_v1')||'{}')||{}; }catch(e){}
 function toolsSave(){ try{ localStorage.setItem('realm_tools_v1', JSON.stringify(TOOLS)); }catch(e){} }
-function toolFor(kind){ return kind==='wood'?'axe':(kind==='stone'?'pickaxe':null); }
+function toolFor(kind){ return kind==='wood'?'axe':((kind==='stone'||kind==='copper'||kind==='iron')?'pickaxe':null); }   // pickaxe mines stone + ores
 function recipeById(id){ for(var i=0;i<RECIPES.length;i++) if(RECIPES[i].id===id) return RECIPES[i]; return null; }
-function canCraft(r){ if(r.station==='towncenter' && !hasTownCenter()) return false; if(!isRecipeUnlocked(r.id)) return false; for(var k in r.cost){ if((INV[k]||0)<r.cost[k]) return false; } return true; }
+function canCraft(r){ if(!stationOk(r)) return false; if(!isRecipeUnlocked(r.id)) return false; for(var k in r.cost){ if((INV[k]||0)<r.cost[k]) return false; } return true; }
 function spendResource(cost){ for(var k in cost){ if((INV[k]||0)<cost[k]) return false; } for(var k2 in cost){ INV[k2]-=cost[k2]; if(INV[k2]<=0) delete INV[k2]; } return true; }
 function craftItem(id){ var r=recipeById(id); if(!r) return false;
-  if(r.station==='towncenter' && !hasTownCenter()) return false;           // station-gated: needs a BUILT town center
+  if(!stationOk(r)) return false;                                          // station-gated: needs the BUILT station building
   if(!spendResource(r.cost)) return false;                                 // re-check affordability + deduct (the only craft consumer)
   if(r.kind==='tool'){ var md=r.dur+(hasFeat('toolwright')?12:0)+(CHAR.attrs.craft||0)*2; TOOLS[r.out]={dur:md,max:md}; toolsSave(); } else { INV[r.out]=(INV[r.out]||0)+1; }   // 5a: Toolwright feat + craft attribute raise tool durability
   invSave(); renderInv(); renderCraft(); grantXP(5,'craft'); grantRP(2); return true; }
@@ -1945,10 +1948,10 @@ var _craftOpen=false;
 function renderCraft(){ var rows=document.getElementById('craftRows'); if(!rows) return;
   rows.innerHTML=RECIPES.map(function(r){ var cost=Object.keys(r.cost).map(function(k){ return r.cost[k]+' '+k; }).join(' + ');
     var owned = r.kind==='tool' ? (TOOLS[r.out]?' [have '+TOOLS[r.out].dur+'/'+TOOLS[r.out].max+']':'') : ((INV[r.out]||0)?' x'+INV[r.out]:'');
-    var locked = (r.station==='towncenter' && !hasTownCenter());
+    var locked = (r.station && !stationOk(r));
     var _tn=recipeTechNode(r.id), techLocked=(_tn && !hasTech(_tn));
     var ok=canCraft(r);
-    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:6px"><div><b>'+r.name+'</b>'+(r.kind==='tool'?' \u2692':'')+' <span style="color:#8a9">'+cost+'</span><span style="color:#9be06b">'+owned+'</span>'+(locked?' <span style="color:#caa15a">\u26ed needs Town Center</span>':'')+(techLocked?' <span style="color:#caa15a">\u269b needs '+(techById(_tn)?techById(_tn).name:'tech')+'</span>':'')+'</div><button data-r="'+r.id+'" '+(ok?'':'disabled ')+'style="background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;border-radius:9px;padding:7px 11px;min-height:36px;cursor:pointer;font:12px ui-monospace,monospace;opacity:'+(ok?'1':'0.4')+'">craft</button></div>';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:6px"><div><b>'+r.name+'</b>'+(r.kind==='tool'?' \u2692':'')+' <span style="color:#8a9">'+cost+'</span><span style="color:#9be06b">'+owned+'</span>'+(locked?' <span style="color:#caa15a">\u26ed needs '+(STATION_NAME[r.station]||'station')+'</span>':'')+(techLocked?' <span style="color:#caa15a">\u269b needs '+(techById(_tn)?techById(_tn).name:'tech')+'</span>':'')+'</div><button data-r="'+r.id+'" '+(ok?'':'disabled ')+'style="background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;border-radius:9px;padding:7px 11px;min-height:36px;cursor:pointer;font:12px ui-monospace,monospace;opacity:'+(ok?'1':'0.4')+'">craft</button></div>';
   }).join('');
   Array.prototype.forEach.call(rows.querySelectorAll('button'), function(b){ b.onclick=function(e){ e.stopPropagation(); craftItem(b.getAttribute('data-r')); }; }); }
 function openCraft(){ var c=document.getElementById('craftCard');
@@ -1996,6 +1999,9 @@ function togglePlace(){ if(_placeMode){ _placeMode=false; _placePending=null; cl
    center). placeBuild() is the single guarded placement chokepoint enforcing one-town-center-per-realm. ── */
 function townCenterPlaced(){ for(var k in builds){ if(builds[k].bid==='towncenter') return true; } return false; }
 function hasTownCenter(){ for(var k in builds){ var b=builds[k]; if(b.bid==='towncenter' && buildStage(b)>=BUILD_STEPS) return true; } return false; }   // a COMPLETED town center
+function hasSmelter(){ for(var k in builds){ var b=builds[k]; if(b.bid==='smelter' && buildStage(b)>=BUILD_STEPS) return true; } return false; }   // a COMPLETED smelter (P6 smelting station)
+var STATION_NAME={ towncenter:'Town Center', smelter:'Smelter' };
+function stationOk(r){ if(!r.station) return true; if(r.station==='towncenter') return hasTownCenter(); if(r.station==='smelter') return hasSmelter(); return true; }   // generalized station gate
 function placeBuild(key, bid){ if(builds[key]) return false; if(bid==='towncenter' && townCenterPlaced()) return false; builds[key]={bid:bid, t0:Date.now()}; buildSave(); grantXP(8,'build'); grantRP(3); return true; }
 var STORE={}; try{ STORE=JSON.parse(localStorage.getItem('realm_store_v1')||'{}')||{}; }catch(e){}
 function storeSave(){ try{ localStorage.setItem('realm_store_v1', JSON.stringify(STORE)); }catch(e){} }
