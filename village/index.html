@@ -1670,7 +1670,7 @@ var OW_FOG='xclvxo_fog', owExplored={}; try{ owExplored=JSON.parse(localStorage.
 function owSaveFog(){ try{ localStorage.setItem(OW_FOG, JSON.stringify(owExplored)); }catch(e){} }
 function owClampCam(){ var vw=W/owZoom, vh=H/owZoom; owCam.x=Math.max(-vw*0.5, Math.min(OW_WW-vw*0.5, owCam.x)); owCam.y=Math.max(-vh*0.5, Math.min(OW_WH-vh*0.5, owCam.y)); }
 function owBar(){ var b=document.getElementById('owbar'); if(!b){ b=document.createElement('div'); b.id='owbar'; b.style.cssText='position:fixed;top:46px;left:50%;transform:translateX(-50%);z-index:9999;font:12px ui-monospace,monospace;color:#9be0ff;text-shadow:0 0 8px rgba(0,0,0,.85);pointer-events:none;display:none;white-space:nowrap;'; (stage.parentNode||document.body).appendChild(b); } return b; }
-addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ if(_placeMode){ togglePlace(); } else if(_buildMenuOpen){ closeBuildMenu(); } else if(owWalk){ exitWalk(); } else { exitOverworld(); } } else if(k==='e'){ if(owWalk){ harvestNearest(); e.preventDefault(); } } else if(k==='c'){ if(owWalk){ toggleCraft(); e.preventDefault(); } } else if(k==='b'){ if(owWalk){ togglePlace(); e.preventDefault(); } } }, true);
+addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ if(_storeOpen){ closeStorage(); } else if(_craftOpen){ closeCraft(); } else if(_placeMode){ togglePlace(); } else if(_buildMenuOpen){ closeBuildMenu(); } else if(owWalk){ exitWalk(); } else { exitOverworld(); } } else if(k==='e'){ if(owWalk){ harvestNearest(); e.preventDefault(); } } else if(k==='c'){ if(owWalk){ toggleCraft(); e.preventDefault(); } } else if(k==='b'){ if(owWalk){ togglePlace(); e.preventDefault(); } } }, true);
 addEventListener('keyup', function(e){ var k=(e.key||'').toLowerCase(); if(owKeys[k]) owKeys[k]=false; });
 function enterOverworld(){ if(!GAME_ENABLED||OVERWORLD) return; OVERWORLD=true; if(typeof closeToys==='function') closeToys(); var eh=document.getElementById('enterhint'); if(eh) eh.style.display='none'; var lv=document.getElementById('live'); if(lv) lv.style.display='none'; if(typeof stage!=='undefined'&&stage) stage.classList.add('overworld'); if(!_owStarted){ owCam.x=owX-(W/2)/owZoom; owCam.y=owY-(H/2)/owZoom; owClampCam(); _owStarted=true; } var mb=document.getElementById('mapBtn'); if(mb) mb.classList.add('on'); owBar().style.display='block'; }
 function exitOverworld(){ if(!OVERWORLD) return; OVERWORLD=false; owSaveFog(); var lv=document.getElementById('live'); if(lv) lv.style.display=''; if(typeof stage!=='undefined'&&stage) stage.classList.remove('overworld'); var mb=document.getElementById('mapBtn'); if(mb) mb.classList.remove('on'); var ob=document.getElementById('owbar'); if(ob) ob.style.display='none'; }
@@ -1728,9 +1728,10 @@ if(typeof cv!=='undefined' && cv){
     else if(Math.abs(dx)>6||Math.abs(dy)>6){ _owMoved=true; owCam.x=_owDownCamX-dx/owZoom; owCam.y=_owDownCamY-dy/owZoom; _owPanned=true; owClampCam(); } });
   var _owEnd=function(e){ if(!_owPtrs[e.pointerId]) return; var tap=(!_owMoved && _owList().length===1); delete _owPtrs[e.pointerId]; if(_owList().length<2) _owPinchD=0;
     if(OVERWORLD){ if(owWalk){ if(tap){ var rect=cv.getBoundingClientRect(), wx=(e.clientX-rect.left-W/2)+wcamx, wy=(e.clientY-rect.top-H/2)+wcamy, th=pxToHx(wx,wy), tt=tileAtHex(th.q,th.r), bk=plotKey(th.q,th.r);
-        if(_placeMode){ if(_placePending && _placePending.q===th.q && _placePending.r===th.r && canPlace(th.q,th.r)){ builds[plotKey(th.q,th.r)]={bid:_placeBp,t0:Date.now()}; buildSave(); _placeMode=false; _placePending=null; ensurePlaceBtn(); } else { _placePending={q:th.q,r:th.r}; } }   // 4b: 1st tap = ghost, 2nd tap on a valid hex = place
+        if(_placeMode){ if(_placePending && _placePending.q===th.q && _placePending.r===th.r && canPlace(th.q,th.r) && placeBuild(plotKey(th.q,th.r), _placeBp)){ _placeMode=false; _placePending=null; ensurePlaceBtn(); } else { _placePending={q:th.q,r:th.r}; } }   // 4b: 1st tap = ghost, 2nd tap on a valid hex = place (placeBuild guards one-town-center-per-realm)
         else if(_buildMenuOpen){ closeBuildMenu(); }                       // a tap dismisses the build menu
         else if(tryHarvest(th.q,th.r)){ }                                  // tap an ON/ADJACENT resource node -> harvest
+        else if(builds[bk] && builds[bk].bid==='towncenter' && buildStage(builds[bk])>=BUILD_STEPS && hexDist(pxToHx(pwx,pwy).q,pxToHx(pwx,pwy).r,th.q,th.r)<=1){ openStorage(); }   // tap a built town center (on/adjacent) -> storage
         else if(tt.plot && !builds[bk]){ openBuildMenu(th.q,th.r); }       // tap a blank plot -> build menu
         else { owTarget={ x:wx, y:wy }; } } owJoy=null; }                  // otherwise tap = move-to-point (incl. an out-of-range node)
       else if(tap){ owTravelAt(e.clientX, e.clientY); } } };
@@ -1762,7 +1763,7 @@ function hearthAt(q,r){ if(Math.floor(q/OW_CHUNK)!==HEARTH_CQ||Math.floor(r/OW_C
 function tileAtHex(q,r){ var hh=hearthAt(q,r); if(hh) return hh; var p=hxToPx(q,r), e=hxNoise(p.x/(HEXR*9),p.y/(HEXR*9))*0.62 + hxNoise((p.x+9000)/(HEXR*3.3),(p.y-9000)/(HEXR*3.3))*0.38; var terr,pass=true; if(e<0.30){terr='water';pass=false;} else if(e<0.37){terr='sand';} else if(e<0.73){terr='grass';} else if(e<0.84){terr='tree';pass=false;} else {terr='rock';pass=false;} return {terrain:terr,passable:pass,e:e}; }
 function owZoneOfHex(q,r){ return owCellAt(Math.floor(q/OW_CHUNK),Math.floor(r/OW_CHUNK)).zone; }
 function enterWalk(q,r){ if(owWalk) return; if(q==null){ q=((owX/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); r=((owY/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); } var p=hxToPx(q,r); pwx=p.x; pwy=p.y; wcamx=pwx; wcamy=pwy; owWalk=true; owBar().style.display='block'; renderInv(); ensureCraftBtn(); ensurePlaceBtn(); }
-function exitWalk(){ if(!owWalk) return; owWalk=false; var ip=document.getElementById('invPanel'); if(ip) ip.style.display='none'; var cb=document.getElementById('craftBtn'); if(cb) cb.style.display='none'; closeCraft(); _placeMode=false; _placePending=null; closePlacePicker(); var pb=document.getElementById('placeBtn'); if(pb) pb.style.display='none'; }
+function exitWalk(){ if(!owWalk) return; owWalk=false; var ip=document.getElementById('invPanel'); if(ip) ip.style.display='none'; var cb=document.getElementById('craftBtn'); if(cb) cb.style.display='none'; closeCraft(); closeStorage(); _placeMode=false; _placePending=null; closePlacePicker(); var pb=document.getElementById('placeBtn'); if(pb) pb.style.display='none'; }
 function hxCorners(cxp,cyp){ var a=[],i; for(i=0;i<6;i++){ var an=Math.PI/180*(60*i-30); a.push([cxp+HEXR*Math.cos(an),cyp+HEXR*Math.sin(an)]); } return a; }
 function fillHx(cxp,cyp,fill){ var p=hxCorners(cxp,cyp),i; cx.beginPath(); cx.moveTo(p[0][0],p[0][1]); for(i=1;i<6;i++) cx.lineTo(p[i][0],p[i][1]); cx.closePath(); cx.fillStyle=fill; cx.fill(); }
 /* ── ZB2: watchable TIMED construction on the curated plots (ported from build_proto.html). Tap a
@@ -1774,9 +1775,10 @@ var PLOT_BUILDINGS={   /* NOTE: distinct from the base village's BUILDINGS[] sky
   hut:     {name:'Hut',      dur:24000, wall:'#9c6b3f', roof:'#7a3b2a', w:30, d:24, h:16},
   workshop:{name:'Workshop', dur:34000, wall:'#8a8f99', roof:'#4a5560', w:34, d:28, h:20},
   well:    {name:'Well',     dur:16000, wall:'#7d8a93', roof:'#3a4650', w:20, d:20, h:10},
-  hall:    {name:'Hall',     dur:48000, wall:'#b59a5e', roof:'#5a3f7a', w:40, d:32, h:26}
+  hall:    {name:'Hall',     dur:48000, wall:'#b59a5e', roof:'#5a3f7a', w:40, d:32, h:26},
+  towncenter:{name:'Town Center', dur:60000, wall:'#caa15a', roof:'#6a4a8a', w:50, d:40, h:34}   // keystone: one per realm, unlocks tier-2 + storage
 };
-var BUILD_ORDER=['hut','workshop','well','hall'];
+var BUILD_ORDER=['hut','workshop','well','hall','towncenter'];
 var builds={}; try{ builds=JSON.parse(localStorage.getItem(BUILD_KEY)||'{}')||{}; }catch(e){}
 function buildSave(){ try{ localStorage.setItem(BUILD_KEY, JSON.stringify(builds)); }catch(e){} }
 function plotKey(q,r){ return q+','+r; }
@@ -1810,7 +1812,7 @@ function openBuildMenu(q,r){ _buildAtQ=q; _buildAtR=r; _buildMenuOpen=true; var 
     var row=document.createElement('div'); row.style.cssText='display:flex;gap:8px;flex-wrap:wrap;justify-content:center;'; m.appendChild(row);
     BUILD_ORDER.forEach(function(bid){ var b=PLOT_BUILDINGS[bid], btn=document.createElement('button'); btn.type='button'; btn.textContent=b.name;
       btn.style.cssText='background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;font:12px ui-monospace,monospace;border-radius:10px;padding:10px 13px;min-height:44px;cursor:pointer;';
-      btn.addEventListener('click',function(e){ e.stopPropagation(); builds[plotKey(_buildAtQ,_buildAtR)]={bid:bid,t0:Date.now()}; buildSave(); closeBuildMenu(); }); row.appendChild(btn); });
+      btn.addEventListener('click',function(e){ e.stopPropagation(); placeBuild(plotKey(_buildAtQ,_buildAtR), bid); closeBuildMenu(); }); row.appendChild(btn); });
     document.body.appendChild(m); }
   m.style.display='flex'; }
 function closeBuildMenu(){ _buildMenuOpen=false; var m=document.getElementById('buildMenu'); if(m) m.style.display='none'; }
@@ -1903,15 +1905,19 @@ var RECIPES=[
   {id:'snack', name:'Berry Snack', cost:{berries:3}, out:'snack', kind:'item'},
   {id:'waterskin', name:'Waterskin', cost:{fiber:2,water:1}, out:'waterskin', kind:'item'},
   {id:'axe', name:'Axe', cost:{wood:1,stone:1}, out:'axe', kind:'tool', dur:24},
-  {id:'pickaxe', name:'Pickaxe', cost:{wood:1,stone:2}, out:'pickaxe', kind:'tool', dur:24}
+  {id:'pickaxe', name:'Pickaxe', cost:{wood:1,stone:2}, out:'pickaxe', kind:'tool', dur:24},
+  {id:'beam', name:'Reinforced Beam', cost:{plank:2,rope:1}, out:'beam', kind:'item', station:'towncenter'},
+  {id:'masonry', name:'Masonry', cost:{block:2,plank:1}, out:'masonry', kind:'item', station:'towncenter'},
+  {id:'lantern', name:'Lantern', cost:{torch:1,block:1}, out:'lantern', kind:'item', station:'towncenter'}
 ];
 var TOOLS={}; try{ TOOLS=JSON.parse(localStorage.getItem('realm_tools_v1')||'{}')||{}; }catch(e){}
 function toolsSave(){ try{ localStorage.setItem('realm_tools_v1', JSON.stringify(TOOLS)); }catch(e){} }
 function toolFor(kind){ return kind==='wood'?'axe':(kind==='stone'?'pickaxe':null); }
 function recipeById(id){ for(var i=0;i<RECIPES.length;i++) if(RECIPES[i].id===id) return RECIPES[i]; return null; }
-function canCraft(r){ for(var k in r.cost){ if((INV[k]||0)<r.cost[k]) return false; } return true; }
+function canCraft(r){ if(r.station==='towncenter' && !hasTownCenter()) return false; for(var k in r.cost){ if((INV[k]||0)<r.cost[k]) return false; } return true; }
 function spendResource(cost){ for(var k in cost){ if((INV[k]||0)<cost[k]) return false; } for(var k2 in cost){ INV[k2]-=cost[k2]; if(INV[k2]<=0) delete INV[k2]; } return true; }
 function craftItem(id){ var r=recipeById(id); if(!r) return false;
+  if(r.station==='towncenter' && !hasTownCenter()) return false;           // station-gated: needs a BUILT town center
   if(!spendResource(r.cost)) return false;                                 // re-check affordability + deduct (the only craft consumer)
   if(r.kind==='tool'){ TOOLS[r.out]={dur:r.dur,max:r.dur}; toolsSave(); } else { INV[r.out]=(INV[r.out]||0)+1; }
   invSave(); renderInv(); renderCraft(); return true; }
@@ -1919,8 +1925,9 @@ var _craftOpen=false;
 function renderCraft(){ var rows=document.getElementById('craftRows'); if(!rows) return;
   rows.innerHTML=RECIPES.map(function(r){ var cost=Object.keys(r.cost).map(function(k){ return r.cost[k]+' '+k; }).join(' + ');
     var owned = r.kind==='tool' ? (TOOLS[r.out]?' [have '+TOOLS[r.out].dur+'/'+TOOLS[r.out].max+']':'') : ((INV[r.out]||0)?' x'+INV[r.out]:'');
+    var locked = (r.station==='towncenter' && !hasTownCenter());
     var ok=canCraft(r);
-    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:6px"><div><b>'+r.name+'</b>'+(r.kind==='tool'?' \u2692':'')+' <span style="color:#8a9">'+cost+'</span><span style="color:#9be06b">'+owned+'</span></div><button data-r="'+r.id+'" '+(ok?'':'disabled ')+'style="background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;border-radius:9px;padding:7px 11px;min-height:36px;cursor:pointer;font:12px ui-monospace,monospace;opacity:'+(ok?'1':'0.4')+'">craft</button></div>';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:6px"><div><b>'+r.name+'</b>'+(r.kind==='tool'?' \u2692':'')+' <span style="color:#8a9">'+cost+'</span><span style="color:#9be06b">'+owned+'</span>'+(locked?' <span style="color:#caa15a">\u26ed needs Town Center</span>':'')+'</div><button data-r="'+r.id+'" '+(ok?'':'disabled ')+'style="background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;border-radius:9px;padding:7px 11px;min-height:36px;cursor:pointer;font:12px ui-monospace,monospace;opacity:'+(ok?'1':'0.4')+'">craft</button></div>';
   }).join('');
   Array.prototype.forEach.call(rows.querySelectorAll('button'), function(b){ b.onclick=function(e){ e.stopPropagation(); craftItem(b.getAttribute('data-r')); }; }); }
 function openCraft(){ var c=document.getElementById('craftCard');
@@ -1967,6 +1974,30 @@ function openPlacePicker(){ var m=document.getElementById('placeMenu');
   m.style.display='flex'; }
 function closePlacePicker(){ var m=document.getElementById('placeMenu'); if(m) m.style.display='none'; }
 function togglePlace(){ if(_placeMode){ _placeMode=false; _placePending=null; closePlacePicker(); ensurePlaceBtn(); } else { openPlacePicker(); } }
+/* ── P4 · 4c: Town Center keystone — ONE per realm; once BUILT it unlocks station-gated tier-2 recipes
+   (canCraft/craftItem gate on hasTownCenter) and provides a STORE stash (deposit/withdraw at the town
+   center). placeBuild() is the single guarded placement chokepoint enforcing one-town-center-per-realm. ── */
+function townCenterPlaced(){ for(var k in builds){ if(builds[k].bid==='towncenter') return true; } return false; }
+function hasTownCenter(){ for(var k in builds){ var b=builds[k]; if(b.bid==='towncenter' && buildStage(b)>=BUILD_STEPS) return true; } return false; }   // a COMPLETED town center
+function placeBuild(key, bid){ if(builds[key]) return false; if(bid==='towncenter' && townCenterPlaced()) return false; builds[key]={bid:bid, t0:Date.now()}; buildSave(); return true; }
+var STORE={}; try{ STORE=JSON.parse(localStorage.getItem('realm_store_v1')||'{}')||{}; }catch(e){}
+function storeSave(){ try{ localStorage.setItem('realm_store_v1', JSON.stringify(STORE)); }catch(e){} }
+var _storeOpen=false;
+function depositAll(){ for(var k in INV){ STORE[k]=(STORE[k]||0)+INV[k]; } INV={}; invSave(); storeSave(); renderInv(); renderStore(); }
+function withdrawAll(){ for(var k in STORE){ INV[k]=(INV[k]||0)+STORE[k]; } STORE={}; invSave(); storeSave(); renderInv(); renderStore(); }
+function renderStore(){ var rows=document.getElementById('storeRows'); if(!rows) return; var keys=Object.keys(STORE).filter(function(k){ return STORE[k]>0; });
+  rows.innerHTML = keys.length ? keys.map(function(k){ return '<span style="opacity:.9">'+k+' '+STORE[k]+'</span>'; }).join('  ') : '<span style="opacity:.5">(empty)</span>'; }
+function openStorage(){ var c=document.getElementById('storeCard');
+  if(!c){ c=document.createElement('div'); c.id='storeCard';
+    c.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10003;width:300px;max-width:calc(100vw - 24px);box-sizing:border-box;background:var(--panel-bg);border:1px solid rgba(123,216,107,.5);border-radius:14px;padding:16px;font:12px ui-monospace,monospace;color:#c8d8e8;';
+    c.addEventListener('click',function(e){ e.stopPropagation(); });
+    c.innerHTML='<h3 style="margin:0 0 8px;color:#7bd86b;font:600 16px ui-monospace,monospace">Town Storage<span id="storeX" style="float:right;cursor:pointer;color:#8aa;padding:4px 8px;margin:-4px -6px 0 0">\u00d7</span></h3><div id="storeRows" style="display:flex;flex-wrap:wrap;gap:8px;min-height:18px;margin-bottom:10px"></div><div style="display:flex;gap:8px"><button id="storeDep" style="flex:1;background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;border-radius:9px;padding:9px;min-height:40px;cursor:pointer;font:12px ui-monospace,monospace">deposit all</button><button id="storeWd" style="flex:1;background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;border-radius:9px;padding:9px;min-height:40px;cursor:pointer;font:12px ui-monospace,monospace">withdraw all</button></div>';
+    (stage.parentNode||document.body).appendChild(c);
+    c.querySelector('#storeX').addEventListener('click',function(e){ e.stopPropagation(); closeStorage(); });
+    c.querySelector('#storeDep').addEventListener('click',function(e){ e.stopPropagation(); depositAll(); });
+    c.querySelector('#storeWd').addEventListener('click',function(e){ e.stopPropagation(); withdrawAll(); }); }
+  c.style.display='block'; _storeOpen=true; renderStore(); }
+function closeStorage(){ _storeOpen=false; var c=document.getElementById('storeCard'); if(c) c.style.display='none'; }
 /* ── 2c: the walk-mode player is the player's CHOSEN critter (recolored), not a placeholder dot.
    Recolor the chosen sprite once per spec (reusing recolor()/SPRITES/playerSpec from the social scene)
    into a cached Image for cheap canvas drawImage; fall back to the dot until it's ready / if none chosen. ── */
