@@ -1822,13 +1822,32 @@ function stepWalk(dt){
   if(mvx||mvy){ var m=Math.hypot(mvx,mvy)||1, bx=pwx, by=pwy; mvx/=m; mvy/=m; if(mvx) pwFace=mvx<0?-1:1; var nx=pwx+mvx*sp, ny=pwy+mvy*sp; if(_passPx(nx,pwy)) pwx=nx; if(_passPx(pwx,ny)) pwy=ny; if(owTarget && Math.abs(pwx-bx)<0.01 && Math.abs(pwy-by)<0.01) owTarget=null; }   // blocked -> give up the tap target
   wcamx+=(pwx-wcamx)*0.16; wcamy+=(pwy-wcamy)*0.16;
 }
+/* ── 2c: the walk-mode player is the player's CHOSEN critter (recolored), not a placeholder dot.
+   Recolor the chosen sprite once per spec (reusing recolor()/SPRITES/playerSpec from the social scene)
+   into a cached Image for cheap canvas drawImage; fall back to the dot until it's ready / if none chosen. ── */
+var _walkSprite=null, _walkKey='';
+function ensureWalkSprite(){
+  if(!playerSpec || typeof SPRITES==='undefined' || !SPRITES[playerSpec.base]) return;
+  var key=playerSpec.base+'|'+playerSpec.eye+'|'+JSON.stringify(playerSpec.outfit||[]);
+  if(key===_walkKey) return; _walkKey=key;                                  // build once per spec (re-builds if the critter changes)
+  var eye=/^#[0-9a-fA-F]{6}$/.test(playerSpec.eye||'')?playerSpec.eye:'#3df0bb';
+  var outfit=(playerSpec.outfit||[]).slice(0,4).map(function(p){ return { fn:ACC_BY_NAME[p&&p.item], c:(/^#[0-9a-fA-F]{6}$/.test(p&&p.color)?p.color:'#ffffff') }; }).filter(function(p){ return p.fn; });
+  recolor(SPRITES[playerSpec.base], eye, outfit).then(function(url){ var im=new Image(); im.onload=function(){ _walkSprite=im; }; im.src=url; });
+}
 function drawWalk(ts){
   cx.clearRect(0,0,W,H); cx.fillStyle='#04060d'; cx.fillRect(0,0,W,H);
   var c1=pxToHx(wcamx-W/2,wcamy-H/2),c2=pxToHx(wcamx+W/2,wcamy-H/2),c3=pxToHx(wcamx-W/2,wcamy+H/2),c4=pxToHx(wcamx+W/2,wcamy+H/2);
   var qlo=Math.min(c1.q,c2.q,c3.q,c4.q)-1,qhi=Math.max(c1.q,c2.q,c3.q,c4.q)+1,rlo=Math.min(c1.r,c2.r,c3.r,c4.r)-1,rhi=Math.max(c1.r,c2.r,c3.r,c4.r)+1,q,r,i;
   for(r=rlo;r<=rhi;r++)for(q=qlo;q<=qhi;q++){ var p=hxToPx(q,r),sx=p.x-wcamx+W/2,sy=p.y-wcamy+H/2; if(sx<-HEXR*2||sx>W+HEXR*2||sy<-HEXR*2||sy>H+HEXR*2) continue; var t=tileAtHex(q,r); fillHx(sx,sy,TCOLW[t.terrain]); if(t.terrain==='grass'){ fillHx(sx,sy,'rgba(255,255,255,'+(0.04+(t.e-0.37)*0.10).toFixed(3)+')'); } if(t.terrain==='tree'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle='#16320f'; cx.beginPath(); cx.arc(sx,sy,HEXR*0.5,0,7); cx.fill(); } if(t.terrain==='rock'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle=TCOLW.rock; cx.beginPath(); cx.arc(sx,sy,HEXR*0.52,0,7); cx.fill(); } if(t.plot){ var _bk=plotKey(q,r); if(builds[_bk]){ drawBuildOnHex(sx,sy,builds[_bk]); } else { cx.save(); cx.setLineDash([4,4]); cx.strokeStyle='rgba(240,245,210,0.85)'; cx.lineWidth=2; var plc=hxCorners(sx,sy); cx.beginPath(); cx.moveTo(plc[0][0],plc[0][1]); for(i=1;i<6;i++) cx.lineTo(plc[i][0],plc[i][1]); cx.closePath(); cx.stroke(); cx.setLineDash([]); cx.fillStyle='rgba(240,245,210,0.92)'; cx.font='bold '+((HEXR*0.8)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('+', sx, sy+HEXR*0.28); cx.restore(); } }
     var pc=hxCorners(sx,sy); cx.strokeStyle='rgba(0,0,0,0.18)'; cx.lineWidth=1; cx.beginPath(); cx.moveTo(pc[0][0],pc[0][1]); for(i=1;i<6;i++) cx.lineTo(pc[i][0],pc[i][1]); cx.closePath(); cx.stroke(); }
-  var ppx=pwx-wcamx+W/2, ppy=pwy-wcamy+H/2; cx.fillStyle='#eafaff'; cx.strokeStyle='#5ad4ff'; cx.lineWidth=2; cx.beginPath(); cx.arc(ppx,ppy,HEXR*0.46,0,7); cx.fill(); cx.stroke(); cx.fillStyle='#04060d'; cx.beginPath(); cx.arc(ppx+pwFace*5,ppy-2,2.4,0,7); cx.fill();
+  var ppx=pwx-wcamx+W/2, ppy=pwy-wcamy+H/2; ensureWalkSprite();
+  cx.save(); cx.globalAlpha=0.26; cx.fillStyle='#04060d'; cx.beginPath(); cx.ellipse(ppx, ppy+HEXR*0.42, HEXR*0.5, HEXR*0.2, 0, 0, 7); cx.fill(); cx.restore();   // ground shadow
+  if(_walkSprite && _walkSprite.complete && _walkSprite.naturalWidth){
+    var bob=Math.sin((ts||0)*0.006)*1.6, sw=HEXR*1.95, sh=sw*((_walkSprite.naturalHeight/_walkSprite.naturalWidth)||1);
+    cx.save(); cx.translate(ppx, ppy+bob); if(pwFace<0) cx.scale(-1,1); cx.drawImage(_walkSprite, -sw/2, -sh*0.66, sw, sh); cx.restore();   // chosen critter; flip to face travel
+  } else {   // fallback: the placeholder dot (no critter chosen yet / sprite still recoloring)
+    cx.fillStyle='#eafaff'; cx.strokeStyle='#5ad4ff'; cx.lineWidth=2; cx.beginPath(); cx.arc(ppx,ppy,HEXR*0.46,0,7); cx.fill(); cx.stroke(); cx.fillStyle='#04060d'; cx.beginPath(); cx.arc(ppx+pwFace*5,ppy-2,2.4,0,7); cx.fill();
+  }
   if(owJoy){ var jr=40; cx.lineWidth=2; cx.strokeStyle='rgba(154,224,255,0.5)'; cx.beginPath(); cx.arc(_owDownX,_owDownY,jr,0,7); cx.stroke(); cx.fillStyle='rgba(154,224,255,0.35)'; cx.beginPath(); cx.arc(_owDownX+owJoy.x*jr*(owJoy.mag||1), _owDownY+owJoy.y*jr*(owJoy.mag||1), 15, 0,7); cx.fill(); }   // virtual joystick at the touch point
   var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent=(z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '):'')+'on '+here.terrain+'  ·  drag/WASD to walk · tap to move · tap a plot to build · pinch out \u2192 map';
 }
