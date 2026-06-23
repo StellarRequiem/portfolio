@@ -1721,14 +1721,18 @@ if(typeof cv!=='undefined' && cv){
   cv.addEventListener('pointerdown', function(e){ if(!OVERWORLD) return; _owPtrs[e.pointerId]={x:e.clientX,y:e.clientY}; var n=_owList(); if(n.length===1){ _owDownX=e.clientX; _owDownY=e.clientY; _owDownCamX=owCam.x; _owDownCamY=owCam.y; _owMoved=false; } else if(n.length===2){ _owPinchD=Math.hypot(n[0].x-n[1].x,n[0].y-n[1].y)||1; } try{ cv.setPointerCapture(e.pointerId); }catch(_){} });
   cv.addEventListener('pointermove', function(e){ if(!OVERWORLD||!_owPtrs[e.pointerId]) return; _owPtrs[e.pointerId]={x:e.clientX,y:e.clientY}; var n=_owList();
     if(n.length>=2){ var d=Math.hypot(n[0].x-n[1].x,n[0].y-n[1].y)||1; if(owWalk){ if(_owPinchD>0 && d<_owPinchD*0.82) exitWalk(); } else if(_owPinchD>0){ owZoom=Math.max(0.6,Math.min(1.8, owZoom*(d/_owPinchD))); owClampCam(); } _owPinchD=d; _owMoved=true; _owPanned=true; return; }
-    var dx=e.clientX-_owDownX, dy=e.clientY-_owDownY; if(!owWalk && (Math.abs(dx)>6||Math.abs(dy)>6)){ _owMoved=true; owCam.x=_owDownCamX-dx/owZoom; owCam.y=_owDownCamY-dy/owZoom; _owPanned=true; owClampCam(); } });
-  var _owEnd=function(e){ if(!_owPtrs[e.pointerId]) return; var tap=(!_owMoved && _owList().length===1); delete _owPtrs[e.pointerId]; if(_owList().length<2) _owPinchD=0; if(OVERWORLD && !owWalk && tap){ owTravelAt(e.clientX, e.clientY); } };
+    var dx=e.clientX-_owDownX, dy=e.clientY-_owDownY;
+    if(owWalk){ var jm=Math.hypot(dx,dy); if(jm>8){ _owMoved=true; owJoy={x:dx/jm, y:dy/jm, mag:Math.min(1,jm/60)}; } }
+    else if(Math.abs(dx)>6||Math.abs(dy)>6){ _owMoved=true; owCam.x=_owDownCamX-dx/owZoom; owCam.y=_owDownCamY-dy/owZoom; _owPanned=true; owClampCam(); } });
+  var _owEnd=function(e){ if(!_owPtrs[e.pointerId]) return; var tap=(!_owMoved && _owList().length===1); delete _owPtrs[e.pointerId]; if(_owList().length<2) _owPinchD=0;
+    if(OVERWORLD){ if(owWalk){ if(tap){ var rect=cv.getBoundingClientRect(); owTarget={ x:(e.clientX-rect.left-W/2)+wcamx, y:(e.clientY-rect.top-H/2)+wcamy }; } owJoy=null; }   // walkable: tap = move-to-point; release the joystick
+      else if(tap){ owTravelAt(e.clientX, e.clientY); } } };
   cv.addEventListener('pointerup', _owEnd); cv.addEventListener('pointercancel', _owEnd);
 }
 /* ── P2: WALKABLE HEX terrain (the overworld at play scale). Pointy-top axial (q,r), pixel<->hex
    (ported from overworld_walk_proto.html). Enter by tapping a zone on the map; walk WASD; per-hex
    collision; pinch-out / Esc back to the territory map. tileAtHex(q,r) pure/deterministic. ── */
-var owWalk=false, HEXR=22, SQ3=Math.sqrt(3), pwx=0, pwy=0, pwFace=1, wcamx=0, wcamy=0;
+var owWalk=false, HEXR=22, SQ3=Math.sqrt(3), pwx=0, pwy=0, pwFace=1, wcamx=0, wcamy=0, owJoy=null, owTarget=null;
 var TCOLW={ water:'#1a3a5a', sand:'#c2ab73', grass:'#3f7a3a', tree:'#234d24', rock:'#565660' };
 function hxToPx(q,r){ return { x: HEXR*SQ3*(q+r/2), y: HEXR*1.5*r }; }
 function cubeRnd(xf,yf,zf){ var rx=Math.round(xf),ry=Math.round(yf),rz=Math.round(zf),dx=Math.abs(rx-xf),dy=Math.abs(ry-yf),dz=Math.abs(rz-zf); if(dx>dy&&dx>dz)rx=-ry-rz; else if(dy>dz)ry=-rx-rz; else rz=-rx-ry; return {q:rx,r:rz}; }
@@ -1743,10 +1747,12 @@ function hxCorners(cxp,cyp){ var a=[],i; for(i=0;i<6;i++){ var an=Math.PI/180*(6
 function fillHx(cxp,cyp,fill){ var p=hxCorners(cxp,cyp),i; cx.beginPath(); cx.moveTo(p[0][0],p[0][1]); for(i=1;i<6;i++) cx.lineTo(p[i][0],p[i][1]); cx.closePath(); cx.fillStyle=fill; cx.fill(); }
 function _passPx(px,py){ var h=pxToHx(px,py); return tileAtHex(h.q,h.r).passable; }
 function stepWalk(dt){
-  var mvx=0,mvy=0;
-  if(owKeys['a']||owKeys['arrowleft'])mvx-=1; if(owKeys['d']||owKeys['arrowright'])mvx+=1;
-  if(owKeys['w']||owKeys['arrowup'])mvy-=1; if(owKeys['s']||owKeys['arrowdown'])mvy+=1;
-  if(mvx||mvy){ var m=Math.hypot(mvx,mvy)||1, sp=3.0; mvx/=m; mvy/=m; if(mvx) pwFace=mvx<0?-1:1; var nx=pwx+mvx*sp, ny=pwy+mvy*sp; if(_passPx(nx,pwy)) pwx=nx; if(_passPx(pwx,ny)) pwy=ny; }
+  var mvx=0,mvy=0, sp=3.0;
+  if(owJoy){ mvx=owJoy.x; mvy=owJoy.y; sp=3.0*(owJoy.mag||1); }                 // mobile virtual joystick
+  else { if(owKeys['a']||owKeys['arrowleft'])mvx-=1; if(owKeys['d']||owKeys['arrowright'])mvx+=1; if(owKeys['w']||owKeys['arrowup'])mvy-=1; if(owKeys['s']||owKeys['arrowdown'])mvy+=1; }
+  if(mvx||mvy) owTarget=null;                                                   // manual input cancels tap-to-move
+  if(!mvx&&!mvy&&owTarget){ var tx=owTarget.x-pwx, ty=owTarget.y-pwy, td=Math.hypot(tx,ty); if(td<4){ owTarget=null; } else { mvx=tx/td; mvy=ty/td; } }
+  if(mvx||mvy){ var m=Math.hypot(mvx,mvy)||1, bx=pwx, by=pwy; mvx/=m; mvy/=m; if(mvx) pwFace=mvx<0?-1:1; var nx=pwx+mvx*sp, ny=pwy+mvy*sp; if(_passPx(nx,pwy)) pwx=nx; if(_passPx(pwx,ny)) pwy=ny; if(owTarget && Math.abs(pwx-bx)<0.01 && Math.abs(pwy-by)<0.01) owTarget=null; }   // blocked -> give up the tap target
   wcamx+=(pwx-wcamx)*0.16; wcamy+=(pwy-wcamy)*0.16;
 }
 function drawWalk(ts){
@@ -1755,7 +1761,8 @@ function drawWalk(ts){
   var qlo=Math.min(c1.q,c2.q,c3.q,c4.q)-1,qhi=Math.max(c1.q,c2.q,c3.q,c4.q)+1,rlo=Math.min(c1.r,c2.r,c3.r,c4.r)-1,rhi=Math.max(c1.r,c2.r,c3.r,c4.r)+1,q,r,i;
   for(r=rlo;r<=rhi;r++)for(q=qlo;q<=qhi;q++){ var p=hxToPx(q,r),sx=p.x-wcamx+W/2,sy=p.y-wcamy+H/2; if(sx<-HEXR*2||sx>W+HEXR*2||sy<-HEXR*2||sy>H+HEXR*2) continue; var t=tileAtHex(q,r); fillHx(sx,sy,TCOLW[t.terrain]); if(t.terrain==='grass'){ fillHx(sx,sy,'rgba(255,255,255,'+(0.04+(t.e-0.37)*0.10).toFixed(3)+')'); } if(t.terrain==='tree'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle='#16320f'; cx.beginPath(); cx.arc(sx,sy,HEXR*0.5,0,7); cx.fill(); } if(t.terrain==='rock'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle=TCOLW.rock; cx.beginPath(); cx.arc(sx,sy,HEXR*0.52,0,7); cx.fill(); } var pc=hxCorners(sx,sy); cx.strokeStyle='rgba(0,0,0,0.18)'; cx.lineWidth=1; cx.beginPath(); cx.moveTo(pc[0][0],pc[0][1]); for(i=1;i<6;i++) cx.lineTo(pc[i][0],pc[i][1]); cx.closePath(); cx.stroke(); }
   var ppx=pwx-wcamx+W/2, ppy=pwy-wcamy+H/2; cx.fillStyle='#eafaff'; cx.strokeStyle='#5ad4ff'; cx.lineWidth=2; cx.beginPath(); cx.arc(ppx,ppy,HEXR*0.46,0,7); cx.fill(); cx.stroke(); cx.fillStyle='#04060d'; cx.beginPath(); cx.arc(ppx+pwFace*5,ppy-2,2.4,0,7); cx.fill();
-  var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent=(z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '):'')+'on '+here.terrain+'  ·  WASD to walk · pinch out / Esc \u2192 map';
+  if(owJoy){ var jr=40; cx.lineWidth=2; cx.strokeStyle='rgba(154,224,255,0.5)'; cx.beginPath(); cx.arc(_owDownX,_owDownY,jr,0,7); cx.stroke(); cx.fillStyle='rgba(154,224,255,0.35)'; cx.beginPath(); cx.arc(_owDownX+owJoy.x*jr*(owJoy.mag||1), _owDownY+owJoy.y*jr*(owJoy.mag||1), 15, 0,7); cx.fill(); }   // virtual joystick at the touch point
+  var h=pxToHx(pwx,pwy), here=tileAtHex(h.q,h.r), z=owZoneOfHex(h.q,h.r); owBar().textContent=(z&&OW_ZONES[z]?('◆ '+OW_ZONES[z].name+' · '):'')+'on '+here.terrain+'  ·  drag/WASD to walk · tap to move · pinch out \u2192 map';
 }
 var _lastDraw = 0;
 function loop(ts){
