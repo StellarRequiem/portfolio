@@ -1754,6 +1754,9 @@ if(typeof cv!=='undefined' && cv){
         else if(_buildMenuOpen){ closeBuildMenu(); }                       // a tap dismisses the build menu
         else if(tryHarvest(th.q,th.r)){ }                                  // tap an ON/ADJACENT resource node -> harvest
         else if(harvestCropAt(th.q,th.r)){ }                               // 7a: tap a ripe crop -> harvest yield
+        else if(collectProduct(th.q,th.r)){ }                              // 7b: tap a tamed animal with product ready -> collect
+        else if(tameAt(th.q,th.r)){ }                                      // 7b: tap a wild animal (with grain) -> tame
+        else if(feedAnimal(th.q,th.r)){ }                                  // 7b: tap a tamed animal (with food) -> feed
         else if(DEPTH<0 && th.q===_shaftQ && th.r===_shaftR && hexDist(pxToHx(pwx,pwy).q,pxToHx(pwx,pwy).r,th.q,th.r)<=1){ ascend(); }   // underground: tap the up-ladder -> surface
         else if(DEPTH===0 && builds[bk] && builds[bk].bid==='mineshaft' && buildStage(builds[bk])>=BUILD_STEPS && hexDist(pxToHx(pwx,pwy).q,pxToHx(pwx,pwy).r,th.q,th.r)<=1){ descend(th.q,th.r); }   // tap a built mineshaft (on/adjacent) -> descend
         else if(builds[bk] && builds[bk].bid==='towncenter' && buildStage(builds[bk])>=BUILD_STEPS && hexDist(pxToHx(pwx,pwy).q,pxToHx(pwx,pwy).r,th.q,th.r)<=1){ openGameMenu('storage'); }   // tap a built town center (on/adjacent) -> menu Storage tab
@@ -1861,6 +1864,7 @@ function stepWalk(dt){
   if(!mvx&&!mvy&&owTarget){ var tx=owTarget.x-pwx, ty=owTarget.y-pwy, td=Math.hypot(tx,ty); if(td<4){ owTarget=null; } else { mvx=tx/td; mvy=ty/td; } }
   if(mvx||mvy){ var m=Math.hypot(mvx,mvy)||1, bx=pwx, by=pwy; mvx/=m; mvy/=m; if(mvx) pwFace=mvx<0?-1:1; var nx=pwx+mvx*sp, ny=pwy+mvy*sp; if(_passPx(nx,pwy)) pwx=nx; if(_passPx(pwx,ny)) pwy=ny; if(owTarget && Math.abs(pwx-bx)<0.01 && Math.abs(pwy-by)<0.01) owTarget=null; }   // blocked -> give up the tap target
   wcamx+=(pwx-wcamx)*0.16; wcamy+=(pwy-wcamy)*0.16;
+  _animTick++; if(_animTick%90===0) breedTick();   // ~3s: fed adults auto-breed onto an adjacent grass hex
 }
 /* ── P3 · 3a: deterministic resource nodes. Placement is pure f(OW_SEED,q,r) via hxRand (identical on
    every client, no server) — wood on trees, stone on rocks, fiber/berries on grass, water where grass
@@ -1925,7 +1929,7 @@ function harvestNearest(){ var ph=pxToHx(pwx,pwy), C=[[0,0]].concat(_NB6), i;   
 function renderInv(){ var p=document.getElementById('invPanel'); if(!p) return;   // #invPanel now lives in the game-menu Inventory tab (created by ensureGameMenu); no floating strip
   var order=['wood','stone','fiber','berries','water','copper','iron'];
   var html=order.map(function(k){ return '<span style="display:inline-flex;align-items:center;gap:4px"><i style="width:9px;height:9px;border-radius:2px;background:'+NODE_COL[k]+';display:inline-block"></i>'+(INV[k]||0)+'</span>'; }).join('');
-  var extra=['plank','block','rope','torch','snack','waterskin','copper_bar','iron_bar','beam','masonry','lantern','seeds','grain','gourd'].filter(function(k){ return INV[k]; }).map(function(k){ return '<span style="opacity:.85">'+k.replace('_',' ')+' '+INV[k]+'</span>'; });
+  var extra=['plank','block','rope','torch','snack','waterskin','copper_bar','iron_bar','beam','masonry','lantern','seeds','grain','gourd','wool','egg'].filter(function(k){ return INV[k]; }).map(function(k){ return '<span style="opacity:.85">'+k.replace('_',' ')+' '+INV[k]+'</span>'; });
   ['axe','pickaxe'].forEach(function(tk){ if(TOOLS[tk]) extra.push('<span style="color:#d8d2c0">'+tk+' '+TOOLS[tk].dur+'/'+TOOLS[tk].max+'</span>'); });
   if(extra.length) html+='<span style="opacity:.35">|</span>'+extra.join('');
   p.innerHTML=html;
@@ -2047,6 +2051,49 @@ function openFarmPicker(){ _placeMode=false; _placePending=null; var m=document.
   m.style.display='flex'; }
 function closeFarmPicker(){ var m=document.getElementById('farmMenu'); if(m) m.style.display='none'; }
 function toggleFarm(){ if(_farmMode){ _farmMode=false; closeFarmPicker(); } else { openFarmPicker(); } }
+/* ── P7 · 7b: animals (husbandry). Wild animals appear deterministically on grass (animalAt). Tap one with
+   grain -> TAME it (tamed{} keyed by plotKey). A tamed animal has a life-cycle (juvenile->adult->old via
+   bornAt), must be FED (crop food refreshes fedAt), yields a renewable PRODUCT on the wall-clock when a fed
+   adult (collect by tapping), and a fed adult auto-BREEDS an offspring onto an adjacent grass hex over a
+   gestation timer. All self-reported in realm_animals_v1 (surface-only; grass-bound). Closes the food loop. ── */
+var ANIMALS={
+  sheep:{ name:'Sheep', yield:'wool', amt:1, yieldDur:40000, matureDur:30000, oldDur:600000, breedDur:90000, col:'#e8e4da' },
+  hen:{   name:'Hen',   yield:'egg',  amt:2, yieldDur:25000, matureDur:20000, oldDur:480000, breedDur:60000, col:'#d8a24a' }
+};
+var tamed={}; try{ tamed=JSON.parse(localStorage.getItem('realm_animals_v1')||'{}')||{}; }catch(e){}
+function animalSave(){ try{ localStorage.setItem('realm_animals_v1', JSON.stringify(tamed)); }catch(e){} }
+function animalAt(q,r){ if(DEPTH<0) return null; var t=tileAtHex(q,r); if(t.terrain!=='grass'||t.plot||!t.passable) return null;
+  var k=plotKey(q,r); if(builds[k]||farms[k]||tamed[k]||nodeAt(q,r)) return null;
+  if(hxRand((q*11+71)|0,(r*11-43)|0)>=0.03) return null;   // ~3% of eligible grass = a wild animal (deterministic)
+  return { kind: hxRand((q*13+5)|0,(r*13+9)|0)<0.55?'sheep':'hen' }; }
+function animalStage(rec){ var a=ANIMALS[rec.kind]; if(!a) return 'adult'; var age=Date.now()-rec.bornAt; if(age<a.matureDur) return 'juvenile'; if(age<a.matureDur+a.oldDur) return 'adult'; return 'old'; }
+function isFed(rec){ return (Date.now()-(rec.fedAt||0)) < 120000; }   // fed within the last 2 min keeps it productive
+function productReady(rec){ var a=ANIMALS[rec.kind]; return !!(a && animalStage(rec)==='adult' && isFed(rec) && (Date.now()-(rec.lastYield||rec.bornAt) >= a.yieldDur)); }
+function drawAnimal(sx,sy,rec,wild){ var a=ANIMALS[rec.kind]||ANIMALS.sheep, stg=animalStage(rec), sz=stg==='juvenile'?HEXR*0.32:HEXR*0.46; cx.save();
+  if(wild||stg==='old') cx.globalAlpha=0.7;
+  cx.fillStyle=a.col; cx.beginPath(); cx.arc(sx,sy,sz,0,7); cx.fill();
+  cx.fillStyle='#3a3a40'; cx.beginPath(); cx.arc(sx+sz*0.65,sy-sz*0.15,sz*0.32,0,7); cx.fill();   // head
+  cx.globalAlpha=1;
+  if(!wild && productReady(rec)){ cx.fillStyle='#fff3b0'; cx.font='bold 12px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('\u2727', sx, sy-sz-3); }   // product-ready sparkle
+  cx.restore(); }
+function tameAt(q,r){ var w=animalAt(q,r); if(!w || (INV.grain||0)<=0) return false; var ph=pxToHx(pwx,pwy); if(hexDist(ph.q,ph.r,q,r)>1) return false;
+  INV.grain-=1; if(INV.grain<=0) delete INV.grain; invSave(); var now=Date.now(); tamed[plotKey(q,r)]={kind:w.kind, bornAt:now, fedAt:now, lastYield:now, lastBred:now}; animalSave(); renderInv();
+  _hfx={wx:hxToPx(q,r).x,wy:hxToPx(q,r).y,txt:'tamed '+(ANIMALS[w.kind]?ANIMALS[w.kind].name:w.kind),until:Date.now()+900}; return true; }
+function feedAnimal(q,r){ var k=plotKey(q,r), rec=tamed[k]; if(!rec) return false; var ph=pxToHx(pwx,pwy); if(hexDist(ph.q,ph.r,q,r)>1) return false;
+  var food=(INV.grain>0)?'grain':((INV.gourd>0)?'gourd':null); if(!food) return false; INV[food]-=1; if(INV[food]<=0) delete INV[food]; invSave(); rec.fedAt=Date.now(); animalSave(); renderInv();
+  _hfx={wx:hxToPx(q,r).x,wy:hxToPx(q,r).y,txt:'fed',until:Date.now()+700}; return true; }
+function collectProduct(q,r){ var k=plotKey(q,r), rec=tamed[k]; if(!rec || !productReady(rec)) return false; var ph=pxToHx(pwx,pwy); if(hexDist(ph.q,ph.r,q,r)>1) return false;
+  var a=ANIMALS[rec.kind]; rec.lastYield=Date.now(); animalSave(); grantResource(a.yield, a.amt); grantXP(2,'animal');
+  _hfx={wx:hxToPx(q,r).x,wy:hxToPx(q,r).y,txt:'+'+a.amt+' '+a.yield,until:Date.now()+900}; return true; }
+var _animTick=0;
+function breedTick(){ if(DEPTH!==0) return; var now=Date.now(), k, made=false;   // animals breed on the surface only (grass-bound)
+  for(k in tamed){ var rec=tamed[k], a=ANIMALS[rec.kind]; if(!a) continue;
+    if(animalStage(rec)==='adult' && isFed(rec) && (now-(rec.lastBred||rec.bornAt))>=a.breedDur){
+      var qr=k.split(','), pq=+qr[0], pr=+qr[1];
+      for(var i=0;i<_NB6.length;i++){ var nq=pq+_NB6[i][0], nr=pr+_NB6[i][1], nk=plotKey(nq,nr), tt=tileAtHex(nq,nr);
+        if(tt.terrain==='grass' && tt.passable && !tt.plot && !builds[nk] && !farms[nk] && !tamed[nk] && !nodeAt(nq,nr)){
+          tamed[nk]={kind:rec.kind, bornAt:now, fedAt:now, lastYield:now, lastBred:now}; rec.lastBred=now; made=true; break; } } } }
+  if(made) animalSave(); }
 /* ── P4 · 4c: Town Center keystone — ONE per realm; once BUILT it unlocks station-gated tier-2 recipes
    (canCraft/craftItem gate on hasTownCenter) and provides a STORE stash (deposit/withdraw at the town
    center). placeBuild() is the single guarded placement chokepoint enforcing one-town-center-per-realm. ── */
@@ -2284,7 +2331,7 @@ function drawWalk(ts){
   cx.clearRect(0,0,W,H); cx.fillStyle='#04060d'; cx.fillRect(0,0,W,H);
   var c1=pxToHx(wcamx-W/2,wcamy-H/2),c2=pxToHx(wcamx+W/2,wcamy-H/2),c3=pxToHx(wcamx-W/2,wcamy+H/2),c4=pxToHx(wcamx+W/2,wcamy+H/2);
   var qlo=Math.min(c1.q,c2.q,c3.q,c4.q)-1,qhi=Math.max(c1.q,c2.q,c3.q,c4.q)+1,rlo=Math.min(c1.r,c2.r,c3.r,c4.r)-1,rhi=Math.max(c1.r,c2.r,c3.r,c4.r)+1,q,r,i;
-  for(r=rlo;r<=rhi;r++)for(q=qlo;q<=qhi;q++){ var p=hxToPx(q,r),sx=p.x-wcamx+W/2,sy=p.y-wcamy+H/2; if(sx<-HEXR*2||sx>W+HEXR*2||sy<-HEXR*2||sy>H+HEXR*2) continue; var t=tileAtHex(q,r); fillHx(sx,sy,TCOLW[t.terrain]); if(t.terrain==='grass'){ fillHx(sx,sy,'rgba(255,255,255,'+(0.04+(t.e-0.37)*0.10).toFixed(3)+')'); } if(t.terrain==='tree'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle='#16320f'; cx.beginPath(); cx.arc(sx,sy,HEXR*0.5,0,7); cx.fill(); } if(t.terrain==='rock'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle=TCOLW.rock; cx.beginPath(); cx.arc(sx,sy,HEXR*0.52,0,7); cx.fill(); } if(t.shaft){ cx.fillStyle='#9be0ff'; cx.font='bold '+((HEXR)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('\u25b2', sx, sy+HEXR*0.34); } var _bk=plotKey(q,r); if(builds[_bk]){ drawBuildOnHex(sx,sy,builds[_bk]); } else { if(t.plot){ cx.save(); cx.setLineDash([4,4]); cx.strokeStyle='rgba(240,245,210,0.85)'; cx.lineWidth=2; var plc=hxCorners(sx,sy); cx.beginPath(); cx.moveTo(plc[0][0],plc[0][1]); for(i=1;i<6;i++) cx.lineTo(plc[i][0],plc[i][1]); cx.closePath(); cx.stroke(); cx.setLineDash([]); cx.fillStyle='rgba(240,245,210,0.92)'; cx.font='bold '+((HEXR*0.8)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('+', sx, sy+HEXR*0.28); cx.restore(); } var _nd=nodeAt(q,r); if(_nd){ if(isDepleted(q,r)) drawRegrow(sx,sy,regrowProg(q,r)); else drawNode(sx,sy,_nd.kind); } else if(farms[_bk]){ drawCrop(sx,sy,farms[_bk]); } }
+  for(r=rlo;r<=rhi;r++)for(q=qlo;q<=qhi;q++){ var p=hxToPx(q,r),sx=p.x-wcamx+W/2,sy=p.y-wcamy+H/2; if(sx<-HEXR*2||sx>W+HEXR*2||sy<-HEXR*2||sy>H+HEXR*2) continue; var t=tileAtHex(q,r); fillHx(sx,sy,TCOLW[t.terrain]); if(t.terrain==='grass'){ fillHx(sx,sy,'rgba(255,255,255,'+(0.04+(t.e-0.37)*0.10).toFixed(3)+')'); } if(t.terrain==='tree'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle='#16320f'; cx.beginPath(); cx.arc(sx,sy,HEXR*0.5,0,7); cx.fill(); } if(t.terrain==='rock'){ fillHx(sx,sy,'#3f7a3a'); cx.fillStyle=TCOLW.rock; cx.beginPath(); cx.arc(sx,sy,HEXR*0.52,0,7); cx.fill(); } if(t.shaft){ cx.fillStyle='#9be0ff'; cx.font='bold '+((HEXR)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('\u25b2', sx, sy+HEXR*0.34); } var _bk=plotKey(q,r); if(builds[_bk]){ drawBuildOnHex(sx,sy,builds[_bk]); } else { if(t.plot){ cx.save(); cx.setLineDash([4,4]); cx.strokeStyle='rgba(240,245,210,0.85)'; cx.lineWidth=2; var plc=hxCorners(sx,sy); cx.beginPath(); cx.moveTo(plc[0][0],plc[0][1]); for(i=1;i<6;i++) cx.lineTo(plc[i][0],plc[i][1]); cx.closePath(); cx.stroke(); cx.setLineDash([]); cx.fillStyle='rgba(240,245,210,0.92)'; cx.font='bold '+((HEXR*0.8)|0)+'px ui-monospace,monospace'; cx.textAlign='center'; cx.fillText('+', sx, sy+HEXR*0.28); cx.restore(); } var _nd=nodeAt(q,r); if(_nd){ if(isDepleted(q,r)) drawRegrow(sx,sy,regrowProg(q,r)); else drawNode(sx,sy,_nd.kind); } else if(farms[_bk]){ drawCrop(sx,sy,farms[_bk]); } else if(tamed[_bk]){ drawAnimal(sx,sy,tamed[_bk]); } else { var _wa=animalAt(q,r); if(_wa) drawAnimal(sx,sy,{kind:_wa.kind, bornAt:Date.now()-ANIMALS[_wa.kind].matureDur-1}, true); } }
     var pc=hxCorners(sx,sy); cx.strokeStyle='rgba(0,0,0,0.18)'; cx.lineWidth=1; cx.beginPath(); cx.moveTo(pc[0][0],pc[0][1]); for(i=1;i<6;i++) cx.lineTo(pc[i][0],pc[i][1]); cx.closePath(); cx.stroke(); }
   drawRemoteBuilds();   // 4d: faint cosmetic remote structures (never block your world)
   if(_placeMode && _placePending){ var gp=hxToPx(_placePending.q,_placePending.r); drawGhost(gp.x-wcamx+W/2, gp.y-wcamy+H/2, _placeBp, canPlace(_placePending.q,_placePending.r)); }   // 4b ghost preview
