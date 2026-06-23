@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>The Village · xclusivexo.com</title>
+<title>The Realm · xclusivexo.com</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="An ambient pixel village — little critters share aspirational quotes, live headlines, and on-this-day facts. A small interactive corner of xclusivexo.com.">
 <meta name="theme-color" content="#04060d">
@@ -204,7 +204,7 @@ window.__deferredInstall=null; addEventListener("beforeinstallprompt",function(e
 <div id="stage"><div id="tag"></div></div>
 <a id="backlink" href="https://xclusivexo.com/">&#8592; xclusivexo.com</a>
 <a id="makeown" href="/create/">&#10022; make your own</a>
-<a id="crosslink" href="/realm/" style="position:fixed;top:50px;left:14px;z-index:9999;font:12.5px 'SF Mono',ui-monospace,Menlo,monospace;color:#5ad4ff;text-shadow:0 0 8px rgba(86,206,255,.5);border:1px solid rgba(86,206,255,.4);border-radius:8px;padding:7px 12px;background:rgba(6,16,30,.7);text-decoration:none;cursor:pointer">&#9876;&#65039; the Realm</a>
+<a id="crosslink" href="/village/" style="position:fixed;top:50px;left:14px;z-index:9999;font:12.5px 'SF Mono',ui-monospace,Menlo,monospace;color:#5ad4ff;text-shadow:0 0 8px rgba(86,206,255,.5);border:1px solid rgba(86,206,255,.4);border-radius:8px;padding:7px 12px;background:rgba(6,16,30,.7);text-decoration:none;cursor:pointer">&#8962; the Village</a>
 <button id="sound" type="button">&#9834; sound off</button>
 <div id="dock">
   <button id="walkL" class="dockbtn walk" type="button" aria-label="walk left"><span>&#9664;</span></button>
@@ -1655,7 +1655,7 @@ function drawCelebration(ts){
    player in localStorage. Single-player draw-only for now; loadable-areas + multiplayer wire are
    the next steps. Mode-swaps via OVERWORLD (mirrors the INSIDE building swap). Reuses base mix()
    + mulberry32() + the shared canvas (cx/W/H). ── */
-var GAME_ENABLED = false;   /* the Realm (game) vs the Village (social) build flag — gates the overworld/walkable game */
+var GAME_ENABLED = true;   /* the Realm (game) vs the Village (social) build flag — gates the overworld/walkable game */
 var OVERWORLD = false;
 var OW_SEED = 0x7ec5a17, OW_TILE = 32, OW_CHUNK = 16, OW_CELL = 76;   // LOCKED: TILE=32, CHUNK=16x16; map cell = 76px
 function owRng(cx2,cy2){ return mulberry32((OW_SEED ^ (cx2*73856093) ^ (cy2*19349663))>>>0); }
