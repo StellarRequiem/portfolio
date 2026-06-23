@@ -1670,7 +1670,7 @@ var OW_FOG='xclvxo_fog', owExplored={}; try{ owExplored=JSON.parse(localStorage.
 function owSaveFog(){ try{ localStorage.setItem(OW_FOG, JSON.stringify(owExplored)); }catch(e){} }
 function owClampCam(){ var vw=W/owZoom, vh=H/owZoom; owCam.x=Math.max(-vw*0.5, Math.min(OW_WW-vw*0.5, owCam.x)); owCam.y=Math.max(-vh*0.5, Math.min(OW_WH-vh*0.5, owCam.y)); }
 function owBar(){ var b=document.getElementById('owbar'); if(!b){ b=document.createElement('div'); b.id='owbar'; b.style.cssText='position:fixed;top:46px;left:50%;transform:translateX(-50%);z-index:9999;font:12px ui-monospace,monospace;color:#9be0ff;text-shadow:0 0 8px rgba(0,0,0,.85);pointer-events:none;display:none;white-space:nowrap;'; (stage.parentNode||document.body).appendChild(b); } return b; }
-addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ if(_storeOpen){ closeStorage(); } else if(_craftOpen){ closeCraft(); } else if(_placeMode){ togglePlace(); } else if(_buildMenuOpen){ closeBuildMenu(); } else if(owWalk){ exitWalk(); } else { exitOverworld(); } } else if(k==='e'){ if(owWalk){ harvestNearest(); e.preventDefault(); } } else if(k==='c'){ if(owWalk){ toggleCraft(); e.preventDefault(); } } else if(k==='b'){ if(owWalk){ togglePlace(); e.preventDefault(); } } }, true);
+addEventListener('keydown', function(e){ if(!OVERWORLD) return; var k=(e.key||'').toLowerCase(); if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){ owKeys[k]=true; e.preventDefault(); } else if(k==='escape'){ if(_charOpen){ closeChar(); } else if(_storeOpen){ closeStorage(); } else if(_craftOpen){ closeCraft(); } else if(_placeMode){ togglePlace(); } else if(_buildMenuOpen){ closeBuildMenu(); } else if(owWalk){ exitWalk(); } else { exitOverworld(); } } else if(k==='e'){ if(owWalk){ harvestNearest(); e.preventDefault(); } } else if(k==='c'){ if(owWalk){ toggleCraft(); e.preventDefault(); } } else if(k==='b'){ if(owWalk){ togglePlace(); e.preventDefault(); } } else if(k==='v'){ if(owWalk){ toggleChar(); e.preventDefault(); } } }, true);
 addEventListener('keyup', function(e){ var k=(e.key||'').toLowerCase(); if(owKeys[k]) owKeys[k]=false; });
 function enterOverworld(){ if(!GAME_ENABLED||OVERWORLD) return; OVERWORLD=true; if(typeof closeToys==='function') closeToys(); var eh=document.getElementById('enterhint'); if(eh) eh.style.display='none'; var lv=document.getElementById('live'); if(lv) lv.style.display='none'; if(typeof stage!=='undefined'&&stage) stage.classList.add('overworld'); if(!_owStarted){ owCam.x=owX-(W/2)/owZoom; owCam.y=owY-(H/2)/owZoom; owClampCam(); _owStarted=true; } var mb=document.getElementById('mapBtn'); if(mb) mb.classList.add('on'); owBar().style.display='block'; }
 function exitOverworld(){ if(!OVERWORLD) return; OVERWORLD=false; owSaveFog(); var lv=document.getElementById('live'); if(lv) lv.style.display=''; if(typeof stage!=='undefined'&&stage) stage.classList.remove('overworld'); var mb=document.getElementById('mapBtn'); if(mb) mb.classList.remove('on'); var ob=document.getElementById('owbar'); if(ob) ob.style.display='none'; }
@@ -1762,8 +1762,8 @@ function hearthAt(q,r){ if(Math.floor(q/OW_CHUNK)!==HEARTH_CQ||Math.floor(r/OW_C
   return {terrain:d.t, passable:d.p, plot:!!d.plot, e:0.55, hearth:true}; }
 function tileAtHex(q,r){ var hh=hearthAt(q,r); if(hh) return hh; var p=hxToPx(q,r), e=hxNoise(p.x/(HEXR*9),p.y/(HEXR*9))*0.62 + hxNoise((p.x+9000)/(HEXR*3.3),(p.y-9000)/(HEXR*3.3))*0.38; var terr,pass=true; if(e<0.30){terr='water';pass=false;} else if(e<0.37){terr='sand';} else if(e<0.73){terr='grass';} else if(e<0.84){terr='tree';pass=false;} else {terr='rock';pass=false;} return {terrain:terr,passable:pass,e:e}; }
 function owZoneOfHex(q,r){ return owCellAt(Math.floor(q/OW_CHUNK),Math.floor(r/OW_CHUNK)).zone; }
-function enterWalk(q,r){ if(owWalk) return; if(q==null){ q=((owX/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); r=((owY/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); } var p=hxToPx(q,r); pwx=p.x; pwy=p.y; wcamx=pwx; wcamy=pwy; owWalk=true; owBar().style.display='block'; renderInv(); ensureCraftBtn(); ensurePlaceBtn(); }
-function exitWalk(){ if(!owWalk) return; owWalk=false; var ip=document.getElementById('invPanel'); if(ip) ip.style.display='none'; var cb=document.getElementById('craftBtn'); if(cb) cb.style.display='none'; closeCraft(); closeStorage(); _placeMode=false; _placePending=null; closePlacePicker(); var pb=document.getElementById('placeBtn'); if(pb) pb.style.display='none'; }
+function enterWalk(q,r){ if(owWalk) return; if(q==null){ q=((owX/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); r=((owY/OW_CELL)|0)*OW_CHUNK+(OW_CHUNK>>1); } var p=hxToPx(q,r); pwx=p.x; pwy=p.y; wcamx=pwx; wcamy=pwy; owWalk=true; owBar().style.display='block'; renderInv(); ensureCraftBtn(); ensurePlaceBtn(); ensureCharBtn(); }
+function exitWalk(){ if(!owWalk) return; owWalk=false; var ip=document.getElementById('invPanel'); if(ip) ip.style.display='none'; var cb=document.getElementById('craftBtn'); if(cb) cb.style.display='none'; closeCraft(); closeStorage(); closeChar(); _placeMode=false; _placePending=null; closePlacePicker(); var pb=document.getElementById('placeBtn'); if(pb) pb.style.display='none'; var hb=document.getElementById('charBtn'); if(hb) hb.style.display='none'; }
 function hxCorners(cxp,cyp){ var a=[],i; for(i=0;i<6;i++){ var an=Math.PI/180*(60*i-30); a.push([cxp+HEXR*Math.cos(an),cyp+HEXR*Math.sin(an)]); } return a; }
 function fillHx(cxp,cyp,fill){ var p=hxCorners(cxp,cyp),i; cx.beginPath(); cx.moveTo(p[0][0],p[0][1]); for(i=1;i<6;i++) cx.lineTo(p[i][0],p[i][1]); cx.closePath(); cx.fillStyle=fill; cx.fill(); }
 /* ── ZB2: watchable TIMED construction on the curated plots (ported from build_proto.html). Tap a
@@ -1865,7 +1865,7 @@ function deplSave(){ try{ localStorage.setItem('realm_depleted_v1', JSON.stringi
    reload, no server. isDepleted prunes the entry in-memory on regrow (persists on the next deplSave). ── */
 var RESPAWN={ berries:20000, fiber:30000, water:45000, wood:60000, stone:90000 };   // per-kind regen (ms)
 function isDepleted(q,r){ var key=plotKey(q,r), t0=_depleted[key]; if(!t0) return false;
-  var n=nodeAt(q,r), dur=RESPAWN[n?n.kind:'']||30000;
+  var n=nodeAt(q,r), dur=(RESPAWN[n?n.kind:'']||30000)*(hasFeat('naturalist')?0.5:1);   // 5a: Naturalist halves regrow
   if(Date.now()-t0 >= dur){ delete _depleted[key]; return false; }                  // regrown -> prune in-memory
   return true; }
 function regrowProg(q,r){ var t0=_depleted[plotKey(q,r)]; if(!t0) return 1; var n=nodeAt(q,r); return Math.min(1,(Date.now()-t0)/(RESPAWN[n?n.kind:'']||30000)); }
@@ -1879,7 +1879,8 @@ function tryHarvest(q,r){ var key=plotKey(q,r), n=nodeAt(q,r);
   var ph=pxToHx(pwx,pwy); if(hexDist(ph.q,ph.r,q,r)>1) return false;        // must be ON or ADJACENT — else let the tap become a move
   var tk=toolFor(n.kind), qty=1;
   if(tk && TOOLS[tk] && TOOLS[tk].dur>0){ qty=2; TOOLS[tk].dur--; if(TOOLS[tk].dur<=0) delete TOOLS[tk]; toolsSave(); }   // a matching tool doubles yield + wears down
-  _depleted[key]=Date.now(); deplSave(); grantResource(n.kind,qty);
+  if(hasFeat('forager')) qty+=1; qty += Math.floor((CHAR.attrs.vigor||0)/3);   // 5a: Forager feat + vigor attribute add yield
+  _depleted[key]=Date.now(); deplSave(); grantResource(n.kind,qty); grantXP(2,'harvest');
   _hfx={ wx:hxToPx(q,r).x, wy:hxToPx(q,r).y, txt:'+'+qty+' '+n.kind, until:Date.now()+900 }; return true; }
 function harvestNearest(){ var ph=pxToHx(pwx,pwy), C=[[0,0]].concat(_NB6), i;   // self + 6 neighbors (desktop "E" convenience)
   for(i=0;i<C.length;i++){ if(tryHarvest(ph.q+C[i][0], ph.r+C[i][1])) return true; } return false; }
@@ -1919,8 +1920,8 @@ function spendResource(cost){ for(var k in cost){ if((INV[k]||0)<cost[k]) return
 function craftItem(id){ var r=recipeById(id); if(!r) return false;
   if(r.station==='towncenter' && !hasTownCenter()) return false;           // station-gated: needs a BUILT town center
   if(!spendResource(r.cost)) return false;                                 // re-check affordability + deduct (the only craft consumer)
-  if(r.kind==='tool'){ TOOLS[r.out]={dur:r.dur,max:r.dur}; toolsSave(); } else { INV[r.out]=(INV[r.out]||0)+1; }
-  invSave(); renderInv(); renderCraft(); return true; }
+  if(r.kind==='tool'){ var md=r.dur+(hasFeat('toolwright')?12:0)+(CHAR.attrs.craft||0)*2; TOOLS[r.out]={dur:md,max:md}; toolsSave(); } else { INV[r.out]=(INV[r.out]||0)+1; }   // 5a: Toolwright feat + craft attribute raise tool durability
+  invSave(); renderInv(); renderCraft(); grantXP(5,'craft'); return true; }
 var _craftOpen=false;
 function renderCraft(){ var rows=document.getElementById('craftRows'); if(!rows) return;
   rows.innerHTML=RECIPES.map(function(r){ var cost=Object.keys(r.cost).map(function(k){ return r.cost[k]+' '+k; }).join(' + ');
@@ -1979,7 +1980,7 @@ function togglePlace(){ if(_placeMode){ _placeMode=false; _placePending=null; cl
    center). placeBuild() is the single guarded placement chokepoint enforcing one-town-center-per-realm. ── */
 function townCenterPlaced(){ for(var k in builds){ if(builds[k].bid==='towncenter') return true; } return false; }
 function hasTownCenter(){ for(var k in builds){ var b=builds[k]; if(b.bid==='towncenter' && buildStage(b)>=BUILD_STEPS) return true; } return false; }   // a COMPLETED town center
-function placeBuild(key, bid){ if(builds[key]) return false; if(bid==='towncenter' && townCenterPlaced()) return false; builds[key]={bid:bid, t0:Date.now()}; buildSave(); return true; }
+function placeBuild(key, bid){ if(builds[key]) return false; if(bid==='towncenter' && townCenterPlaced()) return false; builds[key]={bid:bid, t0:Date.now()}; buildSave(); grantXP(8,'build'); return true; }
 var STORE={}; try{ STORE=JSON.parse(localStorage.getItem('realm_store_v1')||'{}')||{}; }catch(e){}
 function storeSave(){ try{ localStorage.setItem('realm_store_v1', JSON.stringify(STORE)); }catch(e){} }
 var _storeOpen=false;
@@ -2011,6 +2012,47 @@ function drawRemoteBuild(sx,sy,bid){ var b=PLOT_BUILDINGS[bid]||PLOT_BUILDINGS.h
 function drawRemoteBuilds(){ var i; for(i=0;i<REMOTE_BUILDS.length;i++){ var rb=REMOTE_BUILDS[i]; if(!rb || builds[plotKey(rb.q,rb.r)]) continue;   // local builds take precedence
     var p=hxToPx(rb.q,rb.r), sx=p.x-wcamx+W/2, sy=p.y-wcamy+H/2; if(sx<-HEXR*2||sx>W+HEXR*2||sy<-HEXR*2||sy>H+HEXR*2) continue; drawRemoteBuild(sx,sy,rb.bid); } }
 setRemoteBuilds([{q:61,r:21,bid:'hut'},{q:51,r:27,bid:'workshop'},{q:60,r:28,bid:'hall'}]);   // DEMO seed (distant neighbors) — replaced by the server feed at P11
+/* ── P5 · 5a: RPG substrate (classless). CHAR={xp,level,ap,fp,attrs,feats}. grantXP() is the SINGLE xp
+   mutator (focus boosts gain; level-up to cap 20 awards +1 attribute pt + +1 feat pt). Attributes give
+   light passive effects (vigor=+yield, focus=+xp, craft=+tool durability); FEATS are generic perks.
+   Character sheet = "char" btn / V key (walk-mode only). All persisted in realm_char_v1. ── */
+var ATTRS=['vigor','focus','craft'];
+var FEATS=[ {id:'forager', name:'Forager', desc:'+1 harvest yield'}, {id:'toolwright', name:'Toolwright', desc:'tools start with +12 durability'}, {id:'naturalist', name:'Naturalist', desc:'resources regrow 2x faster'} ];
+var CHAR={ xp:0, level:1, ap:0, fp:0, attrs:{vigor:0,focus:0,craft:0}, feats:[] };
+try{ var _c=JSON.parse(localStorage.getItem('realm_char_v1')||'null'); if(_c){ CHAR.xp=_c.xp||0; CHAR.level=_c.level||1; CHAR.ap=_c.ap||0; CHAR.fp=_c.fp||0; CHAR.attrs=_c.attrs||CHAR.attrs; CHAR.feats=_c.feats||[]; } }catch(e){}
+function charSave(){ try{ localStorage.setItem('realm_char_v1', JSON.stringify(CHAR)); }catch(e){} }
+function hasFeat(f){ return CHAR.feats.indexOf(f)>=0; }
+function xpNeed(lv){ return Math.floor(20*Math.pow(lv,1.5)); }   // xp to go lv -> lv+1
+function grantXP(amount, source){ if(amount<=0) return; if(CHAR.level>=20){ CHAR.xp=0; charSave(); return; }   // the ONLY xp mutator
+  var amt=Math.max(1, Math.round(amount*(1+(CHAR.attrs.focus||0)*0.1))), lv=false;   // focus boosts xp gain
+  CHAR.xp+=amt; while(CHAR.level<20 && CHAR.xp>=xpNeed(CHAR.level)){ CHAR.xp-=xpNeed(CHAR.level); CHAR.level++; CHAR.ap++; CHAR.fp++; lv=true; }
+  if(CHAR.level>=20) CHAR.xp=0; charSave(); renderChar();
+  if(lv){ _hfx={ wx:pwx, wy:pwy-HEXR, txt:'Level '+CHAR.level+'!', until:Date.now()+1400 }; } }
+function spendAttr(a){ if(CHAR.ap<=0 || ATTRS.indexOf(a)<0 || (CHAR.attrs[a]||0)>=10) return false; CHAR.attrs[a]=(CHAR.attrs[a]||0)+1; CHAR.ap--; charSave(); renderChar(); renderInv(); return true; }
+function pickFeat(id){ if(CHAR.fp<=0 || hasFeat(id)) return false; var ok=false,i; for(i=0;i<FEATS.length;i++) if(FEATS[i].id===id) ok=true; if(!ok) return false; CHAR.feats.push(id); CHAR.fp--; charSave(); renderChar(); return true; }
+var _charOpen=false;
+function renderChar(){ var c=document.getElementById('charCard'); if(!c) return;
+  var need=xpNeed(CHAR.level), pct=CHAR.level>=20?100:Math.min(100,Math.round(CHAR.xp/need*100));
+  var attrHtml=ATTRS.map(function(a){ var maxed=(CHAR.attrs[a]||0)>=10, can=(CHAR.ap>0 && !maxed); return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:3px 0"><span>'+a+' <b>'+(CHAR.attrs[a]||0)+'</b></span><button data-a="'+a+'" '+(can?'':'disabled ')+'style="background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;border-radius:8px;padding:3px 11px;min-height:30px;cursor:pointer;font:13px ui-monospace,monospace;opacity:'+(can?'1':'0.4')+'">+</button></div>'; }).join('');
+  var featHtml=FEATS.map(function(f){ var owned=hasFeat(f.id); return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:5px;margin-top:5px"><span><b>'+f.name+'</b> <span style="color:#8a9">'+f.desc+'</span></span>'+(owned?'<span style="color:#7bd86b">\u2713</span>':'<button data-f="'+f.id+'" '+(CHAR.fp>0?'':'disabled ')+'style="background:rgba(40,52,28,.95);border:1px solid rgba(180,200,120,.55);color:#eef2dd;border-radius:8px;padding:4px 11px;min-height:30px;cursor:pointer;font:12px ui-monospace,monospace;opacity:'+(CHAR.fp>0?'1':'0.4')+'">pick</button>')+'</div>'; }).join('');
+  c.querySelector('#charBody').innerHTML='<div style="margin-bottom:6px">Level <b>'+CHAR.level+'</b>'+(CHAR.level>=20?' (max)':'')+'  \u00b7  AP <b>'+CHAR.ap+'</b> \u00b7 FP <b>'+CHAR.fp+'</b></div><div style="height:8px;background:rgba(0,0,0,.45);border-radius:5px;overflow:hidden;margin-bottom:10px"><div style="height:100%;width:'+pct+'%;background:#9bd86b"></div></div><label style="color:#8a9;font-size:10px;text-transform:uppercase;letter-spacing:.08em">Attributes</label>'+attrHtml+'<label style="color:#8a9;font-size:10px;text-transform:uppercase;letter-spacing:.08em;display:block;margin-top:8px">Feats</label>'+featHtml;
+  Array.prototype.forEach.call(c.querySelectorAll('[data-a]'), function(b){ b.onclick=function(e){ e.stopPropagation(); spendAttr(b.getAttribute('data-a')); }; });
+  Array.prototype.forEach.call(c.querySelectorAll('[data-f]'), function(b){ b.onclick=function(e){ e.stopPropagation(); pickFeat(b.getAttribute('data-f')); }; }); }
+function openChar(){ var c=document.getElementById('charCard');
+  if(!c){ c=document.createElement('div'); c.id='charCard';
+    c.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10003;width:320px;max-width:calc(100vw - 24px);max-height:84vh;overflow-y:auto;box-sizing:border-box;background:var(--panel-bg);border:1px solid rgba(123,216,107,.5);border-radius:14px;padding:16px;font:12px ui-monospace,monospace;color:#c8d8e8;';
+    c.addEventListener('click',function(e){ e.stopPropagation(); });
+    c.innerHTML='<h3 style="margin:0 0 8px;color:#7bd86b;font:600 16px ui-monospace,monospace">Character<span id="charX" style="float:right;cursor:pointer;color:#8aa;padding:4px 8px;margin:-4px -6px 0 0">\u00d7</span></h3><div id="charBody"></div>';
+    (stage.parentNode||document.body).appendChild(c);
+    c.querySelector('#charX').addEventListener('click',function(e){ e.stopPropagation(); closeChar(); }); }
+  c.style.display='block'; _charOpen=true; renderChar(); }
+function closeChar(){ _charOpen=false; var c=document.getElementById('charCard'); if(c) c.style.display='none'; }
+function toggleChar(){ if(_charOpen) closeChar(); else openChar(); }
+function ensureCharBtn(){ var b=document.getElementById('charBtn');
+  if(!b){ b=document.createElement('button'); b.id='charBtn'; b.type='button'; b.textContent='\u2630 char';
+    b.style.cssText='position:fixed;left:8px;bottom:202px;z-index:56;background:rgba(20,26,16,.9);border:1px solid rgba(180,200,120,.5);color:#dfe7c4;font:12px ui-monospace,monospace;border-radius:10px;padding:8px 12px;min-height:40px;cursor:pointer;';
+    b.addEventListener('click',function(e){ e.stopPropagation(); toggleChar(); }); (stage.parentNode||document.body).appendChild(b); }
+  b.style.display=(GAME_ENABLED && OVERWORLD && owWalk)?'block':'none'; }
 /* ── 2c: the walk-mode player is the player's CHOSEN critter (recolored), not a placeholder dot.
    Recolor the chosen sprite once per spec (reusing recolor()/SPRITES/playerSpec from the social scene)
    into a cached Image for cheap canvas drawImage; fall back to the dot until it's ready / if none chosen. ── */
