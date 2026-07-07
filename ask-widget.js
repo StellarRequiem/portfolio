@@ -28,10 +28,10 @@
       a: "<b>The gate.</b> " + repo("verity-core") + " refuses a claim like “95% accuracy” until it clears statistical hygiene — sample size, out-of-sample, leakage, lift over base rate — then <em>proves</em> it: the claim ships a re-runnable command and the number must reproduce or CI fails. 17 domain packs · CI gate · MCP tool." },
     { id: "security", chip: "Tell me about the security research",
       keys: ["security", "research", "offensive", "pentest", "red team", "authorization", "scope", "disclosure", "vuln"],
-      a: "Offensive technique applied <b>under explicit authorization, with audit.</b> " + repo("scope-gate") + " is a deny-by-default authorization gate — test only what you're explicitly authorized to. Disclosure work targets deployed AI-infrastructure / MCP-profile systems with reproducible PoCs, novelty- and scope-checked before contact. Everything is append-only and hash-chained." },
+      a: "Offensive technique applied <b>under explicit authorization, with audit.</b> " + repo("scope-gate") + " is a deny-by-default authorization gate — test only what you're explicitly authorized to. Recent public evidence includes FastMCP merged fixes for versioned authorization checks and Streamable HTTP event replay isolation, cited as public upstream fixes rather than CVE/GHSA claims. Everything is tracked with claim cards, append-only journals, and verification receipts." },
     { id: "mcpbench", chip: "What did mcp-bench find?",
-      keys: ["mcp-bench", "mcpbench", "scanner", "sast", "benchmark security", "authz", "0/3"],
-      a: "Do MCP security scanners actually catch authorization-logic bugs? " + repo("mcp-bench") + " is an independent, reproducible benchmark seeded with real confirmed findings. Result: two mature SAST scanners catch the control bugs but <b>miss the authz-logic class — 0/3.</b> Scanners run only in a disposable CI runner." },
+      keys: ["mcp-bench", "mcpbench", "scanner", "sast", "benchmark security", "authz", "authorization logic", "0/11"],
+      a: "Do MCP security scanners actually catch authorization-logic bugs? " + repo("mcp-bench") + " is an independent, reproducible benchmark seeded with real confirmed findings. Current expanded corpus: 19 labeled cases, including 11 authz-logic cases across 10 root-cause classes, 2 control bugs, and 6 clean negatives. Result: mature SAST catches controls but misses the authz-logic class — <b>0/11</b>. Scanners run only in a disposable CI runner." },
     { id: "verifiable", chip: "How is your work verifiable?",
       keys: ["verifiable", "verify", "reproduce", "re-run", "rerun", "trust", "evidence", "how do i know"],
       a: "Not a portfolio of assertions — one you can re-run.<br>① <b>CI-green or it doesn't ship.</b><br>② <b>Runnable proofs</b> — the exact command to reproduce.<br>③ <b>A public, hash-chained calibration log</b> scored over time.<br>④ <b>Honest gaps, stated.</b> An unverifiable claim does not count." },
@@ -44,11 +44,14 @@
     { id: "scorecheck", chip: "What is scorecheck?",
       keys: ["scorecheck", "adjudicate", "cherry", "leaderboard", "reproduced", "receipt"],
       a: repo("scorecheck") + " adjudicates a published benchmark claim against its raw run-logs — <b>REPRODUCED / DID-NOT-REPRODUCE / CHERRY-PICKED</b> — sealed into a re-runnable receipt. It surfaces the dropped, flipped, and fabricated rows that re-run leaderboards miss. Survived a 3-lens adversarial pass." },
+    { id: "workflow", chip: "How does the workflow work?",
+      keys: ["workflow", "process", "bible", "journal", "claim cards", "false positive", "how you work", "rails"],
+      a: "The public workflow is scope → orient → map → draft → verify → ship → journal → review. It is intentionally copyable: public-safe context, no secrets, no private exploit steps, proof-carrying claims, false-positive diagnosis, and append-only receipts. Read the full breakdown at <a href=\"/workflow/\">/workflow/</a>." },
     { id: "contact", chip: "How can I get in touch?",
       keys: ["contact", "touch", "email", "hire", "reach", "available", "work with"],
       a: "Reach Alex at <a href=\"mailto:" + MAIL + "\">" + MAIL + "</a>, or <a href=\"https://github.com/StellarRequiem\" target=\"_blank\" rel=\"noopener\">github.com/StellarRequiem</a> · <a href=\"https://x.com/StellarRequiem\" target=\"_blank\" rel=\"noopener\">@StellarRequiem</a>. Available for verification, AI-eval, and security-audit work." },
   ];
-  var FALLBACK = "I can speak to the security research, <b>verity-core</b>, <b>mcp-bench</b>, the calibration log, <b>Verified AI Labor</b>, <b>scorecheck</b>, or how the work is verifiable — pick a chip below, or reach Alex directly at <a href=\"mailto:" + MAIL + "\">" + MAIL + "</a>.";
+  var FALLBACK = "I can speak to the security research, <b>verity-core</b>, <b>mcp-bench</b>, the workflow bible, the calibration log, <b>Verified AI Labor</b>, <b>scorecheck</b>, or how the work is verifiable — pick a chip below, or reach Alex directly at <a href=\"mailto:" + MAIL + "\">" + MAIL + "</a>.";
 
   // answer(query) — the single seam. Curated today; swap for a proxy fetch() to go live.
   function answer(query) {

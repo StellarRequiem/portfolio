@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Alex Price · StellarRequiem — Security Research & Verification</title>
-<meta name="description" content="Alex Price (StellarRequiem) — responsible security research and verification tooling for AI-era work. Verified work, or it doesn't ship.">
+<title>Alex Price · StellarRequiem — MCP Security, Verification & Workflow</title>
+<meta name="description" content="Alex Price (StellarRequiem) — MCP security research, verification tooling, and public-safe workflow systems. Verified work, or it doesn't ship.">
 <!-- PWA: installable calling card (Add to Home Screen on iPhone/iPad) -->
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#02060d">
@@ -135,24 +135,26 @@
   <span class="cnr" style="bottom:10px;left:10px;border-left:1.6px solid var(--line2);border-bottom:1.6px solid var(--line2)"></span>
   <span class="cnr" style="bottom:10px;right:10px;border-right:1.6px solid var(--line2);border-bottom:1.6px solid var(--line2)"></span>
   <div class="hero-inner">
-    <div class="kicker"><span class="reactor"><span class="ring"></span><span class="core"></span></span>StellarRequiem · Verification Infrastructure</div>
+    <div class="kicker"><span class="reactor"><span class="ring"></span><span class="core"></span></span>StellarRequiem · Security Research & Verification Infrastructure</div>
     <div class="wordmark"><span class="rune" aria-hidden="true">&#10689;</span><h1>Alex Price <span class="handle">/ StellarRequiem</span></h1></div>
     <div class="tagline">Verified work, or it doesn't ship.</div>
-    <p class="lede">I build <strong>verification tooling for AI-era work</strong>. As models and agents produce
-      more claims than anyone can check, the dangerous ones are the confident-sounding numbers nobody
-      verified. One rule runs through everything I ship: <strong>no belief without verification</strong> —
-      every result carries evidence a third party can re-run. The badge <span class="mint">is</span> the
-      claim; the honest <span class="amb">no</span> is part of the deliverable.</p>
+    <p class="lede">I build <strong>security and verification tooling for AI-era work</strong>: MCP authorization
+      research, scanner benchmarks, public-safe workflows, and proof-carrying claims. The dangerous
+      outputs are the confident-sounding numbers nobody verified. One rule runs through everything I
+      ship: <strong>no belief without verification</strong> — every result carries evidence a third party
+      can re-run. The badge <span class="mint">is</span> the claim; the honest <span class="amb">no</span>
+      is part of the deliverable.</p>
     <div class="contacts">
       <a href="mailto:alexanderprice91@yahoo.com">alexanderprice91@yahoo.com</a>
       <a href="https://github.com/StellarRequiem" target="_blank" rel="noopener">github.com/StellarRequiem</a>
       <a href="https://x.com/StellarRequiem" target="_blank" rel="noopener">@StellarRequiem</a>
+      <a href="/workflow/">workflow</a>
       <a href="/village/">the village &#10689;</a>
     </div>
     <div class="vitals">
-      <span>Public repos <b class="v-cy">29</b></span>
-      <span>CI <b class="v-mint">all-green</b></span>
-      <span>Calibration-log <b class="v-mint">live</b></span>
+      <span>FastMCP fixes <b class="v-mint">2 merged</b></span>
+      <span>MCP benchmark <b class="v-cy">0/11</b></span>
+      <span>Workflow <b class="v-mint">public</b></span>
       <span>Proof <b class="v-mint">re-runnable</b></span>
       <span>Honest gaps <b class="v-amb">stated</b></span>
     </div>
@@ -161,9 +163,9 @@
 
 <section><div class="wrap">
   <h2><span class="mk">&#10689;</span> Responsible Security Research</h2>
-  <p class="sublede">Offensive technique applied under explicit authorization, with audit. I treat
-    "am I allowed to test this?" and "can I prove what I did?" as first-class, enforced constraints —
-    not afterthoughts.</p>
+  <p class="sublede">Offensive technique applied under explicit authorization, with audit. Recent work
+    centers on MCP / AI-infrastructure boundary failures: versioned authorization checks, replay/session
+    isolation, and scanner blind spots around authorization logic.</p>
   <div class="grid">
     <div class="card feature">
       <div class="role"><span class="dot up"></span>Authorization framework · public</div>
@@ -172,41 +174,46 @@
         Ships with a responsible-research charter. The boundary that makes dual-use work safe.</p>
       <div class="badges"><span class="badge b-cy">Public</span><span class="badge b-dim">Deny-by-default</span></div>
     </div>
-    <div class="card">
-      <div class="role"><span class="dot warn"></span>Coordinated disclosure</div>
-      <h3>Vulnerability research</h3>
-      <p>Responsible coordinated-disclosure research across deployed AI-infrastructure / MCP-profile
-        targets. Findings verified locally with reproducible PoCs before contact; novelty- and
-        scope-checked.</p>
-      <div class="badges"><span class="badge b-amb">Disclosure — in progress</span></div>
+    <div class="card feature">
+      <div class="role"><span class="dot up"></span>Public upstream fixes</div>
+      <h3>FastMCP merged fixes</h3>
+      <p>Two security-relevant MCP boundary issues I identified were fixed upstream:
+        <a href="https://github.com/PrefectHQ/fastmcp/pull/4401" target="_blank" rel="noopener">versioned authorization checks</a>
+        and
+        <a href="https://github.com/PrefectHQ/fastmcp/pull/4402" target="_blank" rel="noopener">Streamable HTTP event replay isolation</a>.
+        Cited as public merged fixes, not CVE/GHSA claims.</p>
+      <div class="badges"><span class="badge b-mint">2 merged PRs</span><span class="badge b-cy">Regression coverage</span><span class="badge b-dim">No advisory claim</span></div>
     </div>
     <div class="card">
       <div class="role"><span class="dot up"></span>Discipline</div>
       <h3>Audit everything</h3>
-      <p>Append-only, hash-chained records of what was tested and found — the same evidence standard
-        that governs the rest of my work, applied to security engagements.</p>
-      <div class="badges"><span class="badge b-dim">Append-only</span><span class="badge b-dim">Hash-chained</span></div>
+      <p>Append-only run journals, claim cards, and hash-chain receipts keep the work grounded:
+        what changed, what is verified, what is only a lead, and what still needs an operator gate.</p>
+      <div class="badges"><span class="badge b-dim">Append-only</span><span class="badge b-dim">Claim cards</span><span class="badge b-dim">Hash-chained</span></div>
     </div>
     <div class="card">
       <div class="role"><span class="dot up"></span>Benchmark · public</div>
       <h3><a href="https://github.com/StellarRequiem/mcp-bench" target="_blank" rel="noopener">mcp-bench</a></h3>
       <p>Do MCP security scanners actually catch authorization-logic bugs? An independent, reproducible
-        benchmark seeded with real confirmed findings: two mature SASTs catch the control bugs but miss
-        the authz-logic class. Scanners run only in a disposable CI runner.</p>
-      <div class="badges"><span class="badge b-cy">Public</span><span class="badge b-mint">Reproducible</span><span class="badge b-red">authz-logic 0/3</span></div>
+        benchmark seeded with real confirmed findings: 19 labeled cases, including 11 authz-logic cases
+        across 10 root-cause classes, 2 control bugs, and 6 clean negatives. Scanners run only in a
+        disposable CI runner.</p>
+      <div class="badges"><span class="badge b-cy">Public</span><span class="badge b-mint">Reproducible</span><span class="badge b-red">authz-logic 0/11</span></div>
     </div>
   </div>
   <div style="margin-top:14px">
     <span class="pill">vulnerability research</span><span class="pill">PoC development</span>
     <span class="pill">authorization-gated testing</span><span class="pill">coordinated disclosure</span>
-    <span class="pill">MCP / AI-infra security</span><span class="pill">red-team tooling</span>
+    <span class="pill">MCP / AI-infra security</span><span class="pill">FastMCP public fixes</span>
+    <span class="pill">claim cards</span><span class="pill">red-team tooling</span>
   </div>
 </div></section>
 
 <section><div class="wrap">
   <h2><span class="mk">&#10689;</span> Verified AI Labor — the platform</h2>
   <p class="sublede">Can a company be run as agents? Only if you can trust what each agent says it
-    did — so I built the whole loop around one primitive: verification.</p>
+    did — so I built the loop around verification, scope gates, false-positive rails, and public-safe
+    workflow artifacts.</p>
   <div class="grid">
     <div class="card feature">
       <div class="role"><span class="dot up"></span>The gate</div>
@@ -263,30 +270,40 @@
         research agent that grounds its answers or abstains rather than fabricate.</p>
       <div class="badges"><span class="badge b-dim">Deterministic</span><span class="badge b-dim">Offline</span></div>
     </div>
+    <div class="card">
+      <div class="role"><span class="dot up"></span>Public operating manual</div>
+      <h3><a href="/workflow/">workflow bible</a></h3>
+      <p>A public-safe breakdown of the full loop: scope, orient, map, draft, verify, ship, journal,
+        and review. Copy the system without copying private targets, secrets, exploit steps, or live
+        infrastructure details.</p>
+      <div class="badges"><span class="badge b-cy">Public</span><span class="badge b-mint">Copyable</span><span class="badge b-dim">Safety rails</span></div>
+    </div>
   </div>
 </div></section>
 
 <section><div class="wrap">
   <h2><span class="mk">&#10689;</span> How my work is verifiable</h2>
   <p class="sublede">Not a portfolio of assertions — a portfolio you can re-run.</p>
-  <div class="principle"><div class="n">01</div><div><b>CI-green or it doesn't ship.</b> Public
-    repos run their own tests; where a repo has CI, the green badge is the claim.</div></div>
-  <div class="principle"><div class="n">02</div><div><b>Runnable proofs.</b> Results come with the
+  <div class="principle"><div class="n">01</div><div><b>Scope before action.</b> Security work starts
+    with explicit authorization, public-safe boundaries, and a clear operator gate.</div></div>
+  <div class="principle"><div class="n">02</div><div><b>Claim cards before headlines.</b> Public claims
+    get evidence, caveats, source links, and a disclosure-safety check.</div></div>
+  <div class="principle"><div class="n">03</div><div><b>Runnable proofs.</b> Results come with the
     exact command a third party executes to reproduce them.</div></div>
-  <div class="principle"><div class="n">03</div><div><b>A public calibration log.</b> Predictions are
+  <div class="principle"><div class="n">04</div><div><b>A public calibration log.</b> Predictions are
     hash-chained and scored over time — the honesty is auditable, not asserted.</div></div>
-  <div class="principle"><div class="n">04</div><div><b>Honest gaps, stated.</b> Every deliverable
+  <div class="principle"><div class="n">05</div><div><b>Honest gaps, stated.</b> Every deliverable
     names what it did <em>not</em> verify. An unverifiable claim does not count.</div></div>
 </div></section>
 
 <footer><div class="wrap">
-  Alex Price · <span class="mono">StellarRequiem</span> — available for verification / AI-eval /
-  security-audit work.<br>
+  Alex Price · <span class="mono">StellarRequiem</span> — available for MCP security research /
+  verification / AI-eval work.<br>
   <a href="mailto:alexanderprice91@yahoo.com">alexanderprice91@yahoo.com</a> ·
   <a href="https://github.com/StellarRequiem" target="_blank" rel="noopener">github.com/StellarRequiem</a> ·
   <a href="https://x.com/StellarRequiem" target="_blank" rel="noopener">@StellarRequiem</a>
   <div class="mono" style="margin-top:12px;font-size:12.5px">
-    <a href="/village/">village</a> · <a href="/create/">create a critter</a> · <a href="/room/">compose a room</a> · <a href="/forum/">forum</a> · <a href="/account/">account</a> · <a href="/feedback/">feedback</a> · <a href="/report/">report a bug</a> · <a href="/diagnostics/">diagnostics</a>
+    <a href="/workflow/">workflow</a> · <a href="/village/">village</a> · <a href="/create/">create a critter</a> · <a href="/room/">compose a room</a> · <a href="/forum/">forum</a> · <a href="/account/">account</a> · <a href="/feedback/">feedback</a> · <a href="/report/">report a bug</a> · <a href="/diagnostics/">diagnostics</a>
   </div>
   <div class="verifyline"><b>Every result ships with proof you can re-run.</b> · the honest no is part of the deliverable</div>
 </div></footer>
