@@ -46,6 +46,27 @@
   .step .n{font-family:var(--mono);font-size:11px;color:var(--mint);letter-spacing:.14em;text-transform:uppercase}
   .step h3{font-family:var(--mono);font-size:15px;font-weight:540;margin:8px 0 6px;color:#eaf6ff}
   .step p{font-size:14px;color:var(--dim);margin:0}
+  .flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:22px}
+  .flow-node{position:relative;border:1px solid var(--line);border-radius:8px;background:rgba(6,16,30,.82);padding:13px;min-height:116px}
+  .flow-node:after{content:"";position:absolute;top:50%;right:-10px;width:10px;border-top:1px solid rgba(86,206,255,.7)}
+  .flow-node:nth-child(4):after,.flow-node:nth-child(8):after{display:none}
+  .flow-node .tag{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mint)}
+  .flow-node b{display:block;margin:7px 0 4px;color:#eaf6ff;font-family:var(--mono);font-size:14px}
+  .flow-node span{display:block;color:var(--dim);font-size:13.5px}
+  .loopback{margin-top:12px;border:1px solid rgba(255,181,71,.45);border-radius:8px;background:rgba(39,28,10,.48);padding:13px 15px;color:#ffdca1}
+  .loopback b{color:var(--amber)}
+  .modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
+  .mode{border:1px solid var(--line);border-radius:8px;background:rgba(6,16,30,.82);padding:16px}
+  .mode h3{font-family:var(--mono);font-size:15px;margin:0 0 8px;color:#eaf6ff}
+  .mode p{margin:0;color:var(--dim);font-size:14.5px}
+  .mode.fast{border-color:rgba(61,240,187,.45)}
+  .mode.hard{border-color:rgba(255,181,71,.52)}
+  .mode.stop{border-color:rgba(255,93,108,.42)}
+  .walk{display:grid;gap:10px;margin-top:18px}
+  .walk-step{display:grid;grid-template-columns:92px 1fr;gap:14px;border:1px solid var(--hair);border-radius:8px;background:rgba(6,16,30,.56);padding:12px}
+  .walk-step .phase{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--cy)}
+  .walk-step div:last-child{color:var(--dim)}
+  .walk-step b{color:var(--tx)}
   .split{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .panel{border:1px solid var(--line);border-radius:8px;background:rgba(6,16,30,.82);padding:18px}
   .panel h3{font-family:var(--mono);font-size:15px;margin:0 0 8px;color:#eaf6ff}
@@ -70,8 +91,8 @@
   .copybox code{display:block;white-space:pre-wrap;color:#e9e6ff;font-family:var(--mono);font-size:13px;line-height:1.58}
   footer{padding:40px 0 64px;color:var(--dim);font-size:14px}
   footer .links{font-family:var(--mono);font-size:12.5px;margin-top:10px}
-  @media (max-width:900px){.map{grid-template-columns:repeat(2,minmax(0,1fr))}.split{grid-template-columns:1fr}.checklist{columns:1}}
-  @media (max-width:560px){.map{grid-template-columns:1fr}.hero{padding-top:34px}.wrap{padding:0 18px}.table{font-size:13px}.table th,.table td{padding:8px}}
+  @media (max-width:900px){.map,.flow,.modes{grid-template-columns:repeat(2,minmax(0,1fr))}.split{grid-template-columns:1fr}.checklist{columns:1}.flow-node:nth-child(2):after,.flow-node:nth-child(6):after{display:none}}
+  @media (max-width:560px){.map,.flow,.modes{grid-template-columns:1fr}.flow-node:after{display:none!important}.walk-step{grid-template-columns:1fr}.hero{padding-top:34px}.wrap{padding:0 18px}.table{font-size:13px}.table th,.table td{padding:8px}}
   @media (prefers-reduced-motion:reduce){#drift{display:none}}
 </style>
 </head>
@@ -96,7 +117,8 @@
     <p class="lede">This is the public-safe version of how I work: how an idea becomes a scoped target,
       then evidence, then a verified artifact, then a shipped or disclosed result. The point is not
       mystique. The point is that someone else should be able to copy the loop without copying any
-      private targets, credentials, exploit steps, or unreleased details.</p>
+      private targets, credentials, exploit steps, or unreleased details. It is a loop, not a religion:
+      light while exploring, strict when a claim leaves the room.</p>
     <div class="callout"><b>Operating thesis:</b> move fast, but never faster than the evidence. Every
       useful output gets a source, a check, a caveat, and a next gate.</div>
   </div>
@@ -105,9 +127,30 @@
 <main>
 <section>
   <div class="wrap">
+    <h2>The shape</h2>
+    <p class="sublede">The diagram is deliberately simple. Real work bounces backward whenever evidence
+      contradicts the plan. That bounce is not failure; it is the safety mechanism.</p>
+    <div class="flow" aria-label="Workflow diagram">
+      <div class="flow-node"><div class="tag">01</div><b>Scope</b><span>Allowed lane, red lines, operator gates.</span></div>
+      <div class="flow-node"><div class="tag">02</div><b>Orient</b><span>Current docs, source, tests, status.</span></div>
+      <div class="flow-node"><div class="tag">03</div><b>Map</b><span>Surfaces, risks, owners, next moves.</span></div>
+      <div class="flow-node"><div class="tag">04</div><b>Draft</b><span>Local artifact before public action.</span></div>
+      <div class="flow-node"><div class="tag">05</div><b>Verify</b><span>Try to break the claim.</span></div>
+      <div class="flow-node"><div class="tag">06</div><b>Ship</b><span>Only the approved external slice.</span></div>
+      <div class="flow-node"><div class="tag">07</div><b>Journal</b><span>Record signal, skip noise.</span></div>
+      <div class="flow-node"><div class="tag">08</div><b>Review</b><span>Turn mistakes into better rails.</span></div>
+    </div>
+    <div class="loopback"><b>Loopback rule:</b> failed verification jumps back to scope, map, or draft.
+      A stale claim becomes a lead. A missing gate becomes a decision. A surprise risk becomes a new
+      boundary.</div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
     <h2>The full loop</h2>
-    <p class="sublede">Each pass starts with scope and ends with a durable artifact. If something cannot
-      be verified, it gets downgraded instead of polished into a better-sounding story.</p>
+    <p class="sublede">Each pass tries to end with a durable artifact. If something cannot be verified,
+      it gets downgraded instead of polished into a better-sounding story.</p>
     <div class="map">
       <article class="step"><div class="n">01 scope</div><h3>Define the lane</h3><p>Write what is allowed, what is out of bounds, what the operator must decide, and what would make the run unsafe.</p></article>
       <article class="step"><div class="n">02 orient</div><h3>Read source first</h3><p>Use repo docs, boards, tests, CI, public metadata, and current git status before trusting memory or summaries.</p></article>
@@ -117,6 +160,31 @@
       <article class="step"><div class="n">06 ship</div><h3>Gate external change</h3><p>Only edit repos, publish pages, commit, push, deploy, or touch billing when that exact slice is approved.</p></article>
       <article class="step"><div class="n">07 journal</div><h3>Leave a trail</h3><p>Append concise run notes only when something meaningful changed. Idle runs stay quiet.</p></article>
       <article class="step"><div class="n">08 review</div><h3>Fold lessons back in</h3><p>Every false positive, stale metric, blocker, and good pattern becomes a better rail for the next run.</p></article>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Three operating modes</h2>
+    <p class="sublede">The system should not wear the same armor for every task. The strictness changes
+      with risk, audience, and whether the output can affect other people.</p>
+    <div class="modes">
+      <article class="mode fast">
+        <h3>Exploration</h3>
+        <p>Use lightweight notes, fast sketches, and disposable probes. No claim cards unless a result
+          is about to be reused, published, or sent outside the room.</p>
+      </article>
+      <article class="mode hard">
+        <h3>Shipping</h3>
+        <p>Turn on the gates: source check, caveat, claim state, validation command, review surface,
+          and journal entry. Public wording must be weaker than the evidence, never stronger.</p>
+      </article>
+      <article class="mode stop">
+        <h3>Security / billing</h3>
+        <p>Default to strict. Scope comes first, secrets stay out, external actions need approval, and
+          scanner or model output remains a lead until independently checked.</p>
+      </article>
     </div>
   </div>
 </section>
@@ -145,6 +213,23 @@
         <li>Claims of CVE, severity, payout, or acceptance without public evidence</li>
       </ul>
       <div class="rail"><b>Public-safe translation:</b> say the class, the control, the status bucket, and the public reference. Leave the private mechanics out.</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>A real public-safe pass</h2>
+    <p class="sublede">A concrete example, stripped of private material: refining this page after a blunt
+      outside review called it too linear, too text-heavy, and too easy to turn into process theater.</p>
+    <div class="walk">
+      <div class="walk-step"><div class="phase">Scope</div><div><b>Allowed:</b> improve public copy and structure. <b>Out:</b> secrets, private exploit details, live credential surfaces, or invented proof.</div></div>
+      <div class="walk-step"><div class="phase">Orient</div><div>Read the live page, source file, current git state, and the critique. Treat the critique as input, not authority.</div></div>
+      <div class="walk-step"><div class="phase">Map</div><div>Find the gaps: no diagram, no iteration warning, no exploration mode, no wrong-tool section, no example run.</div></div>
+      <div class="walk-step"><div class="phase">Draft</div><div>Add a visual flow, loopback rule, operating modes, example walkthrough, and failure boundaries.</div></div>
+      <div class="walk-step"><div class="phase">Verify</div><div>Parse the HTML, check mobile constraints, and search for stale or overstrong public claims before publishing.</div></div>
+      <div class="walk-step"><div class="phase">Ship</div><div>If approved, deploy only the scoped website files from a clean remote base so unrelated local commits do not leak into production.</div></div>
+      <div class="walk-step"><div class="phase">Journal</div><div>Record what changed, what was verified, what remains gated, and any collision risk.</div></div>
     </div>
   </div>
 </section>
@@ -190,6 +275,35 @@
 5. Downgrade, patch the draft, or add a blocker.
 6. Continue quietly unless operator input is needed.</code></div>
       <div class="rail"><b>Rule:</b> a beautiful claim with no proof becomes a lead, not a headline.</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap split">
+    <div class="panel">
+      <h2>When this is the wrong tool</h2>
+      <p>This workflow is not meant to turn every thought into a compliance exercise. Use something
+        lighter when the cost of being wrong is low.</p>
+      <ul class="checklist">
+        <li>Early creative brainstorming where speed matters more than correctness</li>
+        <li>Disposable prototypes that will never be cited or shipped</li>
+        <li>Private notes that make no public or security-sensitive claim</li>
+        <li>Exploration where the only output is "learn what to inspect next"</li>
+        <li>Emergency containment where immediate safety beats perfect documentation</li>
+      </ul>
+      <div class="rail"><b>Minimum rule still applies:</b> do not expose secrets, private target details,
+        or unverified public claims just because the mode is lighter.</div>
+    </div>
+    <div class="panel">
+      <h2>Anti-bureaucracy rails</h2>
+      <p>The workflow fails if it becomes a shrine to itself. These checks keep the system useful.</p>
+      <div class="list">
+        <div class="item"><div class="mark">1</div><div><b>If the artifact takes longer than the check, shrink it.</b><br>A claim card can be five lines when the claim is simple.</div></div>
+        <div class="item"><div class="mark">2</div><div><b>If two artifacts repeat each other, merge the truth.</b><br>The board tracks state; the journal records completed facts; drafts should not pretend to be either.</div></div>
+        <div class="item"><div class="mark">3</div><div><b>If nothing leaves the room, keep it light.</b><br>The heavy gate starts when a claim becomes reusable, public, security-sensitive, or costly.</div></div>
+        <div class="item"><div class="mark">4</div><div><b>If the process blocks obvious work, inspect the process.</b><br>The point is better output, not better paperwork.</div></div>
+      </div>
     </div>
   </div>
 </section>
