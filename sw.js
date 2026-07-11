@@ -1,6 +1,6 @@
 // Unified offline cache for xclusivexo.com — the StellarRequiem portfolio shell
 // AND the xclusivexo village app. One root-scoped worker. Bump CACHE to invalidate.
-const CACHE = "xclvxo-v5";
+const CACHE = "xclvxo-v6";
 const SHELL = [
   "/", "/index.html", "/manifest.webmanifest", "/app.webmanifest",
   "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/ask-widget.js",

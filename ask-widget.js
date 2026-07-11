@@ -15,7 +15,7 @@
   "use strict";
   var GH = "https://github.com/StellarRequiem/";
   function repo(name) { return '<a href="' + GH + name + '" target="_blank" rel="noopener">' + name + "</a>"; }
-  var MAIL = "alexanderprice91@yahoo.com";
+  var MAIL = "security@xclusivexo.com";
 
   // The grounding set. Each entry: a chip label + keywords (for free-text) + an answer drawn from the
   // page's own copy. id "fallback" is the honest no-match reply (it offers, it never fabricates).
