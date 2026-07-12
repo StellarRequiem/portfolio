@@ -1,10 +1,10 @@
-// Unified offline cache for xclusivexo.com — the StellarRequiem portfolio shell
-// AND the xclusivexo village app. One root-scoped worker. Bump CACHE to invalidate.
-const CACHE = "xclvxo-v6";
+// Offline cache for the professional StellarRequiem portfolio shell.
+// Archived interactive routes stay available by direct URL but are not preloaded here.
+const CACHE = "xclvxo-v7";
 const SHELL = [
-  "/", "/index.html", "/manifest.webmanifest", "/app.webmanifest",
+  "/", "/index.html", "/manifest.webmanifest",
   "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/ask-widget.js",
-  "/village/", "/create/", "/room/", "/account/", "/forum/",
+  "/workflow/", "/mcp-assurance/", "/feedback/", "/report/", "/diagnostics/",
   "/favicon.svg", "/logo.svg", "/logo-192.png", "/logo-512.png"
 ];
 
@@ -32,7 +32,7 @@ self.addEventListener("fetch", (e) => {
     e.respondWith(
       fetch(req)
         .then((r) => { const cp = r.clone(); caches.open(CACHE).then((c) => c.put(req, cp)); return r; })
-        .catch(() => caches.match(req).then((m) => m || caches.match("/village/")).then((m) => m || caches.match("/")))
+        .catch(() => caches.match(req).then((m) => m || caches.match("/")))
     );
     return;
   }

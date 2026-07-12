@@ -1,0 +1,14 @@
+{
+  "schema": "xclusivexo.mcp-assurance-proof-pack.v1",
+  "classification": "fixture_mechanics_only",
+  "recorded_at": "2026-07-12",
+  "suite": {
+    "deterministic_tests": 42,
+    "mock_mcp_tests": 9,
+    "mock_mcp_scenarios": 8,
+    "verifier_mutations": 13,
+    "escaped_mutations": 0,
+    "external_actions_executed": 0
+  },
+  "caveat": "Controlled local fixtures only. These values are not production, conformance, independent-certification, or third-party assessment results."
+}
