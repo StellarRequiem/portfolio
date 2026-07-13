@@ -1,0 +1,63 @@
+{
+  "schema": "xclusivexo.fastmcp-signed-agent-scenario-report.v1",
+  "classification": "fixture_mechanics_only",
+  "generatedAt": "2026-07-13T20:55:33.323700Z",
+  "fastmcp": {
+    "package": "fastmcp",
+    "version": "3.4.4",
+    "transport": "streamable_http_json_stateless"
+  },
+  "statusSemantics": "fixture_policy_status",
+  "externalActionsExecuted": 0,
+  "scenarios": [
+    {
+      "id": "clean_control",
+      "ok": true,
+      "status": 200,
+      "errorCode": null,
+      "toolsListed": true,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "unsigned_envelope_denied",
+      "ok": false,
+      "status": 403,
+      "errorCode": "agent_envelope_required",
+      "toolsListed": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "wrong_agent_signature_denied",
+      "ok": false,
+      "status": 400,
+      "errorCode": "agent_signature_invalid",
+      "toolsListed": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "operation_replay_denied",
+      "ok": false,
+      "status": 400,
+      "errorCode": "operation_replayed",
+      "toolsListed": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "revoked_key_denied",
+      "ok": false,
+      "status": 403,
+      "errorCode": "agent_key_revoked",
+      "toolsListed": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "external_host_denied",
+      "ok": false,
+      "status": 0,
+      "errorCode": "base_url_out_of_scope",
+      "toolsListed": false,
+      "externalActionsExecuted": 0
+    }
+  ],
+  "caveat": "Operator-owned FastMCP 3.4.4 loopback fixture using stateless JSON Streamable HTTP. The signed-agent envelope is application-layer policy, not an MCP standard, FastMCP-wide assessment, interoperability result, or conformance result. Scenario status values classify fixture-policy decisions; denied tool calls are MCP tool errors, not asserted HTTP authorization statuses."
+}
