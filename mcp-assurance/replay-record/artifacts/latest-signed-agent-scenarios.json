@@ -1,0 +1,137 @@
+{
+  "schema": "xclusivexo.mock-mcp-agent-identity-scenario-report.v1",
+  "classification": "fixture_mechanics_only",
+  "generatedAt": "2026-07-13T21:13:43.321Z",
+  "externalActionsExecuted": 0,
+  "scenarios": [
+    {
+      "id": "clean_control",
+      "ok": true,
+      "status": 200,
+      "errorCode": null,
+      "hasAgentFingerprint": true,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "unregistered_agent_denied",
+      "ok": false,
+      "status": 403,
+      "errorCode": "agent_unregistered",
+      "hasAgentFingerprint": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "wrong_agent_signature_denied",
+      "ok": false,
+      "status": 400,
+      "errorCode": "agent_signature_invalid",
+      "hasAgentFingerprint": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "inactive_key_denied",
+      "ok": false,
+      "status": 403,
+      "errorCode": "agent_key_not_active",
+      "hasAgentFingerprint": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "altered_operation_denied",
+      "ok": false,
+      "status": 400,
+      "errorCode": "operation_parameters_mismatch",
+      "hasAgentFingerprint": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "lineage_mismatch_denied",
+      "ok": false,
+      "status": 400,
+      "errorCode": "agent_lineage_mismatch",
+      "hasAgentFingerprint": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "scope_denied",
+      "ok": false,
+      "status": 403,
+      "errorCode": "agent_scope_not_allowed",
+      "hasAgentFingerprint": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "expired_operation_denied",
+      "ok": false,
+      "status": 400,
+      "errorCode": "operation_expired",
+      "hasAgentFingerprint": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "operation_replay_denied",
+      "ok": false,
+      "status": 400,
+      "errorCode": "operation_replayed",
+      "hasAgentFingerprint": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "rotated_old_key_denied",
+      "ok": false,
+      "status": 403,
+      "errorCode": "agent_key_revoked",
+      "hasAgentFingerprint": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "rotated_new_key_authorized",
+      "ok": true,
+      "status": 200,
+      "errorCode": null,
+      "hasAgentFingerprint": true,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "revoked_key_denied",
+      "ok": false,
+      "status": 403,
+      "errorCode": "agent_key_revoked",
+      "hasAgentFingerprint": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "future_key_denied",
+      "ok": false,
+      "status": 403,
+      "errorCode": "agent_key_not_yet_valid",
+      "hasAgentFingerprint": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "expired_key_denied",
+      "ok": false,
+      "status": 403,
+      "errorCode": "agent_key_expired",
+      "hasAgentFingerprint": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "durable_restart_replay_denied",
+      "ok": false,
+      "status": 400,
+      "errorCode": "operation_replayed",
+      "hasAgentFingerprint": false,
+      "externalActionsExecuted": 0
+    },
+    {
+      "id": "corrupt_replay_marker_denied",
+      "ok": false,
+      "status": 503,
+      "errorCode": "replay_store_corrupt",
+      "hasAgentFingerprint": false,
+      "externalActionsExecuted": 0
+    }
+  ],
+  "caveat": "No external MCP call is executed after an allowed envelope. Restart persistence and corrupt-marker denial are local filesystem fixture mechanics only, not a distributed, power-loss, backup, retention, or production replay-store result."
+}

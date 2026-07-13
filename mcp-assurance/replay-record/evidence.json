@@ -1,0 +1,32 @@
+{
+  "schema": "xclusivexo.local-replay-record-public-evidence.v1",
+  "classification": "fixture_mechanics_only",
+  "recorded_at": "2026-07-13",
+  "fixture": {
+    "runtime": "node",
+    "storage": "operator_owned_local_filesystem",
+    "external_actions_executed": 0,
+    "record_contents": "schema_digest_claimed_at_only"
+  },
+  "reproducible_from_this_directory": {
+    "replay_record_tests": 6,
+    "local_process_controls": [
+      "twelve_concurrent_claims_one_accept",
+      "sequential_fresh_process_replay_denied",
+      "fresh_process_malformed_marker_fails_closed"
+    ]
+  },
+  "broader_local_evidence_snapshot": {
+    "identity_and_replay_tests": 25,
+    "signed_agent_scenario_contract": 16,
+    "evidence_gate_tests": 38,
+    "seeded_mutations_detected": 48,
+    "seeded_mutations_escaped": 0,
+    "combined_local_tests": 127,
+    "node_tests": 120,
+    "fastmcp_python_tests": 7,
+    "tool_entries": 14,
+    "source_hashes": 39
+  },
+  "caveat": "Controlled local filesystem fixture evidence only. This does not establish forced process-kill, filesystem-crash, or power-loss recovery; distributed coordination, replication, backup, retention, or cleanup behavior; MCP conformance; an MCP identity standard; or production replay safety."
+}
