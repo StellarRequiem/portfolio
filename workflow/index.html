@@ -107,6 +107,7 @@
   <div class="wrap hero">
     <nav class="nav" aria-label="Site">
       <a href="/">home</a>
+      <a href="/assurance/">assurance</a>
       <a href="/workflow/" aria-current="page">workflow</a>
       <a href="/mcp-assurance/">MCP assurance</a>
       <a href="/feedback/">feedback</a>
@@ -230,6 +231,27 @@
       <div class="walk-step"><div class="phase">Verify</div><div>Parse the HTML, check mobile constraints, and search for stale or overstrong public claims before publishing.</div></div>
       <div class="walk-step"><div class="phase">Ship</div><div>If approved, deploy only the scoped website files from a clean remote base so unrelated local commits do not leak into production.</div></div>
       <div class="walk-step"><div class="phase">Journal</div><div>Record what changed, what was verified, what remains gated, and any collision risk.</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Two evidence shapes</h2>
+    <p class="sublede">Different work needs different proof, but the public pattern stays the same: define the boundary, test a clean control and a meaningful refusal, then say what the result cannot establish.</p>
+    <div class="split">
+      <article class="panel">
+        <h3>Authorization reference fixture</h3>
+        <p><b>Scope:</b> synthetic, loopback-only MCP-shaped tool calls. <b>Check:</b> an exactly scoped read beside bearer, resource, audience, scope, session, and token-handling refusals.</p>
+        <p><b>Public artifact:</b> a self-contained test, evidence snapshot, and explicit non-conformance boundary.</p>
+        <div class="rail"><b>What it proves:</b> the stated fixture mechanics reproduce. <b>What it does not:</b> a production-server assessment or full protocol conformance.</div>
+      </article>
+      <article class="panel">
+        <h3>Signed-agent replay fixture</h3>
+        <p><b>Scope:</b> an operator-owned local reference with synthetic identities and a persisted replay marker. <b>Check:</b> a first valid operation, a valid replay, malformed state, and interrupted-state refusal paths.</p>
+        <p><b>Public artifact:</b> local tests, a sanitized scenario receipt, and a recovery limitation statement.</p>
+        <div class="rail"><b>What it proves:</b> the bounded local cases reproduce. <b>What it does not:</b> distributed coordination, power-loss recovery, or production replay safety.</div>
+      </article>
     </div>
   </div>
 </section>
