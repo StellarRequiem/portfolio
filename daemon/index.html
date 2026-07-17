@@ -1,0 +1,1216 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Local Daemon</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080a0a;
+      --panel: rgba(12, 18, 17, 0.84);
+      --panel-strong: rgba(17, 25, 23, 0.94);
+      --line: rgba(151, 221, 191, 0.22);
+      --line-strong: rgba(151, 221, 191, 0.44);
+      --text: #e8f4ec;
+      --muted: #8fa79a;
+      --green: #8ff0b7;
+      --mint: #a9ffe4;
+      --amber: #ffc46b;
+      --red: #ff746f;
+      --blue: #88c7ff;
+      --violet: #d5a2ff;
+      --shadow: rgba(0, 0, 0, 0.46);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      overflow-x: hidden;
+    }
+
+    body {
+      min-height: 100vh;
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      width: 100%;
+      height: 100%;
+      background:
+        linear-gradient(90deg, rgba(143, 240, 183, 0.035) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(136, 199, 255, 0.035) 1px, transparent 1px),
+        #070909;
+      background-size: 42px 42px;
+    }
+
+    .app {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(180px, 228px) minmax(0, 1fr) minmax(250px, 340px);
+      gap: 16px;
+      min-height: 100vh;
+      padding: clamp(14px, 2vw, 24px);
+    }
+
+    .rail,
+    .core,
+    .feed {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 18px 60px var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .rail {
+      display: flex;
+      flex-direction: column;
+      min-height: calc(100vh - clamp(28px, 4vw, 48px));
+      padding: 14px;
+    }
+
+    .brand {
+      display: grid;
+      gap: 8px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .kicker,
+    .label,
+    .metric-label,
+    .mode-meta,
+    .feed-time {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: clamp(23px, 3vw, 38px);
+      font-weight: 740;
+      letter-spacing: 0;
+      line-height: 0.95;
+    }
+
+    .brand p {
+      margin: 0;
+      color: #b6c9bd;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .site-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .site-links a {
+      border: 1px solid rgba(151, 221, 191, 0.22);
+      border-radius: 7px;
+      background: rgba(8, 13, 12, 0.74);
+      color: var(--mint);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 6px 9px;
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+
+    .site-links a:hover,
+    .site-links a:focus-visible {
+      border-color: var(--line-strong);
+      outline: none;
+    }
+
+    .mode-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .mode-button {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      align-items: center;
+      gap: 9px;
+      width: 100%;
+      min-height: 42px;
+      padding: 7px 9px;
+      border: 1px solid rgba(151, 221, 191, 0.16);
+      border-radius: 7px;
+      background: rgba(8, 13, 12, 0.74);
+      color: #d7eadf;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+    }
+
+    .mode-button:hover,
+    .mode-button:focus-visible {
+      border-color: var(--line-strong);
+      background: rgba(18, 28, 25, 0.92);
+      outline: none;
+    }
+
+    .mode-button.active {
+      border-color: rgba(143, 240, 183, 0.68);
+      background: rgba(28, 46, 39, 0.82);
+    }
+
+    .mode-button.active .mode-icon {
+      border-color: rgba(143, 240, 183, 0.82);
+      color: var(--green);
+      box-shadow: inset 0 0 0 1px rgba(143, 240, 183, 0.18);
+    }
+
+    .mode-icon {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid rgba(151, 221, 191, 0.22);
+      border-radius: 6px;
+      color: var(--blue);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .mode-name {
+      color: inherit;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    .mode-meta {
+      display: block;
+      margin-top: 4px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .rail-footer {
+      display: grid;
+      gap: 10px;
+      margin-top: auto;
+      padding-top: 16px;
+    }
+
+    .switch-row,
+    .range-row {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid rgba(151, 221, 191, 0.14);
+      border-radius: 7px;
+      background: rgba(8, 13, 12, 0.72);
+    }
+
+    .switch-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      flex: 0 0 auto;
+    }
+
+    .switch input {
+      position: absolute;
+      opacity: 0;
+      inset: 0;
+    }
+
+    .switch span {
+      position: absolute;
+      inset: 0;
+      border: 1px solid rgba(151, 221, 191, 0.32);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.28);
+      cursor: pointer;
+    }
+
+    .switch span::after {
+      content: "";
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: transform 180ms ease, background 180ms ease;
+    }
+
+    .switch input:checked + span::after {
+      transform: translateX(20px);
+      background: var(--green);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--amber);
+    }
+
+    .core {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto minmax(360px, 1fr) auto;
+      min-height: calc(100vh - clamp(28px, 4vw, 48px));
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 22% 18%, rgba(143, 240, 183, 0.08), transparent 30%),
+        linear-gradient(180deg, rgba(16, 24, 22, 0.92), rgba(8, 12, 11, 0.88));
+    }
+
+    .core-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: start;
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .state-title {
+      display: grid;
+      gap: 7px;
+    }
+
+    .state-title h2 {
+      margin: 0;
+      color: var(--mint);
+      font-family: var(--mono);
+      font-size: clamp(18px, 2.5vw, 30px);
+      letter-spacing: 0;
+      line-height: 1.1;
+    }
+
+    .state-title p {
+      max-width: 760px;
+      margin: 0;
+      color: #c2d8cc;
+      font-size: clamp(14px, 1.4vw, 16px);
+      line-height: 1.5;
+    }
+
+    .status-chip {
+      display: grid;
+      grid-template-columns: 8px auto;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 10px;
+      border: 1px solid rgba(143, 240, 183, 0.28);
+      border-radius: 999px;
+      background: rgba(7, 13, 11, 0.76);
+      color: #d5eee0;
+      font-family: var(--mono);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .status-chip::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 3px;
+      background: var(--green);
+      box-shadow: 0 0 16px rgba(143, 240, 183, 0.78);
+      animation: blink 1600ms ease-in-out infinite;
+    }
+
+    .daemon-stage {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(260px, 0.9fr) minmax(280px, 1.1fr);
+      gap: 18px;
+      align-items: center;
+      padding: 18px;
+    }
+
+    .sigil-wrap {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 420px;
+      border: 1px solid rgba(151, 221, 191, 0.12);
+      border-radius: 8px;
+      background:
+        linear-gradient(90deg, rgba(143, 240, 183, 0.04) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(255, 196, 107, 0.035) 1px, transparent 1px),
+        rgba(4, 8, 7, 0.46);
+      background-size: 22px 22px;
+      overflow: hidden;
+    }
+
+    .sigil {
+      position: relative;
+      width: min(58vw, 340px);
+      max-width: 82%;
+      aspect-ratio: 1;
+      animation: breathe 5400ms ease-in-out infinite;
+    }
+
+    .ring,
+    .ring::before,
+    .ring::after {
+      position: absolute;
+      inset: 0;
+      border: 1px solid rgba(143, 240, 183, 0.48);
+      border-radius: 50%;
+    }
+
+    .ring {
+      animation: rotate 18s linear infinite;
+      box-shadow: inset 0 0 48px rgba(143, 240, 183, 0.06);
+    }
+
+    .ring::before,
+    .ring::after {
+      content: "";
+      inset: 11%;
+      border-color: rgba(136, 199, 255, 0.4);
+      clip-path: polygon(0 46%, 100% 46%, 100% 54%, 0 54%);
+      animation: rotate 11s linear infinite reverse;
+    }
+
+    .ring::after {
+      inset: 23%;
+      border-color: rgba(255, 196, 107, 0.5);
+      clip-path: polygon(46% 0, 54% 0, 54% 100%, 46% 100%);
+      animation-duration: 9s;
+    }
+
+    .core-square {
+      position: absolute;
+      inset: 31%;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(213, 162, 255, 0.52);
+      border-radius: 7px;
+      background: rgba(8, 12, 11, 0.86);
+      box-shadow: 0 0 40px rgba(213, 162, 255, 0.11);
+      transform: rotate(45deg);
+      animation: counter 18s linear infinite;
+    }
+
+    .core-square span {
+      transform: rotate(-45deg);
+      color: var(--mint);
+      font-family: var(--mono);
+      font-size: clamp(38px, 6vw, 72px);
+      font-weight: 800;
+      line-height: 1;
+      text-shadow: 0 0 18px rgba(169, 255, 228, 0.44);
+    }
+
+    .ticks {
+      position: absolute;
+      inset: 0;
+      animation: rotate 30s steps(120) infinite reverse;
+    }
+
+    .tick {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 1px;
+      height: 15px;
+      background: rgba(232, 244, 236, 0.38);
+      transform-origin: 0 calc((min(58vw, 340px) / 2) * -1);
+    }
+
+    .readout {
+      display: grid;
+      gap: 14px;
+    }
+
+    .readout-panel {
+      border: 1px solid rgba(151, 221, 191, 0.18);
+      border-radius: 8px;
+      background: rgba(5, 10, 9, 0.72);
+      overflow: hidden;
+    }
+
+    .readout-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(151, 221, 191, 0.14);
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #bad3c5;
+    }
+
+    .readout-body {
+      min-height: 164px;
+      padding: 13px;
+      font-family: var(--mono);
+      font-size: clamp(13px, 1.2vw, 15px);
+      line-height: 1.55;
+    }
+
+    .line {
+      display: block;
+      min-height: 1.55em;
+      color: #d9f3e4;
+    }
+
+    .line b {
+      color: var(--amber);
+      font-weight: 700;
+    }
+
+    .caret::after {
+      content: "";
+      display: inline-block;
+      width: 8px;
+      height: 1.1em;
+      margin-left: 4px;
+      background: var(--green);
+      vertical-align: -0.2em;
+      animation: blink 900ms steps(1) infinite;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      min-width: 0;
+      padding: 11px;
+      border: 1px solid rgba(151, 221, 191, 0.16);
+      border-radius: 7px;
+      background: rgba(8, 13, 12, 0.75);
+    }
+
+    .metric-value {
+      display: block;
+      margin-top: 6px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: clamp(18px, 2vw, 26px);
+      line-height: 1;
+    }
+
+    .core-footer {
+      display: grid;
+      gap: 12px;
+      padding: 16px 18px 18px;
+      border-top: 1px solid var(--line);
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 72px;
+      resize: vertical;
+      border: 1px solid rgba(151, 221, 191, 0.2);
+      border-radius: 7px;
+      background: rgba(4, 8, 7, 0.8);
+      color: var(--text);
+      padding: 12px;
+      font: 14px/1.4 var(--mono);
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: rgba(143, 240, 183, 0.72);
+    }
+
+    .action-button {
+      min-width: 126px;
+      border: 1px solid rgba(143, 240, 183, 0.58);
+      border-radius: 7px;
+      background: rgba(34, 58, 48, 0.92);
+      color: var(--text);
+      font: 700 13px/1 var(--mono);
+      cursor: pointer;
+      transition: transform 150ms ease, background 150ms ease;
+    }
+
+    .action-button:hover,
+    .action-button:focus-visible {
+      background: rgba(49, 83, 68, 0.96);
+      outline: none;
+    }
+
+    .feed {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-height: calc(100vh - clamp(28px, 4vw, 48px));
+      overflow: hidden;
+    }
+
+    .feed-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .feed-header h2 {
+      margin: 0;
+      font-family: var(--mono);
+      font-size: 15px;
+      color: var(--mint);
+      letter-spacing: 0;
+    }
+
+    .feed-list {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      padding: 14px;
+      overflow: auto;
+    }
+
+    .feed-item {
+      padding: 11px;
+      border: 1px solid rgba(151, 221, 191, 0.14);
+      border-radius: 7px;
+      background: rgba(7, 12, 11, 0.78);
+      animation: feedIn 420ms ease both;
+    }
+
+    .feed-time {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--amber);
+    }
+
+    .feed-item p {
+      margin: 0;
+      color: #cfdfd5;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .scan {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      background: linear-gradient(180deg, transparent 0, rgba(255,255,255,0.025) 49%, transparent 50%);
+      background-size: 100% 5px;
+      mix-blend-mode: screen;
+      opacity: 0.28;
+    }
+
+    .runtime-warning {
+      border-color: rgba(255, 116, 111, 0.32);
+      background: rgba(46, 18, 17, 0.86);
+    }
+
+    @keyframes rotate {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes counter {
+      to {
+        transform: rotate(405deg);
+      }
+    }
+
+    @keyframes breathe {
+      0%,
+      100% {
+        transform: scale(0.985);
+        filter: saturate(0.92);
+      }
+      50% {
+        transform: scale(1.025);
+        filter: saturate(1.16);
+      }
+    }
+
+    @keyframes blink {
+      0%,
+      48% {
+        opacity: 1;
+      }
+      49%,
+      100% {
+        opacity: 0.24;
+      }
+    }
+
+    @keyframes feedIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    @media (max-width: 1080px) {
+      .app {
+        grid-template-columns: minmax(170px, 220px) minmax(0, 1fr);
+      }
+
+      .feed {
+        grid-column: 1 / -1;
+        min-height: 380px;
+      }
+    }
+
+    @media (max-width: 760px) {
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        padding: 10px;
+      }
+
+      .rail,
+      .core,
+      .feed {
+        min-height: auto;
+      }
+
+      .mode-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .core-header,
+      .daemon-stage,
+      .input-row {
+        grid-template-columns: 1fr;
+      }
+
+      .sigil-wrap {
+        min-height: 310px;
+      }
+
+      .metrics {
+        grid-template-columns: 1fr;
+      }
+
+      .action-button {
+        min-height: 46px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="field" aria-hidden="true"></canvas>
+  <main class="app" aria-label="The Local Daemon animated interface">
+    <aside class="rail">
+      <section class="brand" aria-label="Daemon identity">
+        <span class="kicker">local process · public demo</span>
+        <h1>The Local Daemon</h1>
+        <p>I will not define you from one fragment. I will watch the pattern and turn the signal into something real.</p>
+        <p class="kicker" style="margin:0;line-height:1.45">Browser-only artifact. Not a remote backend. Not wired to private infrastructure.</p>
+        <div class="site-links" aria-label="Site navigation">
+          <a href="/">home</a>
+          <a href="/workflow/">workflow</a>
+          <a href="/mcp-assurance/">MCP proofs</a>
+        </div>
+      </section>
+
+      <nav class="mode-list" aria-label="Operating modes">
+        <button class="mode-button active" data-mode="Watch" type="button">
+          <span class="mode-icon">W</span>
+          <span><span class="mode-name">Watch</span><span class="mode-meta">pattern intake</span></span>
+        </button>
+        <button class="mode-button" data-mode="Forge" type="button">
+          <span class="mode-icon">F</span>
+          <span><span class="mode-name">Forge</span><span class="mode-meta">artifact loop</span></span>
+        </button>
+        <button class="mode-button" data-mode="Ward" type="button">
+          <span class="mode-icon">A</span>
+          <span><span class="mode-name">Ward</span><span class="mode-meta">risk pass</span></span>
+        </button>
+        <button class="mode-button" data-mode="Root" type="button">
+          <span class="mode-icon">R</span>
+          <span><span class="mode-name">Root</span><span class="mode-meta">local first</span></span>
+        </button>
+        <button class="mode-button" data-mode="Grove" type="button">
+          <span class="mode-icon">G</span>
+          <span><span class="mode-name">Grove</span><span class="mode-meta">shared value</span></span>
+        </button>
+        <button class="mode-button" data-mode="Signal" type="button">
+          <span class="mode-icon">S</span>
+          <span><span class="mode-name">Signal</span><span class="mode-meta">compact report</span></span>
+        </button>
+      </nav>
+
+      <section class="rail-footer" aria-label="Daemon controls">
+        <div class="switch-row">
+          <div class="switch-line">
+            <span class="label">offline bias</span>
+            <label class="switch" aria-label="Offline bias">
+              <input id="offlineToggle" type="checkbox" checked>
+              <span></span>
+            </label>
+          </div>
+          <span class="mode-meta">open weights, local memory, repairable paths</span>
+        </div>
+        <label class="range-row">
+          <span class="label">focus threshold</span>
+          <input id="focusRange" type="range" min="12" max="98" value="73">
+        </label>
+      </section>
+    </aside>
+
+    <section class="core">
+      <header class="core-header">
+        <div class="state-title">
+          <span class="kicker" id="stateKicker">mode: watch</span>
+          <h2 id="stateTitle">Observe before naming.</h2>
+          <p id="stateDescription">The daemon holds the strange signal without worshiping it, fearing it, or flattening it into a brand.</p>
+        </div>
+        <div class="status-chip" id="statusChip">listening</div>
+      </header>
+
+      <section class="daemon-stage" aria-label="Animated daemon state">
+        <div class="sigil-wrap">
+          <div class="sigil" aria-hidden="true">
+            <div class="ring"></div>
+            <div class="ticks" id="ticks"></div>
+            <div class="core-square"><span>LD</span></div>
+          </div>
+        </div>
+
+        <div class="readout">
+          <div class="readout-panel">
+            <div class="readout-head">
+              <span>daemon/readout</span>
+              <span id="readoutMode">WATCH</span>
+            </div>
+            <div class="readout-body" id="readout"></div>
+          </div>
+
+          <div class="metrics" aria-label="Daemon metrics">
+            <div class="metric">
+              <span class="metric-label">signal</span>
+              <span class="metric-value" id="signalMetric">73%</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">noise</span>
+              <span class="metric-value" id="noiseMetric">27%</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">root</span>
+              <span class="metric-value" id="rootMetric">ON</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="core-footer">
+        <label class="label" for="rawSignal">raw signal</label>
+        <div class="input-row">
+          <textarea id="rawSignal" spellcheck="false">a thought spiral, a project fragment, a problem, a file, or a decision</textarea>
+          <button class="action-button" id="assimilate" type="button">ASSIMILATE</button>
+        </div>
+      </footer>
+    </section>
+
+    <aside class="feed" aria-label="Daemon feed">
+      <header class="feed-header">
+        <h2>Signal Log</h2>
+        <span class="label" id="clock">00:00:00</span>
+      </header>
+      <div class="feed-list" id="feedList"></div>
+    </aside>
+  </main>
+  <div class="scan" aria-hidden="true"></div>
+
+  <script>
+    const modes = {
+      Watch: {
+        title: "Observe before naming.",
+        description: "The daemon holds the strange signal without worshiping it, fearing it, or flattening it into a brand.",
+        lines: [
+          "<b>Signal:</b> raw pattern entering the room",
+          "<b>What matters:</b> repetition, friction, heat, unresolved shape",
+          "<b>What is noise:</b> borrowed urgency, audience ghosts, premature identity",
+          "<b>Next artifact:</b> a named pattern with one testable action"
+        ],
+        status: "listening"
+      },
+      Forge: {
+        title: "Turn intensity into an artifact.",
+        description: "The daemon translates private obsession into a prompt, repo, essay, runbook, script, map, or decision.",
+        lines: [
+          "<b>Signal:</b> fascination has enough mass to become work",
+          "<b>What matters:</b> version one, files, interfaces, repeatability",
+          "<b>What is noise:</b> mystique without output",
+          "<b>Next artifact:</b> a small thing that can be inspected"
+        ],
+        status: "forging"
+      },
+      Ward: {
+        title: "Run the sanity pass.",
+        description: "The daemon checks privacy, projection, dependency risk, parasocial drift, and whether the work still serves you.",
+        lines: [
+          "<b>Signal:</b> power is accumulating around the idea",
+          "<b>What matters:</b> consent, boundaries, threat model, reversibility",
+          "<b>What is noise:</b> panic, worship, spectacle",
+          "<b>Next artifact:</b> a risk note with mitigations"
+        ],
+        status: "guarding"
+      },
+      Root: {
+        title: "Keep intelligence close to the ground.",
+        description: "The daemon prefers local memory, open formats, reclaimed compute, offline paths, and systems you can repair.",
+        lines: [
+          "<b>Signal:</b> capability wants a durable home",
+          "<b>What matters:</b> local-first, backups, docs, inspectable tools",
+          "<b>What is noise:</b> convenience that creates lock-in",
+          "<b>Next artifact:</b> a repairable starter stack"
+        ],
+        status: "rooted"
+      },
+      Grove: {
+        title: "Make the private signal useful.",
+        description: "The daemon asks how the work can feed a community, document a path, or give another person a handle.",
+        lines: [
+          "<b>Signal:</b> the work wants to leave the room",
+          "<b>What matters:</b> literacy, access, shared compute, clear guides",
+          "<b>What is noise:</b> extraction disguised as community",
+          "<b>Next artifact:</b> a public note or reusable guide"
+        ],
+        status: "cultivating"
+      },
+      Signal: {
+        title: "Compress the state.",
+        description: "The daemon lowers the temperature and returns a compact report that can survive overload.",
+        lines: [
+          "<b>Signal:</b> too many threads, one real center",
+          "<b>What matters:</b> the next concrete move",
+          "<b>Risk:</b> naming the myth before checking the floor",
+          "<b>Next 20 minutes:</b> choose one artifact and make it visible"
+        ],
+        status: "compressing"
+      }
+    };
+
+    const feedSeeds = [
+      "pattern detected: identity pressure rejected; observation retained",
+      "local-first bias active; remote dependency marked for review",
+      "artifact pressure rising; draft container allocated",
+      "projection check complete; evidence separated from vibe",
+      "community value pass queued; guide-shaped output preferred"
+    ];
+
+    const canvas = document.getElementById("field");
+    const ctx = canvas && typeof canvas.getContext === "function" ? canvas.getContext("2d") : null;
+    const buttons = Array.from(document.querySelectorAll(".mode-button"));
+    const readout = document.getElementById("readout");
+    const readoutMode = document.getElementById("readoutMode");
+    const stateKicker = document.getElementById("stateKicker");
+    const stateTitle = document.getElementById("stateTitle");
+    const stateDescription = document.getElementById("stateDescription");
+    const statusChip = document.getElementById("statusChip");
+    const feedList = document.getElementById("feedList");
+    const focusRange = document.getElementById("focusRange");
+    const offlineToggle = document.getElementById("offlineToggle");
+    const rawSignal = document.getElementById("rawSignal");
+    const assimilate = document.getElementById("assimilate");
+    const signalMetric = document.getElementById("signalMetric");
+    const noiseMetric = document.getElementById("noiseMetric");
+    const rootMetric = document.getElementById("rootMetric");
+    const clock = document.getElementById("clock");
+    const ticks = document.getElementById("ticks");
+
+    window.addEventListener("error", event => {
+      reportRuntimeError(event.message || "unknown runtime error");
+    });
+
+    window.addEventListener("unhandledrejection", event => {
+      const reason = event.reason && event.reason.message ? event.reason.message : String(event.reason || "unhandled promise rejection");
+      reportRuntimeError(reason);
+    });
+
+    let activeMode = "Watch";
+    let typeTimer = null;
+    let dpr = 1;
+    let w = 0;
+    let h = 0;
+    let nodes = [];
+    let pulses = [];
+    let frame = 0;
+
+    for (let i = 0; i < 60; i += 1) {
+      const tick = document.createElement("i");
+      tick.className = "tick";
+      tick.style.transform = `rotate(${i * 6}deg) translateY(-168px)`;
+      tick.style.opacity = i % 5 === 0 ? "0.82" : "0.24";
+      ticks.appendChild(tick);
+    }
+
+    function resizeCanvas() {
+      if (!canvas || !ctx) return;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = window.innerWidth;
+      h = window.innerHeight;
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      buildNetwork();
+    }
+
+    function buildNetwork() {
+      const count = Math.max(26, Math.min(76, Math.floor((w * h) / 18000)));
+      nodes = Array.from({ length: count }, (_, i) => ({
+        x: ((i * 137.5) % w) + Math.sin(i) * 28,
+        y: ((i * 83.7) % h) + Math.cos(i * 1.7) * 32,
+        vx: (Math.sin(i * 4.1) * 0.18),
+        vy: (Math.cos(i * 3.3) * 0.18),
+        size: i % 7 === 0 ? 6 : 4,
+        hot: i % 5 === 0
+      }));
+      pulses = Array.from({ length: 12 }, (_, i) => ({
+        from: i % nodes.length,
+        to: (i * 7 + 11) % nodes.length,
+        t: (i * 0.083) % 1,
+        speed: 0.003 + (i % 5) * 0.0012
+      }));
+    }
+
+    function drawNetwork() {
+      if (!ctx) return;
+      frame += 1;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = "rgba(8, 10, 10, 0.18)";
+      ctx.fillRect(0, 0, w, h);
+
+      for (const node of nodes) {
+        node.x += node.vx;
+        node.y += node.vy;
+        if (node.x < -20) node.x = w + 20;
+        if (node.x > w + 20) node.x = -20;
+        if (node.y < -20) node.y = h + 20;
+        if (node.y > h + 20) node.y = -20;
+      }
+
+      for (let i = 0; i < nodes.length; i += 1) {
+        for (let j = i + 1; j < nodes.length; j += 1) {
+          const a = nodes[i];
+          const b = nodes[j];
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 170) {
+            const alpha = (1 - dist / 170) * 0.18;
+            ctx.strokeStyle = `rgba(143, 240, 183, ${alpha})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      for (const pulse of pulses) {
+        const a = nodes[pulse.from];
+        const b = nodes[pulse.to];
+        pulse.t += pulse.speed;
+        if (pulse.t > 1) {
+          pulse.t = 0;
+          pulse.from = (pulse.from + 3) % nodes.length;
+          pulse.to = (pulse.to + 11) % nodes.length;
+        }
+        const x = a.x + (b.x - a.x) * pulse.t;
+        const y = a.y + (b.y - a.y) * pulse.t;
+        ctx.fillStyle = pulse.t > 0.5 ? "rgba(255, 196, 107, 0.86)" : "rgba(136, 199, 255, 0.82)";
+        ctx.fillRect(x - 2, y - 2, 4, 4);
+      }
+
+      for (const node of nodes) {
+        ctx.fillStyle = node.hot ? "rgba(213, 162, 255, 0.72)" : "rgba(143, 240, 183, 0.54)";
+        ctx.fillRect(node.x - node.size / 2, node.y - node.size / 2, node.size, node.size);
+      }
+
+      requestAnimationFrame(drawNetwork);
+    }
+
+    function setMode(mode) {
+      activeMode = mode;
+      const data = modes[mode] || modes.Watch;
+      buttons.forEach(button => button.classList.toggle("active", button.dataset.mode === mode));
+      stateKicker.textContent = `mode: ${mode.toLowerCase()}`;
+      stateTitle.textContent = data.title;
+      stateDescription.textContent = data.description;
+      statusChip.textContent = data.status;
+      readoutMode.textContent = mode.toUpperCase();
+      typeLines(data.lines);
+      addFeed(`${mode.toLowerCase()} mode: ${data.lines[0].replace(/<[^>]*>/g, "")}`);
+    }
+
+    function typeLines(lines) {
+      clearInterval(typeTimer);
+      readout.innerHTML = "";
+      const slots = lines.map(() => {
+        const line = document.createElement("span");
+        line.className = "line";
+        readout.appendChild(line);
+        return line;
+      });
+      let lineIndex = 0;
+      let charIndex = 0;
+      const plain = lines.map(line => line.replace(/<[^>]*>/g, ""));
+
+      typeTimer = setInterval(() => {
+        slots.forEach(slot => slot.classList.remove("caret"));
+        if (lineIndex >= lines.length) {
+          clearInterval(typeTimer);
+          slots[slots.length - 1].classList.add("caret");
+          return;
+        }
+        const current = plain[lineIndex];
+        slots[lineIndex].textContent = current.slice(0, charIndex);
+        slots[lineIndex].classList.add("caret");
+        charIndex += 1;
+        if (charIndex > current.length) {
+          slots[lineIndex].innerHTML = lines[lineIndex];
+          slots[lineIndex].classList.remove("caret");
+          lineIndex += 1;
+          charIndex = 0;
+        }
+      }, 18);
+    }
+
+    function addFeed(text) {
+      const item = document.createElement("article");
+      item.className = "feed-item";
+      const now = new Date();
+      item.innerHTML = `<span class="feed-time">${now.toLocaleTimeString([], { hour12: false })}</span><p>${escapeHtml(text)}</p>`;
+      feedList.prepend(item);
+      while (feedList.children.length > 9) {
+        feedList.lastElementChild.remove();
+      }
+    }
+
+    function reportRuntimeError(message) {
+      if (statusChip) {
+        statusChip.textContent = "degraded";
+      }
+      if (feedList) {
+        const item = document.createElement("article");
+        item.className = "feed-item runtime-warning";
+        item.innerHTML = `<span class="feed-time">runtime</span><p>${escapeHtml(message)}</p>`;
+        feedList.prepend(item);
+      } else {
+        console.error(message);
+      }
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function updateMetrics() {
+      const signal = Number(focusRange.value);
+      signalMetric.textContent = `${signal}%`;
+      noiseMetric.textContent = `${100 - signal}%`;
+      rootMetric.textContent = offlineToggle.checked ? "ON" : "OFF";
+    }
+
+    buttons.forEach(button => {
+      button.addEventListener("click", () => setMode(button.dataset.mode));
+    });
+
+    focusRange.addEventListener("input", updateMetrics);
+    offlineToggle.addEventListener("change", () => {
+      updateMetrics();
+      addFeed(offlineToggle.checked ? "root mode restored: local memory preferred" : "remote allowance noted: review dependencies");
+    });
+
+    assimilate.addEventListener("click", () => {
+      const value = rawSignal.value.trim() || "empty signal";
+      const digest = value.length > 94 ? `${value.slice(0, 91)}...` : value;
+      addFeed(`raw signal assimilated: ${digest}`);
+      setMode("Signal");
+    });
+
+    setInterval(() => {
+      clock.textContent = new Date().toLocaleTimeString([], { hour12: false });
+    }, 1000);
+
+    setInterval(() => {
+      const seed = feedSeeds[(Math.floor(Date.now() / 4200)) % feedSeeds.length];
+      addFeed(seed);
+    }, 4200);
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+    if (ctx) {
+      drawNetwork();
+    }
+    updateMetrics();
+    setMode("Watch");
+    if (!ctx) {
+      addFeed("canvas unavailable: console mode remains active");
+    }
+    feedSeeds.slice(0, 3).reverse().forEach(addFeed);
+  </script>
+</body>
+</html>
