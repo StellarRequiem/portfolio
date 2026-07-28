@@ -1,0 +1,9 @@
+# Security contact for xclusivexo.com
+# Coordinated disclosure welcome. Please allow reasonable time to remediate
+# before public disclosure.
+
+Contact: mailto:security@xclusivexo.com
+Expires: 2027-07-28T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://xclusivexo.com/.well-known/security.txt
+Policy: https://xclusivexo.com/security/

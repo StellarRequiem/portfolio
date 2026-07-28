@@ -6,6 +6,11 @@
 <title>Security Research and Verification Controls - StellarRequiem</title>
 <meta name="description" content="Authorized defensive security research, AI/MCP authorization-logic review, coordinated disclosure, and verification controls by Alex Price / StellarRequiem.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<!-- Hardening. GitHub Pages does not allow custom response headers, so the
+     policies that CAN be expressed in markup are set here. Static page: no
+     scripts, no third-party assets, no form posts. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <style>
   :root {
     --void: #02060d;
@@ -172,8 +177,8 @@
       <h2>Publication Controls</h2>
       <p>All public-facing claims on this page are governed by a local claim registry and approval queue. Changes to disclosure entries, metric wording, or evidence positioning require explicit review before deployment.</p>
       <div class="grid">
-        <div class="card"><h3>Approval queue</h3><p>Public changes route through <code>00.15-OPERATOR-APPROVAL-QUEUE.md</code>. The queue does not grant approval by itself.</p></div>
-        <div class="card"><h3>Claim registry</h3><p>Public wording must stay within <code>02.00-CLAIM-REGISTRY.md</code>, including <code>CR-030</code> for the current mcp-bench metric and <code>CR-107</code> for the pushed but still blocked 25-case scanner result.</p></div>
+        <div class="card"><h3>Approval queue</h3><p>Public wording changes route through a written approval queue before deployment. Being queued is not approval; a human decision is required.</p></div>
+        <div class="card"><h3>Claim registry</h3><p>Every metric-bearing or security-sensitive statement is bound to a registered claim with its evidence, caveats, and forbidden wording. Published figures may not exceed what the cited public artifact shows. Results that have not been scored under the published method are not presented as headline numbers.</p></div>
         <div class="card"><h3>Disclosure mode</h3><p>Ledger rows stay placeholder-only unless FastMCP public PR entries or operator-provided entries are explicitly curated.</p></div>
       </div>
     </div>
@@ -184,7 +189,7 @@
       <h2>Evidence Assets</h2>
       <div class="grid">
         <article class="card">
-          <h3>mcp-bench</h3>
+          <h3><a href="https://github.com/StellarRequiem/mcp-bench" rel="noopener noreferrer">mcp-bench</a></h3>
           <p>Independent benchmark for whether MCP/source security scanners detect authorization-logic vulnerabilities.</p>
           <p><strong>Expanded result:</strong> 19 labeled cases, including 11 authorization-logic cases across 10 root-cause classes, 2 control bugs, and 6 clean negatives.</p>
           <p><strong>Evidence caveat:</strong> semgrep and bandit report 0/11 authorization-logic detections while catching 2/2 control bugs; because two authz cases share a root cause, the stricter class-level reading is 0/10.</p>
@@ -196,7 +201,7 @@
           </div>
         </article>
         <article class="card">
-          <h3>aisec-check</h3>
+          <h3><a href="https://github.com/StellarRequiem/aisec-check" rel="noopener noreferrer">aisec-check</a></h3>
           <p>Read-only AI-app and MCP-style security triage scanner. It is a lead generator, not a precision gate.</p>
           <p><strong>Validation:</strong> 59 public AI repos, 1410 raw leads, 140 sampled for human adjudication, about 3-4 percent precision.</p>
           <div>
@@ -206,7 +211,7 @@
           </div>
         </article>
         <article class="card">
-          <h3>verify-suite</h3>
+          <h3><a href="https://github.com/StellarRequiem/verify-suite" rel="noopener noreferrer">verify-suite</a></h3>
           <p>Reference implementation that composes claims, citations, benchmarks, datasets, calibration, scope, and security leads into one receipt.</p>
           <p>Absent checks report n/a. Receipts are reproducible, and limitations are stated plainly.</p>
           <div>
@@ -216,7 +221,7 @@
           </div>
         </article>
         <article class="card">
-          <h3>verity-core</h3>
+          <h3><a href="https://github.com/StellarRequiem/verity-core" rel="noopener noreferrer">verity-core</a></h3>
           <p>Shared audit and sealing primitive for the verification toolchain.</p>
           <p>Unkeyed seals are treated as integrity checks, not overstated as tamper-proof evidence.</p>
           <div>
@@ -234,12 +239,12 @@
       <h2>Claim Controls</h2>
       <p>Public and reviewer-facing claims are routed through a local claim registry before wording is strengthened. Metric-bearing, security-sensitive, or reusable claims get a claim card with evidence, caveats, forbidden wording, and disclosure-safety checks.</p>
       <div class="grid">
-        <div class="card"><h3>Published trust surface</h3><p><code>claim-cards/portfolio-live-trust-surface.md</code></p></div>
-        <div class="card"><h3>Workflow manual</h3><p><code>claim-cards/workflow-public-operating-manual.md</code></p></div>
-        <div class="card"><h3>mcp-bench metric</h3><p><code>claim-cards/mcp-bench-0-11-authz-gap.md</code></p></div>
-        <div class="card"><h3>aisec-check methodology</h3><p><code>claim-cards/aisec-check-lead-generator-positioning.md</code></p></div>
-        <div class="card"><h3>FastMCP public fixes</h3><p><code>claim-cards/fastmcp-pr-4401-versioned-auth.md</code><br><code>claim-cards/fastmcp-pr-4402-event-store-replay.md</code></p></div>
-        <div class="card"><h3>Billing boundary</h3><p><code>claim-cards/stripe-not-production-ready.md</code></p></div>
+        <div class="card"><h3>Published trust surface</h3><p>Governs what this site may assert about capability and status, and the wording that is off-limits.</p></div>
+        <div class="card"><h3>Workflow manual</h3><p>Governs how the public method write-up may describe scope, evidence, verification, and disclosure.</p></div>
+        <div class="card"><h3>mcp-bench metric</h3><p>Binds the authorization-logic figures to the published corpus, including the stricter class-level reading. Verifiable in the public repository.</p></div>
+        <div class="card"><h3>aisec-check methodology</h3><p>Requires the tool to be described as a lead generator with its measured precision stated, never as a precision gate.</p></div>
+        <div class="card"><h3>FastMCP public fixes</h3><p>Limits these to what the merged public pull requests actually changed. Verifiable upstream.</p></div>
+        <div class="card"><h3>Billing boundary</h3><p>Prohibits presenting payment integration work as production-ready.</p></div>
       </div>
     </div>
   </section>
