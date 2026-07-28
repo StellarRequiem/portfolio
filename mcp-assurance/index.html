@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MCP Authorization Assurance Proofs · XclusiveXO</title>
-  <meta name="description" content="Public, local-only MCP authorization and FastMCP signed-agent reference fixtures with explicit boundaries, negative paths, verifier mutations, and reproducible source.">
+  <title>MCP Authorization Assurance · XclusiveXO</title>
+  <meta name="description" content="MCP authorization fixtures and mcp-assure: a plug-in deny-by-default tool-call assurance runtime with policy packs, purple stress tests, and hash-chained receipts.">
   <meta name="theme-color" content="#071116">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <style>
@@ -25,11 +25,45 @@
   </style>
 </head>
 <body>
-  <header><div class="wrap nav"><a class="brand" href="/">XCLUSIVE<span>XO</span></a><div class="navlinks"><a href="/assurance/">assurance</a><a href="/workflow/">workflow</a><a href="https://github.com/StellarRequiem/portfolio/tree/main/mcp-assurance" target="_blank" rel="noopener">source</a><a href="https://github.com/StellarRequiem/mcp-bench" target="_blank" rel="noopener">mcp-bench</a></div></div></header>
+  <header><div class="wrap nav"><a class="brand" href="/">XCLUSIVE<span>XO</span></a><div class="navlinks"><a href="/assurance/">assurance</a><a href="/workflow/">workflow</a><a href="#mcp-assure">mcp-assure</a><a href="https://github.com/StellarRequiem/mcp-assure" target="_blank" rel="noopener">runtime</a><a href="https://github.com/StellarRequiem/mcp-bench" target="_blank" rel="noopener">mcp-bench</a></div></div></header>
   <main class="wrap">
-    <div class="hero"><p class="eyebrow">INDEPENDENT / LOCAL-ONLY / PUBLIC-SAFE</p><h1>MCP authorization proofs, with the limits left in.</h1><p class="lede">Public reference fixtures for inspecting resource, audience, scope, session, token-handling, and selected signed-agent boundaries around synthetic MCP-shaped tool calls.</p></div>
-    <div class="boundary"><b>CLAIM BOUNDARY</b><span>Controlled fixture mechanics only. This is not complete MCP or OAuth conformance, a production audit, an external-server assessment, independent certification, or a guarantee about unknown defects.</span></div>
+    <div class="hero"><p class="eyebrow">INDEPENDENT / LOCAL-ONLY / PUBLIC-SAFE</p><h1>MCP authorization proofs, with the limits left in.</h1><p class="lede">Public reference fixtures for inspecting resource, audience, scope, session, token-handling, and selected signed-agent boundaries around synthetic MCP-shaped tool calls — plus a plug-in runtime gate for tool execution.</p></div>
+    <div class="boundary"><b>CLAIM BOUNDARY</b><span>Controlled fixture mechanics and a library-level tool gate. This is not complete MCP or OAuth conformance, a production SOC, an external-server assessment, independent certification, or a guarantee about unknown defects.</span></div>
     <div class="stats"><div><span>ORIGINAL LOCAL TESTS</span><strong>42</strong></div><div><span>ORIGINAL MCP TESTS</span><strong>9</strong></div><div><span>ORIGINAL SCENARIOS</span><strong>8</strong></div><div><span>ORIGINAL MUTATIONS CAUGHT</span><strong>13/13</strong></div></div>
+
+    <section id="mcp-assure">
+      <p class="eyebrow">RUNTIME CONTROL PLANE (LIBRARY)</p>
+      <h2>mcp-assure — the model proposes; the gate decides.</h2>
+      <p class="copy"><a href="https://github.com/StellarRequiem/mcp-assure" target="_blank" rel="noopener">mcp-assure</a> is an open-source, <strong>deny-by-default assurance runtime</strong> for MCP-style tool calls: policy packs, argument constraints, optional resource/audience binding checks, velocity and blast limits, freeze mode, and hash-chained decision receipts. Middleware does not execute a tool handler on DENY or DRY_RUN. Zero runtime dependencies for the core package.</p>
+      <div class="stats">
+        <div><span>CORE PROPERTY TESTS</span><strong>P1–P12</strong></div>
+        <div><span>CONTROL-PLANE TESTS</span><strong>24+</strong></div>
+        <div><span>PURPLE FIXTURES</span><strong>3</strong></div>
+        <div><span>POLICY PACKS</span><strong>3</strong></div>
+      </div>
+      <div class="checks">
+        <div class="check ok">allowlisted tool executes</div>
+        <div class="check">unknown tool</div>
+        <div class="check">forbidden / extra args</div>
+        <div class="check">lab-only without lab_mode</div>
+        <div class="check">resource / audience mismatch</div>
+        <div class="check">velocity ceiling</div>
+        <div class="check">receipt tamper detected</div>
+        <div class="check">model note cannot force ALLOW</div>
+      </div>
+      <div class="boundary"><b>CLAIM BOUNDARY</b><span>This is a plug-in library for tool authorization and audit, not a full SOC, not a scanner replacement, and not a complete OAuth authorization server. Effectiveness requires the host to route tool execution through the gate (AssuredRunner / AssuredToolDispatcher). CI and local <code>pytest</code> are the re-runnable proofs.</span></div>
+      <pre>pip install "git+https://github.com/StellarRequiem/mcp-assure"
+python -m mcp_assure demo
+python -m mcp_assure purple
+python examples/host_demo.py</pre>
+      <div class="links">
+        <a href="https://github.com/StellarRequiem/mcp-assure" target="_blank" rel="noopener">github.com/StellarRequiem/mcp-assure</a>
+        <a href="https://github.com/StellarRequiem/mcp-assure/blob/main/THREAT_MODEL.md" target="_blank" rel="noopener">threat model</a>
+        <a href="https://github.com/StellarRequiem/mcp-assure/blob/main/CLAIMS.md" target="_blank" rel="noopener">claim gate</a>
+        <a href="https://github.com/StellarRequiem/mcp-assure/actions" target="_blank" rel="noopener">CI</a>
+      </div>
+    </section>
+
     <section><p class="eyebrow">THE BOUNDARY</p><h2>Make the allowed path boring. Make the denied path explicit.</h2><p class="copy">The fixture holds one synthetic clean control beside negative paths. It records what is allowed, what is refused, and which assumptions the verifier itself is challenged to catch.</p><div class="map"><div class="node allow"><p class="tag">01 / ALLOW</p><b>Minimal read</b><p>A synthetic subject with the exact resource and <code>records:read</code> scope can initialize and read fixture data.</p></div><div class="node deny"><p class="tag">02 / DENY</p><b>Binding failures</b><p>Missing bearer, wrong resource, and wrong audience refuse before a tool result is returned.</p></div><div class="node deny"><p class="tag">03 / DENY</p><b>Authority failures</b><p>Insufficient scope, session replay by another subject, and downstream-token passthrough are refused.</p></div><div class="node verify"><p class="tag">04 / VERIFY</p><b>Evidence challenge</b><p>Known-bad mutations such as scope bypass and audience bypass must fail the verifier rather than become a pass.</p></div></div></section>
     <section><p class="eyebrow">OBSERVED FIXTURE OUTCOMES</p><div class="checks"><div class="check ok">clean minimally scoped read</div><div class="check">missing bearer</div><div class="check">resource mismatch</div><div class="check">audience mismatch</div><div class="check">insufficient scope</div><div class="check">session replay</div><div class="check">token passthrough</div><div class="check">external host preflight</div></div></section>
     <section id="fastmcp">
