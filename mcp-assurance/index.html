@@ -34,12 +34,12 @@
     <section id="mcp-assure">
       <p class="eyebrow">RUNTIME CONTROL PLANE (LIBRARY)</p>
       <h2>mcp-assure — the model proposes; the gate decides.</h2>
-      <p class="copy"><a href="https://github.com/StellarRequiem/mcp-assure" target="_blank" rel="noopener">mcp-assure</a> is an open-source, <strong>deny-by-default assurance runtime</strong> for MCP-style tool calls: policy packs, argument constraints, optional resource/audience binding checks, velocity and blast limits, freeze mode, and hash-chained decision receipts. Middleware does not execute a tool handler on DENY or DRY_RUN. Zero runtime dependencies for the core package. Optional FastMCP <code>on_call_tool</code> middleware (<code>pip install mcp-assure[fastmcp]</code>) gates tool execution before handlers run.</p>
+      <p class="copy"><a href="https://github.com/StellarRequiem/mcp-assure" target="_blank" rel="noopener">mcp-assure</a> is an open-source, <strong>deny-by-default assurance runtime</strong> for MCP-style tool calls: policy packs, argument constraints, optional resource/audience binding checks, velocity and blast limits, freeze mode, and hash-chained decision receipts. Middleware does not execute a tool handler on DENY or DRY_RUN. Zero runtime dependencies for the core package. Optional FastMCP <code>on_call_tool</code> middleware and a <strong>proactive campaign watch</strong> (swarm/spray/path/template smells → escalate or freeze) address agentic tool-plane abuse shapes — not a full SOC.</p>
       <div class="stats">
         <div><span>CORE PROPERTY TESTS</span><strong>P1–P12</strong></div>
-        <div><span>CONTROL-PLANE TESTS</span><strong>33</strong></div>
-        <div><span>PURPLE FIXTURES</span><strong>3</strong></div>
-        <div><span>POLICY PACKS</span><strong>3</strong></div>
+        <div><span>CONTROL-PLANE TESTS</span><strong>41</strong></div>
+        <div><span>PURPLE FIXTURES</span><strong>6</strong></div>
+        <div><span>POLICY PACKS</span><strong>4</strong></div>
       </div>
       <div class="checks">
         <div class="check ok">allowlisted tool executes</div>
@@ -51,12 +51,15 @@
         <div class="check">receipt tamper detected</div>
         <div class="check">model note cannot force ALLOW</div>
         <div class="check">FastMCP on_call_tool DENY (optional)</div>
+        <div class="check">proactive path/template block</div>
+        <div class="check">campaign swarm escalate/freeze</div>
       </div>
-      <div class="boundary"><b>CLAIM BOUNDARY</b><span>This is a plug-in library for tool authorization and audit, not a full SOC, not a scanner replacement, and not a complete OAuth authorization server. Effectiveness requires the host to route tool execution through the gate (AssuredRunner / AssuredToolDispatcher / FastMCP middleware). CI and local <code>pytest</code> are the re-runnable proofs — not production-at-scale evidence.</span></div>
+      <div class="boundary"><b>CLAIM BOUNDARY</b><span>This is a plug-in library for tool authorization and audit, not a full SOC, not a scanner replacement, and not a complete OAuth authorization server. Adaptive campaign scoring does not claim to stop frontier agent breakouts end-to-end (data-plane RCE, K8s, mesh remain host-owned). Effectiveness requires the host to route tool execution through the gate. CI and local <code>pytest</code> / <code>python -m mcp_assure purple</code> are the re-runnable proofs — not production-at-scale evidence.</span></div>
       <pre>pip install mcp-assure
 # or: pip install "git+https://github.com/StellarRequiem/mcp-assure"
 python -m mcp_assure demo
 python -m mcp_assure purple
+python -m mcp_assure campaign-demo
 python examples/host_demo.py
 # optional FastMCP path: pip install "mcp-assure[fastmcp]" && python examples/fastmcp_assured.py</pre>
       <div class="links">
