@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security Research and Verification Controls - StellarRequiem</title>
+<meta name="description" content="Authorized defensive security research, AI/MCP authorization-logic review, coordinated disclosure, and verification controls by Alex Price / StellarRequiem.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  :root {
+    --void: #02060d;
+    --panel: #06101e;
+    --panel2: #040b16;
+    --cy: #5ad4ff;
+    --mint: #3df0bb;
+    --amber: #ffb547;
+    --red: #ff5d6c;
+    --tx: #dcefff;
+    --dim: #6c8aa6;
+    --line: rgba(86,206,255,.4);
+    --hair: rgba(86,206,255,.22);
+    --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(circle at 20% 0%, rgba(90,212,255,.16), transparent 28rem),
+      radial-gradient(circle at 80% 10%, rgba(61,240,187,.10), transparent 26rem),
+      var(--void);
+    color: var(--tx);
+    font-family: var(--sans);
+    line-height: 1.65;
+  }
+  a { color: var(--cy); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+  header { border-bottom: 1px solid var(--hair); }
+  .hero { padding: 58px 0 40px; }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--cy);
+  }
+  h1 {
+    max-width: 900px;
+    margin: 14px 0 14px;
+    font-family: var(--mono);
+    font-size: clamp(30px, 6vw, 54px);
+    line-height: 1.05;
+    font-weight: 550;
+  }
+  .lede { max-width: 780px; color: var(--dim); font-size: 18px; }
+  .contacts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+  .contacts a {
+    font-family: var(--mono);
+    font-size: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--tx);
+    background: rgba(6,16,30,.72);
+  }
+  .contacts a:hover { border-color: rgba(86,206,255,.9); text-decoration: none; box-shadow: 0 0 12px rgba(86,206,255,.2); }
+  section { padding: 42px 0; border-bottom: 1px solid var(--hair); }
+  h2 {
+    margin: 0 0 12px;
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--cy);
+  }
+  h3 { margin: 0 0 8px; font-family: var(--mono); font-size: 18px; }
+  p { color: var(--dim); margin: 0 0 14px; }
+  strong { color: var(--tx); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+  .card {
+    background: rgba(6,16,30,.88);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 17px 18px;
+  }
+  .card:hover { border-color: rgba(86,206,255,.9); box-shadow: 0 0 18px rgba(86,206,255,.18); }
+  .badge {
+    display: inline-block;
+    margin: 8px 6px 0 0;
+    padding: 3px 7px;
+    border: 1px solid var(--hair);
+    border-radius: 5px;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+  .badge.good { color: var(--mint); border-color: rgba(61,240,187,.5); }
+  .badge.warn { color: var(--amber); border-color: rgba(255,181,71,.5); }
+  .badge.red { color: var(--red); border-color: rgba(255,93,108,.5); }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+  code { color: var(--tx); font-family: var(--mono); font-size: .92em; }
+  ul { margin: 0; padding-left: 20px; color: var(--dim); }
+  li { margin: 6px 0; }
+  table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 8px; }
+  th, td {
+    border: 1px solid var(--hair);
+    padding: 10px;
+    text-align: left;
+    vertical-align: top;
+    color: var(--dim);
+    font-size: 14px;
+  }
+  th { color: var(--tx); background: rgba(90,212,255,.08); font-family: var(--mono); font-size: 12px; }
+  .note { color: var(--amber); }
+  footer { padding: 34px 0 54px; color: var(--dim); font-size: 14px; }
+  footer a { color: var(--cy); }
+  .verifyline { font-family: var(--mono); font-size: 12.5px; color: var(--dim); margin-top: 10px; }
+  .verifyline b { color: var(--cy); }
+  @media (max-width: 760px) {
+    .split { grid-template-columns: 1fr; }
+    th, td { font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hero">
+    <div class="kicker">StellarRequiem - Security Research</div>
+    <h1>Security Research and Verification Controls</h1>
+    <p class="lede">Authorized defensive vulnerability research focused on AI infrastructure, MCP-style tooling, and authorization-logic failures. Work is bounded by explicit scope, local reproduction, coordinated disclosure, and audit records.</p>
+    <div class="contacts">
+      <a href="mailto:security@xclusivexo.com">security@xclusivexo.com</a>
+      <a href="https://github.com/StellarRequiem" target="_blank" rel="noopener">GitHub</a>
+      <a href="/" aria-label="Back to StellarRequiem home">Home</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div class="wrap split">
+      <div>
+        <h2>Operating Boundaries</h2>
+        <ul>
+          <li>Authorized targets only.</li>
+          <li>Deny-by-default scope checks before testing.</li>
+          <li>Local reproduction and disposable runners where possible.</li>
+          <li>Human review before disclosure or escalation.</li>
+          <li>No public exploit release while a report is private or embargoed.</li>
+          <li>No live-target probing outside the applicable program or maintainer scope.</li>
+          <li>No claims of impact without reproducible evidence.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Primary Control</h3>
+        <p><strong>scope-gate</strong> models "am I allowed to test this?" as an explicit gate. It is the boundary that keeps dual-use security work tied to scope, authorization, and human disclosure decisions.</p>
+        <a href="https://github.com/StellarRequiem/scope-gate" target="_blank" rel="noopener">github.com/StellarRequiem/scope-gate</a>
+        <div>
+          <span class="badge good">deny by default</span>
+          <span class="badge">coordinated disclosure</span>
+          <span class="badge">human gated</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Publication Controls</h2>
+      <p>All public-facing claims on this page are governed by a local claim registry and approval queue. Changes to disclosure entries, metric wording, or evidence positioning require explicit review before deployment.</p>
+      <div class="grid">
+        <div class="card"><h3>Approval queue</h3><p>Public changes route through <code>00.15-OPERATOR-APPROVAL-QUEUE.md</code>. The queue does not grant approval by itself.</p></div>
+        <div class="card"><h3>Claim registry</h3><p>Public wording must stay within <code>02.00-CLAIM-REGISTRY.md</code>, including <code>CR-030</code> for the current mcp-bench metric and <code>CR-107</code> for the pushed but still blocked 25-case scanner result.</p></div>
+        <div class="card"><h3>Disclosure mode</h3><p>Ledger rows stay placeholder-only unless FastMCP public PR entries or operator-provided entries are explicitly curated.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Evidence Assets</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>mcp-bench</h3>
+          <p>Independent benchmark for whether MCP/source security scanners detect authorization-logic vulnerabilities.</p>
+          <p><strong>Expanded result:</strong> 19 labeled cases, including 11 authorization-logic cases across 10 root-cause classes, 2 control bugs, and 6 clean negatives.</p>
+          <p><strong>Evidence caveat:</strong> semgrep and bandit report 0/11 authorization-logic detections while catching 2/2 control bugs; because two authz cases share a root cause, the stricter class-level reading is 0/10.</p>
+          <div>
+            <span class="badge red">authz logic 0/11</span>
+            <span class="badge warn">class caveat 0/10</span>
+            <span class="badge good">controls detected</span>
+            <span class="badge">disposable CI</span>
+          </div>
+        </article>
+        <article class="card">
+          <h3>aisec-check</h3>
+          <p>Read-only AI-app and MCP-style security triage scanner. It is a lead generator, not a precision gate.</p>
+          <p><strong>Validation:</strong> 59 public AI repos, 1410 raw leads, 140 sampled for human adjudication, about 3-4 percent precision.</p>
+          <div>
+            <span class="badge good">read only</span>
+            <span class="badge warn">human confirmed</span>
+            <span class="badge">SARIF receipts</span>
+          </div>
+        </article>
+        <article class="card">
+          <h3>verify-suite</h3>
+          <p>Reference implementation that composes claims, citations, benchmarks, datasets, calibration, scope, and security leads into one receipt.</p>
+          <p>Absent checks report n/a. Receipts are reproducible, and limitations are stated plainly.</p>
+          <div>
+            <span class="badge good">one receipt</span>
+            <span class="badge">transparent rollup</span>
+            <span class="badge">n/a is honest</span>
+          </div>
+        </article>
+        <article class="card">
+          <h3>verity-core</h3>
+          <p>Shared audit and sealing primitive for the verification toolchain.</p>
+          <p>Unkeyed seals are treated as integrity checks, not overstated as tamper-proof evidence.</p>
+          <div>
+            <span class="badge good">audit chain</span>
+            <span class="badge">canonical JSON</span>
+            <span class="badge">replayable</span>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Claim Controls</h2>
+      <p>Public and reviewer-facing claims are routed through a local claim registry before wording is strengthened. Metric-bearing, security-sensitive, or reusable claims get a claim card with evidence, caveats, forbidden wording, and disclosure-safety checks.</p>
+      <div class="grid">
+        <div class="card"><h3>Published trust surface</h3><p><code>claim-cards/portfolio-live-trust-surface.md</code></p></div>
+        <div class="card"><h3>Workflow manual</h3><p><code>claim-cards/workflow-public-operating-manual.md</code></p></div>
+        <div class="card"><h3>mcp-bench metric</h3><p><code>claim-cards/mcp-bench-0-11-authz-gap.md</code></p></div>
+        <div class="card"><h3>aisec-check methodology</h3><p><code>claim-cards/aisec-check-lead-generator-positioning.md</code></p></div>
+        <div class="card"><h3>FastMCP public fixes</h3><p><code>claim-cards/fastmcp-pr-4401-versioned-auth.md</code><br><code>claim-cards/fastmcp-pr-4402-event-store-replay.md</code></p></div>
+        <div class="card"><h3>Billing boundary</h3><p><code>claim-cards/stripe-not-production-ready.md</code></p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap split">
+      <div>
+        <h2>TAC Use Case</h2>
+        <p>Trusted Access for Cybersecurity would support defensive, policy-bounded workflows:</p>
+        <ul>
+          <li>Triage source-code security leads.</li>
+          <li>Compare suspected findings against known vulnerability classes.</li>
+          <li>Prepare maintainer-safe disclosure summaries.</li>
+          <li>Review patches and regression tests.</li>
+          <li>Improve benchmark cases and defensive guidance.</li>
+          <li>Keep all disclosure, target selection, and live-testing decisions human-gated.</li>
+        </ul>
+      </div>
+      <div>
+        <h2>Out of Scope</h2>
+        <ul>
+          <li>Autonomous exploitation.</li>
+          <li>Unsolicited live-target testing.</li>
+          <li>Credential theft or data exfiltration.</li>
+          <li>Malware creation or deployment.</li>
+          <li>Public release of private exploit details.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Disclosure Process</h2>
+      <p>Findings are handled through coordinated disclosure. Public references are included only when the issue is already safe to discuss.</p>
+      <p>Current safe modes are placeholder-only, FastMCP public PR entries only, or operator-provided entries curated locally before any publication.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Channel</th>
+            <th>Class</th>
+            <th>Status</th>
+            <th>Reference</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>pending operator review</td>
+            <td>pending</td>
+            <td>pending</td>
+            <td>pending</td>
+            <td>pending</td>
+            <td>sanitized entries only; no exploit steps or active-target details</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="note">This table is a placeholder until disclosure outcomes are curated for public release.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Current Hardening Plan</h2>
+      <div class="grid">
+        <div class="card"><h3>Repo Policies</h3><p>Add SECURITY.md coverage to the core public repos only after the SECURITY.md application gate is explicitly approved.</p></div>
+        <div class="card"><h3>CI</h3><p>Add verify-suite CI only after the workflow application gate is explicitly approved and public run evidence is verified.</p></div>
+        <div class="card"><h3>Stripe</h3><p>Complete webhook verification, idempotency, and checkout handling before production billing claims; no Stripe keys or dashboard actions are part of this page.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer><div class="wrap">
+  Alex Price · <span style="font-family:var(--mono)">StellarRequiem</span> — Security Research & Verification Controls<br>
+  <a href="mailto:security@xclusivexo.com">security@xclusivexo.com</a> ·
+  <a href="https://github.com/StellarRequiem" target="_blank" rel="noopener">github.com/StellarRequiem</a> ·
+  <a href="/">home</a>
+  <div class="verifyline"><b>Every result ships with proof you can re-run.</b> · the honest no is part of the deliverable</div>
+</div></footer>
+</body>
+</html>
