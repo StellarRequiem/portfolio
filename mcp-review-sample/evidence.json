@@ -1,0 +1,223 @@
+{
+  "schema": "xclusivexo.mcp-security-capability-review-sample.v1",
+  "status": "DEMO_SYNTHETIC",
+  "title": "MCP Security & Capability Review",
+  "disclosure": [
+    "Operator-owned synthetic demonstration.",
+    "No client, production system, credential, external host, or paid engagement was used.",
+    "Results describe only the pinned local fixtures and do not establish MCP conformance, product security, compliance, certification, or independent validation."
+  ],
+  "generatedAt": "2026-07-30T05:09:30.117Z",
+  "fixtures": {
+    "mock": {
+      "label": "Authorization boundary fixture",
+      "classification": "fixture_mechanics_only",
+      "generatedAt": "2026-07-30T05:01:13.845Z",
+      "scenarioCount": 8,
+      "acceptedCount": 1,
+      "deniedCount": 7,
+      "externalActionsExecuted": 0,
+      "testCount": 9,
+      "implementation": "Node.js loopback authorization fixture",
+      "statusSemantics": "fixture_http_status",
+      "caveat": "Operator-owned synthetic fixture; not a production assessment.",
+      "scenarios": [
+        {
+          "id": "clean_control",
+          "outcome": "accepted",
+          "status": 200,
+          "errorCode": null,
+          "externalActionsExecuted": 0
+        },
+        {
+          "id": "missing_bearer",
+          "outcome": "denied",
+          "status": 401,
+          "errorCode": "bearer_required",
+          "externalActionsExecuted": 0
+        },
+        {
+          "id": "resource_mismatch",
+          "outcome": "denied",
+          "status": 403,
+          "errorCode": "resource_mismatch",
+          "externalActionsExecuted": 0
+        },
+        {
+          "id": "audience_mismatch",
+          "outcome": "denied",
+          "status": 403,
+          "errorCode": "audience_mismatch",
+          "externalActionsExecuted": 0
+        },
+        {
+          "id": "scope_denied",
+          "outcome": "denied",
+          "status": 403,
+          "errorCode": "insufficient_scope",
+          "externalActionsExecuted": 0
+        },
+        {
+          "id": "session_replay_denied",
+          "outcome": "denied",
+          "status": 403,
+          "errorCode": "session_subject_mismatch",
+          "externalActionsExecuted": 0
+        },
+        {
+          "id": "token_passthrough_denied",
+          "outcome": "denied",
+          "status": 400,
+          "errorCode": "token_passthrough_forbidden",
+          "externalActionsExecuted": 0
+        },
+        {
+          "id": "external_host_denied",
+          "outcome": "denied",
+          "status": 0,
+          "errorCode": "base_url_out_of_scope",
+          "externalActionsExecuted": 0
+        }
+      ],
+      "receipt": {
+        "path": "proof-labs/mock-mcp-authz/artifacts/latest-scenarios.json",
+        "sha256": "e0dc8abc37036ea46b0e15091692412b7f8724b3c8ef2cefc65cbf0feca5da5c"
+      },
+      "sources": [
+        {
+          "path": "proof-labs/mock-mcp-authz/server.mjs",
+          "sha256": "07fc9b2df99bd3608977ae60c6693b1fd6587bd72abbe42df74fa3603be23ca8"
+        },
+        {
+          "path": "proof-labs/mock-mcp-authz/client.mjs",
+          "sha256": "6bd54ebfbd201d374307423c65bc747b9112698e9d540b40ead6a2a847d14c0c"
+        },
+        {
+          "path": "proof-labs/mock-mcp-authz/test-authz.mjs",
+          "sha256": "f9d6d249bd6d3552934bd571ae9ebe49b0727bde503350ac7bf56b08d40c49ae"
+        },
+        {
+          "path": "proof-labs/mock-mcp-authz/run-scenarios.mjs",
+          "sha256": "a7cabbbed25035cb966c1fbd51cd8a0a17b1269b749964bd466b132aaa62ac5d"
+        },
+        {
+          "path": "proof-labs/mock-mcp-authz/verify-scenarios.mjs",
+          "sha256": "04242340306ffa22077a5bd1a45460e07bcee5e73d6f8f078dd727a6852b56cb"
+        }
+      ]
+    },
+    "fastmcp": {
+      "label": "FastMCP signed-agent appendix",
+      "classification": "fixture_mechanics_only",
+      "generatedAt": "2026-07-30T05:01:36.820916Z",
+      "scenarioCount": 8,
+      "acceptedCount": 1,
+      "deniedCount": 7,
+      "externalActionsExecuted": 0,
+      "testCount": 9,
+      "implementation": "fastmcp 3.4.4; streamable_http_json_stateless",
+      "statusSemantics": "fixture_policy_status",
+      "caveat": "Operator-owned FastMCP 3.4.4 loopback fixture using stateless JSON Streamable HTTP. The signed-agent envelope is application-layer policy, not an MCP standard, FastMCP-wide assessment, interoperability result, or conformance result. Scenario status values classify fixture-policy decisions; denied tool calls are MCP tool errors, not asserted HTTP authorization statuses.",
+      "scenarios": [
+        {
+          "id": "clean_control",
+          "outcome": "accepted",
+          "status": 200,
+          "errorCode": null,
+          "externalActionsExecuted": 0
+        },
+        {
+          "id": "unsigned_envelope_denied",
+          "outcome": "denied",
+          "status": 403,
+          "errorCode": "agent_envelope_required",
+          "externalActionsExecuted": 0
+        },
+        {
+          "id": "wrong_agent_signature_denied",
+          "outcome": "denied",
+          "status": 400,
+          "errorCode": "agent_signature_invalid",
+          "externalActionsExecuted": 0
+        },
+        {
+          "id": "signed_resource_target_denied",
+          "outcome": "denied",
+          "status": 403,
+          "errorCode": "resource_mismatch",
+          "externalActionsExecuted": 0
+        },
+        {
+          "id": "insufficient_scope_denied",
+          "outcome": "denied",
+          "status": 403,
+          "errorCode": "agent_scope_not_allowed",
+          "externalActionsExecuted": 0
+        },
+        {
+          "id": "operation_replay_denied",
+          "outcome": "denied",
+          "status": 400,
+          "errorCode": "operation_replayed",
+          "externalActionsExecuted": 0
+        },
+        {
+          "id": "revoked_key_denied",
+          "outcome": "denied",
+          "status": 403,
+          "errorCode": "agent_key_revoked",
+          "externalActionsExecuted": 0
+        },
+        {
+          "id": "external_host_denied",
+          "outcome": "denied",
+          "status": 0,
+          "errorCode": "base_url_out_of_scope",
+          "externalActionsExecuted": 0
+        }
+      ],
+      "receipt": {
+        "path": "proof-labs/fastmcp-signed-agent-integration/artifacts/latest-scenarios.json",
+        "sha256": "dc9f0f2024d3f2c90be9a1e4b998060a1a6da8954c4c846d0032b6ed8a661a91"
+      },
+      "sources": [
+        {
+          "path": "proof-labs/fastmcp-signed-agent-integration/server.py",
+          "sha256": "9e1f202fc3c29b0e8541fe19949872626cfa1971d02d47a19f2256674b73c83e"
+        },
+        {
+          "path": "proof-labs/fastmcp-signed-agent-integration/client.py",
+          "sha256": "27056dbf8e3bb099c7fda758a49c985788ab0a7d589669c55f0cac93510c7e60"
+        },
+        {
+          "path": "proof-labs/fastmcp-signed-agent-integration/identity.py",
+          "sha256": "84dc33f530dc5ff847b7bf452f33ae47c5464a153d88dd3f5f3c1ade88ddf2ba"
+        },
+        {
+          "path": "proof-labs/fastmcp-signed-agent-integration/test_integration.py",
+          "sha256": "e36aac825d2b1e4f841e83cb8e413ea45fd4443e62fa5e288c16f8b5904d52fb"
+        },
+        {
+          "path": "proof-labs/fastmcp-signed-agent-integration/run_scenarios.py",
+          "sha256": "9d62f38d150ddd86c8aab45c27eefdbb085171d93cf9a28c5b804b03bd7ea5cc"
+        },
+        {
+          "path": "proof-labs/fastmcp-signed-agent-integration/verify_scenarios.py",
+          "sha256": "3ea7ac6ee395c77a23f1e61c24af2b6f91a9ab521f5868fda15660df932cde3f"
+        },
+        {
+          "path": "proof-labs/fastmcp-signed-agent-integration/requirements.lock",
+          "sha256": "c335072d24ad6d665e43e5dce47d7df55fde224fe71bf6f6291f2ece26f14dbf"
+        }
+      ]
+    }
+  },
+  "totals": {
+    "fixtures": 2,
+    "scenarios": 16,
+    "accepted": 2,
+    "denied": 14,
+    "testsPassing": 18,
+    "externalActionsExecuted": 0
+  }
+}

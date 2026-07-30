@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A public-safe synthetic sample of an MCP security and capability review."
+    />
+    <title>MCP Security &amp; Capability Review | Synthetic Sample</title>
+    <link rel="canonical" href="https://xclusivexo.com/mcp-review-sample/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="MCP Security &amp; Capability Review | Synthetic Sample" />
+    <meta
+      property="og:description"
+      content="A bounded, public-safe example of mapping MCP authority, refusal paths, evidence, and delivery."
+    />
+    <meta property="og:url" content="https://xclusivexo.com/mcp-review-sample/" />
+    <meta
+      property="og:image"
+      content="https://xclusivexo.com/mcp-review-sample/assets/mcp-security-capability-review-card.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      (() => {
+        try {
+          const saved = localStorage.getItem("mcp-review-theme");
+          const preferred =
+            saved === "dark" || saved === "light"
+              ? saved
+              : window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          document.documentElement.dataset.theme = preferred;
+        } catch (_error) {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="report-header">
+      <div class="header-inner">
+        <a class="brand" href="https://xclusivexo.com/" aria-label="XclusiveXO home">
+          XCLUSIVE<span>XO</span>
+        </a>
+        <div class="header-meta">
+          <span>Capability Review</span>
+          <span>Public-safe sample</span>
+          <button
+            class="theme-toggle"
+            id="themeToggle"
+            type="button"
+            aria-label="Enable dark mode"
+            aria-pressed="false"
+          >
+            <span class="theme-toggle-label">Dark mode</span>
+            <span class="theme-toggle-track" aria-hidden="true">
+              <span class="theme-toggle-thumb"></span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="cover report-page" aria-labelledby="report-title">
+        <div class="cover-copy">
+          <p class="eyebrow">Operator-owned synthetic demonstration</p>
+          <h1 id="report-title">MCP Security &amp; Capability Review</h1>
+          <p class="lead">
+            A bounded example of how authority, refusal paths, and evidence can be mapped
+            before higher-risk testing begins.
+          </p>
+          <div class="status-strip" aria-label="Sample status">
+            <span><strong>16</strong> scenarios</span>
+            <span><strong>14</strong> expected denials</span>
+            <span><strong>18</strong> passing tests</span>
+            <span aria-label="0 external actions"><strong>0</strong> external actions</span>
+          </div>
+          <div class="disclosure">
+            <strong>No client or production system.</strong>
+            This sample uses two versioned local fixtures, synthetic data, and loopback-only
+            execution. It is not a vulnerability report, audit, penetration test, compliance
+            assessment, or certification.
+          </div>
+        </div>
+        <figure class="cover-visual">
+          <img
+            src="assets/mcp-security-capability-review-card.png"
+            alt="MCP security review workflow showing scope, authority, negative tests, evidence, and delivery"
+          />
+        </figure>
+      </section>
+
+      <section class="report-page" aria-labelledby="summary-title">
+        <div class="section-heading">
+          <p class="section-number">01 / Executive view</p>
+          <h2 id="summary-title">What the review is designed to answer</h2>
+          <p>
+            The review turns an MCP-shaped system into a decision map: who can act, what
+            resource is addressed, which operation is allowed, how refusal behaves, and what
+            evidence can be handed to another reviewer.
+          </p>
+        </div>
+
+        <div class="question-grid">
+          <article>
+            <span class="question-icon">A</span>
+            <h3>Authority</h3>
+            <p>Which identity, audience, resource, scope, and session bindings govern a call?</p>
+          </article>
+          <article>
+            <span class="question-icon">B</span>
+            <h3>Boundary</h3>
+            <p>Where do local policy, MCP transport, application behavior, and external effects separate?</p>
+          </article>
+          <article>
+            <span class="question-icon">E</span>
+            <h3>Evidence</h3>
+            <p>Which clean control and negative paths are reproducible from pinned inputs?</p>
+          </article>
+          <article>
+            <span class="question-icon">H</span>
+            <h3>Handoff</h3>
+            <p>What can be stated now, what remains untested, and what needs new authorization?</p>
+          </article>
+        </div>
+
+        <div class="flow" role="img" aria-label="Review flow from scope to delivery">
+          <div><b>1</b><span>Scope</span><small>Actors, surfaces, exclusions</small></div>
+          <i aria-hidden="true">→</i>
+          <div><b>2</b><span>Preflight</span><small>Stop conditions, fixtures</small></div>
+          <i aria-hidden="true">→</i>
+          <div><b>3</b><span>Exercise</span><small>Clean and negative paths</small></div>
+          <i aria-hidden="true">→</i>
+          <div><b>4</b><span>Verify</span><small>Receipts and challenges</small></div>
+          <i aria-hidden="true">→</i>
+          <div><b>5</b><span>Deliver</span><small>Findings, limits, backlog</small></div>
+        </div>
+
+        <aside class="decision-note">
+          <strong>Decision rule</strong>
+          A result advances only when its authority, evidence, and limitation are visible
+          together. A plausible explanation is not treated as a verified result.
+        </aside>
+      </section>
+
+      <section class="report-page" aria-labelledby="boundary-title">
+        <div class="section-heading">
+          <p class="section-number">02 / Boundary map</p>
+          <h2 id="boundary-title">The surface before testing</h2>
+          <p>
+            The sample starts with a narrow read-only operation and makes each policy
+            decision explicit. The diagram describes the fixture, not MCP as a whole.
+          </p>
+        </div>
+
+        <div class="architecture">
+          <div class="actor">
+            <span>Caller</span>
+            <small>Synthetic identity</small>
+          </div>
+          <div class="connector">request</div>
+          <div class="gate-stack">
+            <div><b>Resource</b><small>Exact target binding</small></div>
+            <div><b>Audience</b><small>Intended recipient</small></div>
+            <div><b>Scope</b><small>Minimum read grant</small></div>
+            <div><b>Session</b><small>Subject continuity</small></div>
+            <div><b>Replay</b><small>Operation uniqueness</small></div>
+          </div>
+          <div class="connector">allow / deny</div>
+          <div class="tool">
+            <span>Read-only tool</span>
+            <small>Static synthetic records</small>
+          </div>
+        </div>
+
+        <div class="boundary-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Boundary</th>
+                <th>Fixture rule</th>
+                <th>Exercised evidence</th>
+                <th>Limit</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td data-label="Boundary">Resource</td>
+                <td data-label="Fixture rule">Exact target required</td>
+                <td data-label="Evidence">Mismatch denied</td>
+                <td data-label="Limit">No production protected-resource deployment</td>
+              </tr>
+              <tr>
+                <td data-label="Boundary">Audience</td>
+                <td data-label="Fixture rule">Intended recipient required</td>
+                <td data-label="Evidence">Wrong audience denied</td>
+                <td data-label="Limit">No external issuer validation</td>
+              </tr>
+              <tr>
+                <td data-label="Boundary">Scope</td>
+                <td data-label="Fixture rule">Minimal read grant</td>
+                <td data-label="Evidence">Insufficient scope denied</td>
+                <td data-label="Limit">No complete authorization matrix</td>
+              </tr>
+              <tr>
+                <td data-label="Boundary">Session / replay</td>
+                <td data-label="Fixture rule">Bound subject and unique operation</td>
+                <td data-label="Evidence">Mismatch and replay denied</td>
+                <td data-label="Limit">No production session service</td>
+              </tr>
+              <tr>
+                <td data-label="Boundary">Network</td>
+                <td data-label="Fixture rule">Loopback target only</td>
+                <td data-label="Evidence">External host refused before request</td>
+                <td data-label="Limit">No external-host assessment</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="report-page" aria-labelledby="evidence-title">
+        <div class="section-heading">
+          <p class="section-number">03 / Evidence summary</p>
+          <h2 id="evidence-title">Two fixtures, one bounded result pattern</h2>
+          <p>
+            Both runs were regenerated from current source. Each retains one clean control,
+            seven expected refusal paths, and zero external actions.
+          </p>
+        </div>
+
+        <div class="fixture-comparison">
+          <article>
+            <div class="fixture-head">
+              <span class="fixture-tag">Core example</span>
+              <h3>Authorization boundary fixture</h3>
+              <p>Node.js loopback policy surface</p>
+            </div>
+            <div class="outcome-bar" aria-label="One accepted and seven denied scenarios">
+              <span class="accepted" style="--weight: 1">1 accepted</span>
+              <span class="denied" style="--weight: 7">7 denied</span>
+            </div>
+            <ul>
+              <li>Missing authority</li>
+              <li>Resource and audience mismatch</li>
+              <li>Insufficient scope</li>
+              <li>Session-subject mismatch</li>
+              <li>Token forwarding attempt</li>
+              <li>External host attempt</li>
+            </ul>
+            <p class="fixture-foot">9/9 tests passed · receipt verifier passed</p>
+          </article>
+
+          <article>
+            <div class="fixture-head">
+              <span class="fixture-tag advanced">Advanced appendix</span>
+              <h3>FastMCP signed-agent fixture</h3>
+              <p>FastMCP 3.4.4 · stateless JSON Streamable HTTP</p>
+            </div>
+            <div class="outcome-bar" aria-label="One accepted and seven denied scenarios">
+              <span class="accepted" style="--weight: 1">1 accepted</span>
+              <span class="denied" style="--weight: 7">7 denied</span>
+            </div>
+            <ul>
+              <li>Missing signed envelope</li>
+              <li>Invalid signature</li>
+              <li>Resource and scope mismatch</li>
+              <li>Operation replay</li>
+              <li>Revoked key</li>
+              <li>External host attempt</li>
+            </ul>
+            <p class="fixture-foot">9/9 tests passed · receipt verifier passed</p>
+          </article>
+        </div>
+
+        <div class="evidence-rail">
+          <div><strong>Observed</strong><span>Current fixture behavior and retained receipts</span></div>
+          <div><strong>Not tested</strong><span>Client systems, production identities, external hosts</span></div>
+          <div><strong>Needs authority</strong><span>Any live integration, credentialed call, or write action</span></div>
+        </div>
+
+        <p class="caveat">
+          The signed-agent envelope is application-layer fixture policy and
+          <strong>not an MCP conformance result</strong>. Receipt verification is local and
+          <strong>not an independent certification</strong>.
+        </p>
+      </section>
+
+      <section class="report-page" aria-labelledby="delivery-title">
+        <div class="section-heading">
+          <p class="section-number">04 / Client delivery</p>
+          <h2 id="delivery-title">What a real engagement would produce</h2>
+          <p>
+            The synthetic sample demonstrates the format. A client engagement starts from
+            written scope and substitutes client-approved staging evidence only where
+            authorization permits.
+          </p>
+        </div>
+
+        <div class="deliverables">
+          <div><b>01</b><h3>Authority map</h3><p>Actors, resources, scopes, side effects, and decision owners.</p></div>
+          <div><b>02</b><h3>Capability inventory</h3><p>Tools, transports, trust boundaries, and declared exclusions.</p></div>
+          <div><b>03</b><h3>Evidence table</h3><p>Clean controls, negative paths, receipts, and confidence labels.</p></div>
+          <div><b>04</b><h3>Findings backlog</h3><p>Prioritized questions with the smallest useful next proof.</p></div>
+          <div><b>05</b><h3>Reproduction handoff</h3><p>Client-safe commands, expected outcomes, and stop conditions.</p></div>
+          <div><b>06</b><h3>Closeout receipt</h3><p>Inputs, environment, delivered artifacts, verification, and limits.</p></div>
+        </div>
+
+        <div class="engagement-levels">
+          <article>
+            <span>Boundary</span>
+            <h3>Map the surface</h3>
+            <p>Best for teams that need a credible authority and capability inventory before testing.</p>
+          </article>
+          <article>
+            <span>Assurance</span>
+            <h3>Exercise the controls</h3>
+            <p>Add clean and negative-path checks against an approved fixture or staging surface.</p>
+          </article>
+          <article>
+            <span>Advanced</span>
+            <h3>Leave a reusable fixture</h3>
+            <p>Add a bounded regression fixture and a reviewer-ready evidence handoff.</p>
+          </article>
+        </div>
+
+        <div class="cta-band">
+          <div>
+            <p class="eyebrow">Start with the boundary</p>
+            <h2>Bring a repository, architecture, or staging question.</h2>
+            <p>The first decision is whether the work can be scoped and checked safely.</p>
+          </div>
+          <div class="cta-actions">
+            <a href="https://www.upwork.com/services/product/development-it-mcp-security-capability-review-2082591388269734728">
+              View on Upwork
+            </a>
+            <a class="secondary" href="https://xclusivexo.com/mcp-assurance/">
+              Review the public method
+            </a>
+            <a
+              class="secondary"
+              href="mcp-security-capability-review-synthetic-sample.pdf"
+              download
+            >
+              Download the PDF
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section class="report-page appendix" aria-labelledby="appendix-title">
+        <div class="section-heading">
+          <p class="section-number">05 / Evidence appendix</p>
+          <h2 id="appendix-title">Pinned local artifacts and limits</h2>
+          <p>
+            Machine-readable evidence is included alongside this report in
+            <code>evidence.json</code>. It records the source hashes, scenario counts,
+            external-action totals, and claim boundaries used for this synthetic sample.
+          </p>
+        </div>
+
+        <div class="appendix-grid">
+          <div>
+            <h3>Current receipts</h3>
+            <code>proof-labs/mock-mcp-authz/artifacts/latest-scenarios.json</code>
+            <code>proof-labs/fastmcp-signed-agent-integration/artifacts/latest-scenarios.json</code>
+          </div>
+          <div>
+            <h3>Public artifacts</h3>
+            <a href="evidence.json"><code>evidence.json</code></a>
+            <a href="mcp-security-capability-review-synthetic-sample.pdf" download>
+              <code>six-page PDF</code>
+            </a>
+            <a href="/mcp-assurance/"><code>public method and fixtures</code></a>
+          </div>
+        </div>
+
+        <div class="limits">
+          <h3>This sample does not establish</h3>
+          <ul>
+            <li>MCP, OAuth, or framework-wide conformance.</li>
+            <li>Security, availability, or compliance of an external system.</li>
+            <li>A complete test plan, vulnerability inventory, or production result.</li>
+            <li>Independent validation, certification, testimonial, or client outcome.</li>
+            <li>Permission to reuse client data, names, metrics, logos, or reports publicly.</li>
+          </ul>
+        </div>
+
+        <footer class="report-footer">
+          <span>XclusiveXO · Verification-first AI systems</span>
+          <span>Evidence state: DEMO_SYNTHETIC</span>
+        </footer>
+      </section>
+    </main>
+    <script>
+      (() => {
+        const root = document.documentElement;
+        const toggle = document.getElementById("themeToggle");
+        const label = toggle.querySelector(".theme-toggle-label");
+
+        function syncToggle() {
+          const isDark = root.dataset.theme === "dark";
+          toggle.setAttribute("aria-pressed", String(isDark));
+          toggle.setAttribute(
+            "aria-label",
+            isDark ? "Enable light mode" : "Enable dark mode",
+          );
+          label.textContent = isDark ? "Light mode" : "Dark mode";
+        }
+
+        toggle.addEventListener("click", () => {
+          const next = root.dataset.theme === "dark" ? "light" : "dark";
+          root.dataset.theme = next;
+          try {
+            localStorage.setItem("mcp-review-theme", next);
+          } catch (_error) {
+            // The visible toggle still works when storage is unavailable.
+          }
+          syncToggle();
+        });
+
+        syncToggle();
+      })();
+    </script>
+  </body>
+</html>
