@@ -1,10 +1,12 @@
 // Offline cache for the professional StellarRequiem portfolio shell.
 // Archived interactive routes stay available by direct URL but are not preloaded here.
-const CACHE = "xclvxo-v9";
+const CACHE = "xclvxo-v10";
 const SHELL = [
   "/", "/index.html", "/manifest.webmanifest",
-  "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/ask-widget.js",
+  "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/ask-widget.js", "/bifrost-ambient.js",
+  "/capability-statement.html",
   "/workflow/", "/mcp-assurance/", "/mcp-review-sample/", "/papers/", "/papers/mediated-control-plane/",
+  "/assurance/", "/security/",
   "/feedback/", "/report/", "/diagnostics/",
   "/favicon.svg", "/logo.svg", "/logo-192.png", "/logo-512.png"
 ];

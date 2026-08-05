@@ -1,20 +1,8 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Authority Is Not Ambient · Working Paper · XclusiveXO</title>
-  <meta name="description" content="Working paper: a mediated control plane for MCP-style tool use and local computer-use agents. Deny-by-default packs, arm-gated leashes, FREEZE lockdown. Not a full SOC.">
-  <meta name="theme-color" content="#071116">
-  <meta name="author" content="Alex Price / StellarRequiem">
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <style>
-    :root{--ink:#071116;--panel:#0e1e25;--line:#28505a;--paper:#eef3ef;--muted:#a9c0c0;--mint:#58e0b5;--cyan:#77c9e9;--amber:#f0bd6b;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;--sans:Inter,ui-sans-serif,system-ui,sans-serif}
-    *{box-sizing:border-box}body{margin:0;min-width:320px;color:var(--paper);background:var(--ink);font:16px/1.55 var(--sans)}a{color:var(--mint)}.wrap{max-width:900px;margin:0 auto;padding:0 clamp(18px,4vw,48px)}header{border-bottom:1px solid var(--line);padding:18px 0}.nav{display:flex;align-items:center;justify-content:space-between;gap:18px;font:700 12px/1 var(--mono)}.brand{color:var(--paper);text-decoration:none}.brand span{color:var(--mint)}.navlinks{display:flex;flex-wrap:wrap;gap:14px}.navlinks a{color:var(--muted);text-decoration:none}main{padding:56px 0 48px}.eyebrow{margin:0;color:var(--cyan);font:700 11px/1.4 var(--mono);letter-spacing:.08em}h1{margin:14px 0 12px;font-size:clamp(28px,5vw,42px);line-height:1.1}.meta{color:var(--muted);font-size:14px;margin:0 0 22px}.boundary{margin:0 0 28px;padding:14px 16px;border-left:3px solid var(--amber);background:#172022;color:#d5e0dc;font-size:14px}.boundary b{color:var(--amber);font:700 11px/1.2 var(--mono)}.actions{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 36px}.actions a{display:inline-block;padding:10px 14px;border:1px solid var(--line);background:var(--panel);color:var(--mint);text-decoration:none;font:700 11px/1 var(--mono);letter-spacing:.04em}.actions a.primary{border-color:rgba(88,224,181,.55)}.fig{margin:0 0 28px;border:1px solid var(--line);background:#0a171d}.fig img{display:block;width:100%;height:auto}.fig p{margin:0;padding:10px 12px;color:var(--muted);font-size:12px;font-family:var(--mono)}h2{margin:36px 0 12px;font-size:22px}p,li{color:var(--muted)}.abstract{color:var(--paper);max-width:70ch}ul{padding-left:1.2em}.repos{display:grid;gap:8px;margin:16px 0}.repos a{font-family:var(--mono);font-size:13px}footer{padding:28px 0 48px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}.footlinks{margin-top:10px;font-family:var(--mono)}.state{display:inline-block;margin-bottom:14px;padding:3px 7px;border:1px solid rgba(240,189,107,.5);border-radius:4px;color:var(--amber);font:700 10px/1 var(--mono);letter-spacing:.08em}
-  </style>
-</head>
-<body>
-<!--XNAV:START-->
+<!-- ===== xclusivexo canonical nav — CANONICAL SOURCE =====
+     Edit here, then re-run: python3 _nav/inject.py
+     Pure HTML + inline CSS. No JS, no external assets:
+     survives security/'s strict CSP (default-src 'none'; style-src 'unsafe-inline').
+     Dropdowns use <details>/<summary> — keyboard + touch accessible without script. -->
 <style>
   .xn-skip{position:absolute;left:-9999px;top:0;z-index:100;background:#5ad4ff;color:#02060d;padding:10px 16px;font:600 13px/1 var(--sans,-apple-system,system-ui,sans-serif);border-radius:0 0 8px 0}
   .xn-skip:focus{left:0}
@@ -37,10 +25,12 @@
   /* Capped height + internal scroll: a long menu must never outgrow the viewport
      or hand its scroll off to the page. overscroll-behavior stops scroll-chaining. */
   .xn-drop{position:absolute;top:calc(100% + 6px);left:0;min-width:290px;max-width:min(340px,92vw);background:#06101e;border:1px solid rgba(86,206,255,.32);border-radius:12px;padding:7px;box-shadow:0 18px 44px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:1px;max-height:min(68vh,460px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(86,206,255,.45) transparent}
-  .xn-drop::-webkit-scrollbar{width:9px}
-  .xn-drop::-webkit-scrollbar-track{background:transparent;margin:6px 0}
-  .xn-drop::-webkit-scrollbar-thumb{background:rgba(86,206,255,.32);border-radius:99px;border:2px solid #06101e}
-  .xn-drop::-webkit-scrollbar-thumb:hover{background:rgba(86,206,255,.55)}
+  /* -webkit-appearance:none opts out of macOS overlay scrollbars so the bar is
+     always visible — otherwise a long menu gives no hint that it scrolls. */
+  .xn-drop::-webkit-scrollbar{-webkit-appearance:none;width:10px}
+  .xn-drop::-webkit-scrollbar-track{background:rgba(86,206,255,.06);border-radius:99px;margin:6px 0}
+  .xn-drop::-webkit-scrollbar-thumb{background:rgba(86,206,255,.42);border-radius:99px;border:2px solid #06101e}
+  .xn-drop::-webkit-scrollbar-thumb:hover{background:rgba(86,206,255,.68)}
   .xn-drop a{display:block;padding:8px 11px;border-radius:8px;text-decoration:none;color:#dcefff;font-size:13.5px;line-height:1.3}
   .xn-drop a:hover{background:rgba(86,206,255,.1);color:#5ad4ff}
   .xn-drop a span{display:block;font-size:11.5px;color:#6c8aa6;margin-top:2px}
@@ -59,6 +49,7 @@
     .xn-drop{position:static;min-width:0;max-width:none;margin:4px 0 6px;width:100%;max-height:min(52vh,340px)}
   }
   @media(prefers-reduced-motion:reduce){.xn-dd>summary::after{transition:none}}
+  @media print{.xn,.xn-skip{display:none!important}}
 </style>
 <a class="xn-skip" href="#main">Skip to content</a>
 <nav class="xn" aria-label="Primary">
@@ -125,57 +116,3 @@
     </div>
   </div>
 </nav>
-<!--XNAV:END-->
-
-  <main id="main" class="wrap">
-    <span class="state" style="border-color:rgba(88,224,181,.5);color:var(--mint)">WORKING PAPER · PUBLISHED</span>
-    <p class="eyebrow">WORKING PAPER / 2026-08-03</p>
-    <h1>Authority Is Not Ambient</h1>
-    <p class="meta">A mediated control plane for MCP-style tool use and local computer-use agents<br>
-    Alex Price / StellarRequiem · <a href="mailto:security@xclusivexo.com">security@xclusivexo.com</a></p>
-
-    <div class="boundary"><b>CLAIM CEILING</b> Deny-by-default tool mediation, arm-gated browser/desktop leashes, receipt-driven FREEZE lockdown. Not a full SOC, not unlimited computer use, not a guarantee against all agent attacks, not automatic gating of native host shells outside the mediated path.</div>
-
-    <div class="actions">
-      <a class="primary" href="./2026-08-mediated-agent-control-plane.pdf">Download PDF (7 pp)</a>
-      <a href="./2026-08-mediated-agent-control-plane.md">Markdown source</a>
-      <a href="https://github.com/StellarRequiem/mcp-assure" target="_blank" rel="noopener">mcp-assure</a>
-      <a href="https://pypi.org/project/mcp-assure/" target="_blank" rel="noopener">PyPI</a>
-    </div>
-
-    <div class="fig">
-      <img src="./fig1-architecture.jpg" alt="Architecture diagram: AssuredPlaneHost routing to browser-leash, desktop-leash, shell subset, and agent-soc">
-      <p>Figure 1. Mediated control plane (illustrative).</p>
-    </div>
-
-    <h2>Abstract</h2>
-    <p class="abstract">Agent systems that call tools—especially Model Context Protocol (MCP) servers and computer-use interfaces—create a new trust boundary: the model proposes actions that execute with operator privileges. We describe a mediated control plane that treats tool calls as gated requests rather than ambient authority. The design separates a deny-by-default runtime assurance layer for MCP-style calls (mcp-assure), local loopback leashes for Chrome and macOS desktop input under arm/allowlist/human high-blast gates (browser-leash, desktop-leash), a single assured host that routes plane tools through AdaptiveGate (agent-control), and an agent-plane collector/detector/responder for receipt-shaped abuse (agent-soc), including abhorrent tool-shape lockdown via FREEZE.</p>
-    <p class="abstract">We emphasize what the system does not claim: it is not an enterprise SOC, not unlimited computer use, not a guarantee against all agent attacks, and not automatic gating of a host runtime’s native shell unless that runtime is configured to route through the host. Evaluation is framed as re-runnable hold-tests, purple fixtures, and smoke suites rather than unmeasured detection rates.</p>
-
-    <h2>Open artifacts</h2>
-    <div class="repos">
-      <a href="https://github.com/StellarRequiem/mcp-assure" target="_blank" rel="noopener">github.com/StellarRequiem/mcp-assure</a>
-      <a href="https://github.com/StellarRequiem/browser-leash" target="_blank" rel="noopener">github.com/StellarRequiem/browser-leash</a>
-      <a href="https://github.com/StellarRequiem/desktop-leash" target="_blank" rel="noopener">github.com/StellarRequiem/desktop-leash</a>
-      <a href="https://github.com/StellarRequiem/agent-control" target="_blank" rel="noopener">github.com/StellarRequiem/agent-control</a>
-      <a href="https://github.com/StellarRequiem/agent-soc" target="_blank" rel="noopener">github.com/StellarRequiem/agent-soc</a>
-    </div>
-
-    <h2>Reproduce</h2>
-    <ul>
-      <li><code>pip install mcp-assure && mcp-assure check</code></li>
-      <li><code>python3 ~/agent-control/cli.py smoke</code> (local clone)</li>
-      <li><code>python3 ~/agent-soc/purple.py</code></li>
-      <li><code>python3 ~/agent-control/cli.py session</code></li>
-    </ul>
-
-    <h2>Thesis</h2>
-    <p><strong>Authority is not ambient.</strong> Capability can rise under leashes; authority stays deny-by-default, session-armed, and human-gated on high blast.</p>
-
-    <h2>Status</h2>
-    <p>Working paper v1.0–1.1. Not peer-reviewed. Evaluation is re-runnable smoke/purple/proof boards and a fixed synthetic hit table (25/25) — not a published detection-rate study. Full text in the PDF/Markdown above. Stronger-proof backlog: <a href="./STRONG_PROOF_BACKLOG.md">STRONG_PROOF_BACKLOG.md</a>.</p>
-  </main>
-  <footer><div class="wrap">No belief without verification.<div class="footlinks"><a href="/papers/">papers</a> · <a href="/assurance/">assurance</a> · <a href="mailto:security@xclusivexo.com">security@xclusivexo.com</a></div></div></footer>
-<script src="/bifrost-ambient.js" defer></script>
-</body>
-</html>
