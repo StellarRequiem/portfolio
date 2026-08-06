@@ -227,8 +227,32 @@ LIGHT REMOTE
         </tbody>
       </table>
 
+      <h2>Public-safe design stubs (not secrets)</h2>
+      <p>Real operator defaults and fixture shapes used in evaluation. Live tunnel hostnames, bus tokens, TOTP seeds, and pairing codes are never published.</p>
+      <table>
+        <thead><tr><th>Parameter</th><th>Stub / shape</th></tr></thead>
+        <tbody>
+          <tr><td>Bus / MCP ports</td><td><code>8758</code> UI · <code>8760</code> MCP (local; tunnel for Connectors)</td></tr>
+          <tr><td>Leash ports</td><td>browser <code>8756</code> · desktop <code>8757</code></td></tr>
+          <tr><td>Tunnel URL shape</td><td><code>https://&lt;ephemeral-host&gt;.example-tunnel/mcp</code></td></tr>
+          <tr><td>Session id fixture</td><td><code>00000000-0000-4000-8000-000000000001</code></td></tr>
+          <tr><td>Allowlisted skills</td><td><code>plane.status</code>, <code>bus.status</code>, <code>git_status</code>, <code>host.whoami</code>, <code>session.info</code>, <code>disk.free</code></td></tr>
+          <tr><td>NL stubs</td><td><code>"how's the host"</code> → <code>host.whoami</code>; <code>"git status on portfolio"</code> → <code>git_status</code></td></tr>
+          <tr><td>OAuth client id</td><td><code>session-bus</code> (not a secret); client secret = bus token (redacted)</td></tr>
+          <tr><td>Enroll contact</td><td><code>security@xclusivexo.com</code> (public); mailbox password never published</td></tr>
+          <tr><td>Device cookie name</td><td><code>session_bus_device</code> (HttpOnly; value opaque)</td></tr>
+        </tbody>
+      </table>
+      <div class="stack">{
+  "kind": "skill_result",
+  "skill": "host.whoami",
+  "input": "how's the host",
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "result": {"user": "operator", "host": "example-host", "plane": "full"}
+}</div>
+
       <h2>Full text</h2>
-      <p>Complete working paper (Markdown): <a href="./2026-08-grok-native-median-session-plane.md">2026-08-grok-native-median-session-plane.md</a></p>
+      <p>Complete working paper (Markdown): <a href="./2026-08-grok-native-median-session-plane.md">2026-08-grok-native-median-session-plane.md</a> — includes fixture JSON for <code>tools/list</code>, matched skill, note-post, and OAuth token shape.</p>
       <p>Evaluation classes: unit tests, MCP smokes, live Connectors Connected, SMTP enroll when configured, public OSS control-plane repos—not unmeasured detection rates.</p>
     </div>
   </main>

@@ -190,6 +190,64 @@ Public and local evidence classes (operator-reproducible). **No secrets** appear
 | Live (operator) | Connectors UI shows custom connector **Connected**; SMTP enroll when `mail.json` present |
 | Posture | FREEZE paths halt skill exec; device cookie required for Safari light UI posts |
 
+### 6.4 Fixture-shaped response stubs (public-safe)
+
+These are **real response shapes** used in local smoke tests. Values are fixtures — not live operator sessions, tokens, or hosts.
+
+**`tools/list` (excerpt):**
+
+```json
+{
+  "tools": [
+    {"name": "session_work", "description": "Plain English → allowlisted skill or note"},
+    {"name": "session_skills", "description": "List skills + routing help"},
+    {"name": "session_read", "description": "Transcript / results"},
+    {"name": "session_propose", "description": "Named skill (same-turn host exec)"},
+    {"name": "session_message", "description": "Free note"},
+    {"name": "session_list_open", "description": "List open sessions"},
+    {"name": "session_bus_status", "description": "Bus health"}
+  ]
+}
+```
+
+**`session_work` matched skill (fixture):**
+
+```json
+{
+  "ok": true,
+  "kind": "skill_result",
+  "skill": "host.whoami",
+  "input": "how's the host",
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "result": {"user": "operator", "host": "example-host", "plane": "full"}
+}
+```
+
+**`session_work` unmatched → note (fixture):**
+
+```json
+{
+  "ok": true,
+  "kind": "NOTE_POSTED",
+  "input": "ship the control-plane page when ready",
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "note_id": "note-fixture-0001",
+  "for_host": "Grok Build"
+}
+```
+
+**Device bind cookie name (public):** `session_bus_device` (HttpOnly; value is opaque, never published).
+
+**OAuth token response shape (local shim; secret redacted):**
+
+```json
+{
+  "token_type": "Bearer",
+  "access_token": "<redacted-operator-bus-token>",
+  "expires_in": 3600
+}
+```
+
 We do **not** report unmeasured “detection rates,” tunnel hostnames, bus tokens, TOTP seeds, pairing codes, or Tailscale addresses in public text.
 
 ---
