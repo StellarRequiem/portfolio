@@ -24,8 +24,10 @@ START, END = "<!--XNAV:START-->", "<!--XNAV:END-->"
 DOC = [
     "index.html", "security/index.html", "mcp-assurance/index.html",
     "assurance/index.html", "mcp-review-sample/index.html", "papers/index.html",
-    "papers/mediated-control-plane/index.html", "capability-statement.html",
-    "workflow/index.html", "daemon/index.html",
+    "papers/mediated-control-plane/index.html",
+    "papers/grok-native-median-plane/index.html",
+    "capability-statement.html",
+    "workflow/index.html", "daemon/index.html", "control-plane/index.html",
 ]
 # App/interactive pages: own chrome + island navs; superseded by the canonical nav.
 APP = [

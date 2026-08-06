@@ -3,13 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Papers · XclusiveXO</title>
-  <meta name="description" content="Working papers and open systems reports from StellarRequiem — claim-safe, evidence-linked.">
+  <title>A Grok-Native Median Session Plane · Working Paper · XclusiveXO</title>
+  <meta name="description" content="Working paper: light remote intent under deny-by-default host authority. Grok Build full plane + Grok chat Connectors median session. Claim-safe companion to Authority Is Not Ambient.">
   <meta name="theme-color" content="#071116">
+  <meta name="author" content="Alex Price / StellarRequiem">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta property="og:title" content="A Grok-Native Median Session Plane · Working Paper">
+  <meta property="og:description" content="Full host agent plane for Grok Build; light remote path via Grok chat. Fact-driven claim ceilings.">
+  <meta property="og:url" content="https://xclusivexo.com/papers/grok-native-median-plane/">
   <style>
     :root{--ink:#071116;--panel:#0e1e25;--line:#28505a;--paper:#eef3ef;--muted:#a9c0c0;--mint:#58e0b5;--cyan:#77c9e9;--amber:#f0bd6b;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;--sans:Inter,ui-sans-serif,system-ui,sans-serif}
-    *{box-sizing:border-box}body{margin:0;min-width:320px;color:var(--paper);background:var(--ink);font:16px/1.55 var(--sans)}a{color:var(--mint)}.wrap{max-width:960px;margin:0 auto;padding:0 clamp(18px,4vw,48px)}header{border-bottom:1px solid var(--line);padding:18px 0}.nav{display:flex;align-items:center;justify-content:space-between;gap:18px;font:700 12px/1 var(--mono)}.brand{color:var(--paper);text-decoration:none}.brand span{color:var(--mint)}.navlinks{display:flex;flex-wrap:wrap;gap:14px}.navlinks a{color:var(--muted);text-decoration:none}.navlinks a[aria-current="page"]{color:var(--mint)}main{padding:64px 0 48px}.eyebrow{margin:0;color:var(--cyan);font:700 11px/1.4 var(--mono);letter-spacing:.08em}h1{margin:14px 0 16px;font-size:clamp(36px,6vw,56px);line-height:1.05}.lede{margin:0 0 28px;color:var(--muted);max-width:720px;font-size:18px}.boundary{margin:0 0 36px;padding:14px 16px;border-left:3px solid var(--amber);background:#172022;color:#d5e0dc;font-size:14px}.boundary b{color:var(--amber);font:700 11px/1.2 var(--mono);letter-spacing:.08em}.card{display:block;padding:22px;border:1px solid var(--line);background:var(--panel);text-decoration:none;color:inherit;margin-bottom:16px}.card:hover{border-color:rgba(88,224,181,.45)}.card h2{margin:0 0 10px;font:700 18px/1.3 var(--mono);color:var(--paper)}.card p{margin:0 0 10px;color:var(--muted);font-size:14px}.meta{font:700 10px/1.4 var(--mono);color:var(--cyan);letter-spacing:.06em}.state{display:inline-block;margin-top:12px;padding:3px 7px;border:1px solid rgba(240,189,107,.5);border-radius:4px;color:var(--amber);font:700 10px/1 var(--mono);letter-spacing:.08em}footer{padding:28px 0 48px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}.footlinks{margin-top:10px;font-family:var(--mono)}
+    *{box-sizing:border-box}body{margin:0;min-width:320px;color:var(--paper);background:var(--ink);font:16px/1.55 var(--sans)}a{color:var(--mint)}.wrap{max-width:900px;margin:0 auto;padding:0 clamp(18px,4vw,48px)}
+    header{border-bottom:1px solid var(--line);padding:18px 0}.nav{display:flex;align-items:center;justify-content:space-between;gap:18px;font:700 12px/1 var(--mono)}.brand{color:var(--paper);text-decoration:none}.brand span{color:var(--mint)}.navlinks{display:flex;flex-wrap:wrap;gap:14px}.navlinks a{color:var(--muted);text-decoration:none}
+    main{padding:56px 0 48px}.eyebrow{margin:0;color:var(--cyan);font:700 11px/1.4 var(--mono);letter-spacing:.08em}h1{margin:14px 0 12px;font-size:clamp(28px,5vw,40px);line-height:1.1}
+    .meta{color:var(--muted);font-size:14px;margin:0 0 22px}.boundary{margin:0 0 28px;padding:14px 16px;border-left:3px solid var(--amber);background:#172022;color:#d5e0dc;font-size:14px}.boundary b{color:var(--amber);font:700 11px/1.2 var(--mono)}
+    .actions{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 36px}.actions a{display:inline-block;padding:10px 14px;border:1px solid var(--line);background:var(--panel);color:var(--mint);text-decoration:none;font:700 11px/1 var(--mono);letter-spacing:.04em}.actions a.primary{border-color:rgba(88,224,181,.55)}
+    h2{margin:36px 0 12px;font-size:22px}p,li{color:var(--muted)}.abstract{color:var(--paper);max-width:70ch}ul{padding-left:1.2em}
+    .stack{font:13px/1.5 var(--mono);background:#0a171d;border:1px solid var(--line);padding:14px 16px;overflow-x:auto;white-space:pre;color:#cfe6e0;margin:16px 0}
+    table{width:100%;border-collapse:collapse;font-size:14px;margin:14px 0}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{font:700 10px/1 var(--mono);color:var(--cyan);letter-spacing:.06em}
+    footer{padding:28px 0 48px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}.state{display:inline-block;margin-bottom:14px;padding:3px 7px;border:1px solid rgba(240,189,107,.5);border-radius:4px;color:var(--amber);font:700 10px/1 var(--mono);letter-spacing:.08em}
+    .pair{display:grid;gap:12px;margin:18px 0}@media(min-width:700px){.pair{grid-template-columns:1fr 1fr}}.pair a{display:block;padding:16px;border:1px solid var(--line);background:var(--panel);text-decoration:none;color:inherit}.pair a:hover{border-color:rgba(88,224,181,.45)}.pair h3{margin:0 0 8px;font:700 14px/1.3 var(--mono);color:var(--paper)}.pair p{margin:0;font-size:13px}
   </style>
 </head>
 <body>
@@ -75,7 +88,7 @@
         <a href="/assurance/">AI assurance runtime<span>Deny-by-default tool gating, receipts</span></a>
         <div class="xn-sep"></div>
         <div class="xn-lbl">Evidence</div>
-        <a href="/papers/" aria-current="page">Papers<span>Working papers — systems architecture &amp; verification</span></a>
+        <a href="/papers/">Papers<span>Working papers — systems architecture &amp; verification</span></a>
         <a href="/control-plane/">Grok control plane<span>Public release notes — host plane + light remote path</span></a>
         <a href="/mcp-review-sample/">Review sample<span>Synthetic MCP security &amp; capability review</span></a>
       </div></details>
@@ -130,29 +143,101 @@
 </nav>
 <!--XNAV:END-->
 
-<main id="main" class="wrap">
-    <p class="eyebrow">WORKING PAPERS / OPEN SYSTEMS</p>
-    <h1>Papers.</h1>
-    <p class="lede">Claim-safe reports with re-runnable artifacts. Leads stay leads until evidence clears the bar.</p>
-    <div class="boundary"><b>POSITIONING</b> These are systems architecture and verification reports, not peer-reviewed results claims, enterprise SOC product claims, or unmeasured detection rates.</div>
+  <header>
+    <div class="wrap nav">
+      <a class="brand" href="/">Xclusive<span>XO</span></a>
+      <div class="navlinks">
+        <a href="/papers/">Papers</a>
+        <a href="/control-plane/">Release notes</a>
+        <a href="/papers/mediated-control-plane/">Companion paper</a>
+        <a href="/">Home</a>
+      </div>
+    </div>
+  </header>
+  <main id="main">
+    <div class="wrap">
+      <span class="state">WORKING PAPER · V1.0</span>
+      <p class="eyebrow">SYSTEMS · GROK-NATIVE OPERATOR PATH · CLAIM-SAFE</p>
+      <h1>A Grok-Native Median Session Plane</h1>
+      <p class="meta">Alex Price (StellarRequiem) · 2026-08-06 · security@xclusivexo.com · companion to <em>Authority Is Not Ambient</em></p>
+      <div class="boundary"><b>CLAIM BOUNDARY</b> Architecture and operator-verified local stack. Not enterprise SOC, not ambient phone RPA, not free shell from Connectors, not a model leaderboard claim. Public wording ≤ evidence.</div>
+      <div class="actions">
+        <a class="primary" href="./2026-08-grok-native-median-session-plane.md">Full Markdown</a>
+        <a href="/control-plane/">Release notes (narrative)</a>
+        <a href="/papers/mediated-control-plane/">Host control plane paper</a>
+        <a href="/mcp-assurance/">MCP assurance</a>
+      </div>
 
-    <a class="card" href="/papers/grok-native-median-plane/">
-      <p class="meta">2026-08-06 · CS.CR / AGENT SECURITY · GROK-NATIVE</p>
-      <h2>A Grok-Native Median Session Plane</h2>
-      <p>Light remote intent under deny-by-default host authority: Grok Build as full host actor, Grok chat/iOS Connectors as light remote, shared session, plain-English allowlisted skills, claim ceilings, roadmap to a host task runner.</p>
-      <p>Alex Price / StellarRequiem · Markdown · companion to Authority Is Not Ambient · <a href="/control-plane/" style="color:inherit">release notes</a></p>
-      <span class="state" style="border-color:rgba(88,224,181,.5);color:var(--mint)">WORKING PAPER · CROWN JEWEL PAIR</span>
-    </a>
+      <h2>Abstract</h2>
+      <p class="abstract">Frontier chat and local agent runtimes have diverged. Operators want one reasoning surface—here, <strong>Grok</strong>—while high-privilege execution belongs on a <strong>mediated host control plane</strong>. This paper specifies a <strong>median session plane</strong>: a shared, append-only session between a full host actor (Grok Build under agent-control, leashes, and mcp-assure) and light remote clients (Safari on a private path; Grok chat via public HTTPS MCP Connectors). Device bind, TOTP and security-mailbox enroll, plain-English routing onto allowlisted host skills, and an explicit claim ceiling keep the phone from becoming ambient OS control. The design is a stepping stone to a host task runner that accepts free-text remote work without free shell.</p>
 
-    <a class="card" href="/papers/mediated-control-plane/">
-      <p class="meta">2026-08-03 · CS.CR / AGENT SECURITY</p>
-      <h2>Authority Is Not Ambient</h2>
-      <p>A mediated control plane for MCP-style tool use and local computer-use agents: deny-by-default tool gate, arm-gated browser/desktop leashes, assured host, agent-plane FREEZE lockdown.</p>
-      <p>Alex Price / StellarRequiem · PDF + Markdown + figure</p>
-      <span class="state" style="border-color:rgba(88,224,181,.5);color:var(--mint)">PUBLISHED · WORKING PAPER</span>
-    </a>
+      <h2>Thesis</h2>
+      <p><strong>Full agent authority stays on the host under deny-by-default mediation. Remote clients share a median session—intent, status skills, and notes—not ambient OS control.</strong></p>
+
+      <h2>Two planes, one session</h2>
+      <div class="stack">FULL AGENT PLANE (Mac)
+  Grok Build → agent-control → browser-leash / desktop-leash
+               + mcp-assure + agent-soc FREEZE
+
+MEDIAN SESSION PLANE (session-bus)
+  events · arm · skill bind · device bind · allowlisted skills
+
+LIGHT REMOTE
+  Safari UI (Tailscale)     Grok chat MCP (public tunnel)
+  device cookie + TOTP      session_work → same-turn status</div>
+
+      <h2>Crown jewel pairing</h2>
+      <div class="pair">
+        <a href="/papers/mediated-control-plane/">
+          <h3>Authority Is Not Ambient</h3>
+          <p>Host control plane: mcp-assure, leashes, AdaptiveGate, FREEZE. The systems foundation.</p>
+        </a>
+        <a href="/control-plane/">
+          <h3>Grok control plane · release notes</h3>
+          <p>Fact-driven public narrative: why Grok-first, how pieces connect, what is not claimed.</p>
+        </a>
+      </div>
+
+      <h2>Contributions</h2>
+      <ul>
+        <li>Median session architecture for dual-actor (host full + remote light) operation.</li>
+        <li>Grok-native product path: Build for execution; Connectors MCP for remote light tools; Skills for steering.</li>
+        <li>Remote posture: tunnel auth, device bind, challenges, TOTP, optional security@ SMTP.</li>
+        <li><code>session_work</code>: plain English → allowlisted skills; unmatched text → notes for host Build.</li>
+        <li>Publishable claim ceiling and roadmap to a host task runner without free shell.</li>
+      </ul>
+
+      <h2>What we do not claim</h2>
+      <ul>
+        <li>Grok iOS is a full computer-use agent or native skill host.</li>
+        <li>Ambient reverse shell or unmediated shell over the tunnel.</li>
+        <li>Enterprise IdP / FIDO / continuous SOC.</li>
+        <li>Model leaderboard superiority over other frontiers.</li>
+        <li>session-bus as multi-tenant SaaS (operator median plane).</li>
+      </ul>
+
+      <h2>Next stepping stone</h2>
+      <table>
+        <thead><tr><th>Priority</th><th>Deliverable</th><th>Unlocks</th></tr></thead>
+        <tbody>
+          <tr><td>P0</td><td><code>session_task</code> + host task runner</td><td>Phone free text → allowlisted Build work</td></tr>
+          <tr><td>P1</td><td>High-blast confirm channel</td><td>Safer expansion of remote intent</td></tr>
+          <tr><td>P2</td><td>Stable named tunnel</td><td>Fewer reconnects</td></tr>
+          <tr><td>P3</td><td>AdaptiveGate budgets on bus tasks</td><td>Same doctrine as leashes</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Full text</h2>
+      <p>Complete working paper (Markdown): <a href="./2026-08-grok-native-median-session-plane.md">2026-08-grok-native-median-session-plane.md</a></p>
+      <p>Evaluation classes: unit tests, MCP smokes, live Connectors Connected, SMTP enroll when configured, public OSS control-plane repos—not unmeasured detection rates.</p>
+    </div>
   </main>
-  <footer><div class="wrap">Alex Price / StellarRequiem · security@xclusivexo.com<div class="footlinks"><a href="/">home</a> · <a href="/assurance/">assurance</a> · <a href="/mcp-assurance/">MCP assurance</a></div></div></footer>
-<script src="/bifrost-ambient.js" defer></script>
+  <footer>
+    <div class="wrap">
+      StellarRequiem · working paper · claims weaker than evidence ·
+      <a href="/papers/">All papers</a> ·
+      <a href="/">Home</a>
+    </div>
+  </footer>
 </body>
 </html>
