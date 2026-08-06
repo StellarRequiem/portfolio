@@ -1,0 +1,36 @@
+# arXiv metadata — copy/paste into the submission form
+# ASCII only in fields that arXiv sanitizes strictly.
+# Primary: cs.CR   Cross-lists: cs.AI, cs.SE
+# License recommendation: CC BY 4.0 (or arXiv perpetual non-exclusive)
+
+Title:
+A Grok-Native Median Session Plane: Light Remote Intent Under Deny-by-Default Host Authority
+
+Authors:
+Alex Price
+
+# Affiliation (in PDF body): Independent researcher (StellarRequiem)
+# Contact: security@xclusivexo.com · https://xclusivexo.com
+# Do NOT invent academic institutional affiliation.
+
+Comments:
+10 pages. Working paper. Companion site: https://xclusivexo.com/papers/grok-native-median-plane/ Release notes: https://xclusivexo.com/control-plane/ Source packages: https://github.com/StellarRequiem Public-safe stubs only; no live tunnel hosts or credentials.
+
+Report-no:
+(leave blank unless you assign one)
+
+Primary category:
+cs.CR
+
+Cross-list (optional but recommended):
+cs.AI
+cs.SE
+
+ACM-class:
+D.4.6; K.6.5; I.2.11
+
+Abstract (paste as single block; no leading spaces on lines; under 1920 chars):
+
+Frontier chat products and local agent runtimes have diverged: operators want one reasoning surface while high-privilege tool execution still belongs on a mediated host control plane. This paper specifies a median session plane -- a shared, append-only session between (1) a full host actor (a terminal agent runtime under deny-by-default mediation, leashes, and tool-call assurance) and (2) light remote clients (a private-network browser UI; cloud chat via public HTTPS Model Context Protocol (MCP) Connectors). We describe device-bound light clients, pairing and time-based one-time password (TOTP) reauthentication, plain-English routing onto an allowlisted host skill set, and an explicit claim ceiling: the phone is not a full computer-use agent. The design is a stepping stone toward a host-side task runner that can accept free-text work from a mobile chat client without granting ambient shell. Evaluation is framed as re-runnable unit tests, smoke suites, and live connector checks -- not product marketing metrics.
+
+# Character count target: keep abstract under 1920 chars (above is fine).

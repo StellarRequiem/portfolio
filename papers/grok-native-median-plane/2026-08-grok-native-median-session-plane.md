@@ -5,6 +5,7 @@
 **Date:** 2026-08-06  
 **Status:** Working paper · claim-safe · companion to *Authority Is Not Ambient*  
 **Version:** 1.0  
+**arXiv:** package ready (`arxiv/main.tex`, primary **cs.CR**; ID pending announcement)  
 **Companion release notes:** https://xclusivexo.com/control-plane/
 
 ---

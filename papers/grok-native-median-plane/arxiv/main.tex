@@ -1,0 +1,540 @@
+% arXiv submission: cs.CR (primary), cross-list cs.AI, cs.SE
+% PDFLaTeX. Single-file, no external figures. Public-safe stubs only.
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{times}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{microtype}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  urlcolor=blue,
+  pdftitle={A Grok-Native Median Session Plane},
+  pdfauthor={Alex Price},
+  pdfsubject={Agent control planes, MCP, deny-by-default mediation}
+}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  backgroundcolor=\color{gray!6},
+  columns=fullflexible,
+  keepspaces=true
+}
+
+\title{A Grok-Native Median Session Plane:\\
+Light Remote Intent Under Deny-by-Default Host Authority}
+
+\author{Alex Price\\
+\texttt{security@xclusivexo.com}\\
+\url{https://xclusivexo.com}\\
+Independent researcher (StellarRequiem)}
+
+\date{August 2026\\
+Working paper v1.0\\
+Companion: \emph{Authority Is Not Ambient} (host control plane)}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Frontier chat products and local agent runtimes have diverged: operators want one
+reasoning surface while high-privilege tool execution still belongs on a
+\emph{mediated host control plane}. This paper specifies a \textbf{median session
+plane}---a shared, append-only session between (1)~a full host actor (a terminal
+agent runtime under deny-by-default mediation, leashes, and tool-call assurance)
+and (2)~light remote clients (a private-network browser UI; cloud chat via public
+HTTPS Model Context Protocol (MCP) Connectors).
+
+We describe device-bound light clients, pairing and time-based one-time password
+(TOTP) reauthentication, plain-English routing onto an \emph{allowlisted} host
+skill set, and an explicit claim ceiling: the phone is not a full computer-use
+agent. The design is a stepping stone toward a host-side task runner that can
+accept free-text work from a mobile chat client without granting ambient shell.
+Evaluation is framed as re-runnable unit tests, smoke suites, and live connector
+checks---not product marketing metrics.
+\end{abstract}
+
+\noindent\textbf{Keywords:}
+agent control plane, Model Context Protocol (MCP), session bus,
+deny-by-default, remote light client, claim ceilings, computer-use mediation.
+
+\section{Introduction}
+
+\subsection{Problem}
+
+Operators increasingly want three things that commercial agent stacks often
+conflate:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{One frontier model family} for daily reasoning (product
+        familiarity, account continuity, Connectors and Skills).
+  \item \textbf{Local high-privilege execution} (browser, desktop, files, version
+        control) that is not ambient.
+  \item \textbf{Mobile access} that does not force a second vendor agent stack or
+        an unmediated reverse shell.
+\end{enumerate}
+
+Observed failure modes include:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Capability confused with authority}
+        (tools available $\Rightarrow$ tools always runnable).
+  \item \textbf{Product fragmentation}
+        (host agent in one application; phone chat in another ecosystem with no
+        shared receipt trail).
+  \item \textbf{Overclaiming remote control}
+        (marketing ``full agent on phone'' while bypassing host gates).
+\end{itemize}
+
+\subsection{Thesis}
+
+\begin{quote}
+Full agent authority stays on the host under deny-by-default mediation.
+Remote clients share a \emph{median session}---intent, status skills, and
+notes---not ambient OS control.
+\end{quote}
+
+In the operator stack described here, a host terminal agent (Grok Build) is the
+preferred \textbf{host actor}. Cloud chat (web and iOS) is a \textbf{light remote
+actor} over a constrained MCP surface. Both share one \texttt{session\_id}
+transcript.
+
+\subsection{Contributions}
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Median session plane architecture} for dual-actor operation
+        (host full plane + light remote).
+  \item \textbf{Product-native path}: host Build for execution; Connectors MCP for
+        remote light tools; Skills for plain-English steering.
+  \item \textbf{Remote posture stack}: source allowlist, token/OAuth to a public
+        tunnel, device bind, optional TOTP and security-mailbox enrollment, and
+        FREEZE honor under host lockdown.
+  \item \textbf{\texttt{session\_work}}: plain English $\rightarrow$ allowlisted
+        skills with same-turn results; unmatched text $\rightarrow$ notes for the
+        host actor.
+  \item \textbf{Public claim ceiling}: wording weaker than evidence; explicit
+        non-claims.
+  \item \textbf{Roadmap} to a host task runner as the next step toward
+        ``phone task $\rightarrow$ full plane'' without free shell.
+\end{enumerate}
+
+\subsection{Non-contributions (explicit)}
+
+\begin{itemize}[leftmargin=*]
+  \item We do \textbf{not} claim a mobile chat client is a full computer-use (CUA)
+        host or native skill runtime.
+  \item We do \textbf{not} claim enterprise identity provider (IdP) / FIDO / SOC
+        completeness.
+  \item We do \textbf{not} publish free-shell-from-phone or unmediated desktop from
+        the tunnel.
+  \item We do \textbf{not} claim model superiority or win-rates over other
+        frontiers---only an operator architecture that prefers one product surface.
+\end{itemize}
+
+\section{Related work and positioning}
+
+Prior companion work~\cite{price2026authority} details a deny-by-default MCP tool
+gate (\texttt{mcp-assure}), local browser and desktop leashes, an assured host
+(\texttt{agent-control}), and an agent-plane collector/responder
+(\texttt{agent-soc}). Industry MCP guidance emphasizes remote OAuth, gateways, and
+integrity; this paper focuses on \textbf{local multi-plane authority} plus a
+\textbf{median remote} path that remains deliberately light.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Approach} & \textbf{Full host tools} & \textbf{Authority model} \\
+\midrule
+Raw SSH / reverse shell & Yes & Ambient --- refused \\
+Vendor agent on phone only & Vendor-defined & Split ecosystem \\
+This work & Host agent + leashes & Mediated host; light remote \\
+\bottomrule
+\end{tabular}
+\caption{Positioning against ambient remote control and vendor-split stacks.}
+\label{tab:position}
+\end{table}
+
+\section{Design goals}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}lX X@{}}
+\toprule
+\textbf{ID} & \textbf{Goal} & \textbf{Mechanism} \\
+\midrule
+G1 & Prefer one model product surface & Build + Connectors + Skills \\
+G2 & Host tools never ambient & ARM, allowlists, FREEZE, human high-blast \\
+G3 & Mobile useful without second agent stack & Median session + \texttt{session\_work} \\
+G4 & Public honesty & Claim cards $\le$ evidence; explicit non-claims \\
+G5 & Stepping stone & Task queue + host actor without free shell \\
+\bottomrule
+\end{tabularx}
+\caption{Design goals for the median session plane.}
+\label{tab:goals}
+\end{table}
+
+\section{Architecture}
+
+\subsection{Two planes, one session}
+
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,frame=single]
+FULL AGENT PLANE (host)
+  terminal agent -> agent-control -> browser/desktop leashes
+                    + mcp-assure + agent-soc FREEZE
+         |  shared session_id / JSONL
+         v
+MEDIAN SESSION PLANE (session-bus)
+  append-only events · skill bind · arm · device bind
+  allowlisted host skills · notes / future tasks
+         |
+    +----+--------------------+
+    v                         v
+ Safari light UI          Chat MCP (public HTTPS tunnel)
+ (private network path)   session_work / OAuth->Bearer
+ device cookie + TOTP     allowlisted skills + notes
+\end{lstlisting}
+
+\subsection{Why a public tunnel for cloud Connectors}
+
+Cloud Connectors invoke tools from \textbf{vendor cloud} infrastructure. Private
+overlay addresses (e.g., Tailscale CGNAT \texttt{100.x} ranges) are not reachable as
+custom MCP URLs from that cloud path. A temporary public HTTPS tunnel (e.g.,
+\texttt{cloudflared}) fronts a local MCP HTTP adapter; the private network path
+remains appropriate for a Safari light UI and optional Funnel alternatives.
+
+Live tunnel hostnames must not appear in public text; only URL \emph{shapes} are
+documented (Section~\ref{sec:eval}).
+
+\subsection{Light tools (public-safe inventory)}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Tool} & \textbf{Role} \\
+\midrule
+\texttt{session\_work} & Plain English $\rightarrow$ allowlisted skill or note \\
+\texttt{session\_skills} & List skills + routing help \\
+\texttt{session\_read} & Transcript / results \\
+\texttt{session\_propose} & Named skill (same-turn host exec) \\
+\texttt{session\_message} & Free note \\
+\texttt{session\_list\_open} / \texttt{session\_bus\_status} & Discovery / health \\
+\bottomrule
+\end{tabularx}
+\caption{Light remote MCP tools. Expansion is deliberate and host-gated.}
+\label{tab:tools}
+\end{table}
+
+Allowlisted skills (illustrative operator set): \texttt{plane.status},
+\texttt{bus.status}, \texttt{git\_status}, \texttt{host.whoami},
+\texttt{session.info}, \texttt{disk.free}.
+
+\subsection{Remote posture}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Control} & \textbf{Purpose} \\
+\midrule
+Source IP allowlist (loopback + private UI path) & No LAN/public bind of bus UI \\
+Bus token + MCP OAuth shim $\rightarrow$ Bearer & Connectors authentication \\
+Device cookie (HttpOnly) & URL alone insufficient across browsers \\
+Pairing challenges + optional TOTP & Second factor \\
+Security mailbox SMTP enroll codes & Operator mailbox when configured \\
+FREEZE paths & Skill exec halt under host lockdown \\
+\bottomrule
+\end{tabularx}
+\caption{Remote posture controls. Secrets (tokens, seeds, live hosts) are never published.}
+\label{tab:posture}
+\end{table}
+
+\section{Plain-English routing}
+
+Remote users speak natural language. The median plane maps \textbf{conservatively}:
+
+\begin{enumerate}[leftmargin=*]
+  \item Slash or bare skill name (e.g., \texttt{/git\_status portfolio}).
+  \item Keyword intents (``disk space'', ``whoami'', ``plane status'').
+  \item Else: post a \textbf{note} for the host actor
+        (\texttt{NOTE\_POSTED} / pending-react)---no invented shell.
+\end{enumerate}
+
+This is intentional under-claiming: better a note than an unsafe generalization.
+
+\section{Evaluation}
+\label{sec:eval}
+
+Public and local evidence classes are operator-reproducible. No secrets appear
+below---only public URLs, design defaults, and fixture-shaped stubs.
+
+\subsection{Public open-source surfaces}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Artifact} & \textbf{Locator} \\
+\midrule
+mcp-assure & \url{https://github.com/StellarRequiem/mcp-assure} \\
+agent-control & \url{https://github.com/StellarRequiem/agent-control} \\
+browser-leash & \url{https://github.com/StellarRequiem/browser-leash} \\
+desktop-leash & \url{https://github.com/StellarRequiem/desktop-leash} \\
+agent-soc & \url{https://github.com/StellarRequiem/agent-soc} \\
+MCP assurance site & \url{https://xclusivexo.com/mcp-assurance/} \\
+Host-plane paper & \url{https://xclusivexo.com/papers/mediated-control-plane/} \\
+This paper (site) & \url{https://xclusivexo.com/papers/grok-native-median-plane/} \\
+Release notes & \url{https://xclusivexo.com/control-plane/} \\
+\bottomrule
+\end{tabularx}
+\caption{Third-party reachable artifacts (no private payloads).}
+\label{tab:artifacts}
+\end{table}
+
+\subsection{Design defaults (not live secrets)}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Parameter} & \textbf{Public-safe default / shape} \\
+\midrule
+Bus HTTP port & \texttt{8758} (loopback or private UI path) \\
+MCP HTTP port & \texttt{8760} (local; public tunnel for Connectors) \\
+Browser / desktop leashes & \texttt{8756} / \texttt{8757} \\
+Tunnel URL shape & \texttt{https://<ephemeral-host>.example-tunnel/mcp} \\
+Session id fixture & \texttt{00000000-0000-4000-8000-000000000001} \\
+Allowlisted skills & See Section~4.3 \\
+NL stubs & ``how's the host'' $\rightarrow$ \texttt{host.whoami} \\
+OAuth client id & \texttt{session-bus} (not a secret) \\
+Enroll contact & \texttt{security@xclusivexo.com} (address public; password never published) \\
+Device cookie name & \texttt{session\_bus\_device} (HttpOnly; value opaque) \\
+\bottomrule
+\end{tabularx}
+\caption{Fixture-shaped design defaults used in documentation and smokes.}
+\label{tab:defaults}
+\end{table}
+
+\subsection{Local test classes}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Class} & \textbf{What was exercised (no private payloads)} \\
+\midrule
+Unit & store create/bind/device cookie; TOTP round-trip; NL intent routes; mailer outbox without SMTP \\
+Smoke & MCP \texttt{initialize} + \texttt{tools/list}; \texttt{session\_work} fixture phrasing $\rightarrow$ skill result \\
+Live (operator) & Connectors UI shows custom connector Connected; SMTP enroll when configured \\
+Posture & FREEZE paths halt skill exec; device cookie required for light UI posts \\
+\bottomrule
+\end{tabularx}
+\caption{Evaluation classes. No unmeasured detection rates are claimed.}
+\label{tab:tests}
+\end{table}
+
+\subsection{Fixture-shaped response stubs}
+
+Values below are fixtures---not live operator sessions, tokens, or hosts.
+
+\begin{lstlisting}[language={},caption={tools/list excerpt (fixture)},label={lst:tools}]
+{
+  "tools": [
+    {"name": "session_work", "description": "Plain English -> skill or note"},
+    {"name": "session_skills", "description": "List skills + routing help"},
+    {"name": "session_read", "description": "Transcript / results"},
+    {"name": "session_propose", "description": "Named skill (same-turn)"},
+    {"name": "session_message", "description": "Free note"},
+    {"name": "session_list_open", "description": "List open sessions"},
+    {"name": "session_bus_status", "description": "Bus health"}
+  ]
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language={},caption={session\_work matched skill (fixture)},label={lst:match}]
+{
+  "ok": true,
+  "kind": "skill_result",
+  "skill": "host.whoami",
+  "input": "how's the host",
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "result": {"user": "operator", "host": "example-host", "plane": "full"}
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language={},caption={session\_work unmatched note (fixture)},label={lst:note}]
+{
+  "ok": true,
+  "kind": "NOTE_POSTED",
+  "input": "ship the control-plane page when ready",
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "note_id": "note-fixture-0001",
+  "for_host": "host terminal agent"
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language={},caption={OAuth token shape (secret redacted)},label={lst:oauth}]
+{
+  "token_type": "Bearer",
+  "access_token": "<redacted-operator-bus-token>",
+  "expires_in": 3600
+}
+\end{lstlisting}
+
+We do \textbf{not} report unmeasured detection rates, tunnel hostnames, bus tokens,
+TOTP seeds, pairing codes, or private overlay addresses in public text.
+
+\section{Discussion}
+
+The systems contribution is multi-plane mediation already public in open-source
+repositories; the product contribution is a realistic dual-actor path that keeps
+frontier chat useful without abandoning host security; the honesty contribution is
+treatable claim ceilings as part of the architecture, not post-hoc marketing
+language. Together with public release notes on the author site, this paper is
+intended as a \textbf{scrutinizable architecture report}: third parties can re-run
+unit/smoke classes, inspect public repos, and falsify overclaims.
+
+Limitations are intentional: the median plane is an operator design, not a
+multi-tenant SaaS; the remote path depends on a public tunnel for cloud Connectors;
+full computer-use remains host-side under mediation.
+
+\section{Next work}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}cX X@{}}
+\toprule
+\textbf{P} & \textbf{Deliverable} & \textbf{Unlocks} \\
+\midrule
+P0 & \texttt{session\_task} + host task runner (named cmds only) & Phone free text $\rightarrow$ allowlisted host work \\
+P1 & High-blast confirm channel (email/TOTP) for publish/push & Safer expansion \\
+P2 & Stable named tunnel & Fewer reconnects \\
+P3 & Blast budgets on bus tasks & Same doctrine as leashes \\
+P4 & Optional open-sourcing of session-bus once hardened & Third-party re-run \\
+\bottomrule
+\end{tabularx}
+\caption{Stepping stones. None of these are claimed as shipped multi-tenant product.}
+\label{tab:next}
+\end{table}
+
+\section{Conclusion}
+
+A product-native operator path does not require ambient phone control. It requires
+a \textbf{full mediated plane on the host} and a \textbf{median session} for light
+remote intent. We specified that split, implemented a working light path
+(\texttt{session\_work}, Connectors, device bind, optional SMTP/TOTP), and published
+claim ceilings that keep public language weaker than evidence. The next milestone is
+a host task runner that turns free-text remote notes into allowlisted host
+work---still without free shell.
+
+\section*{Acknowledgments}
+
+Public open-source control-plane components are available under the StellarRequiem
+GitHub organization. Correspondence: \texttt{security@xclusivexo.com}.
+
+\begin{thebibliography}{9}
+
+\bibitem{price2026authority}
+A.~Price.
+\newblock \emph{Authority Is Not Ambient: A Mediated Control Plane for MCP-Style
+Tool Use and Local Computer-Use Agents}.
+\newblock Working paper, 2026.
+\newblock \url{https://xclusivexo.com/papers/mediated-control-plane/}.
+
+\bibitem{mcp-assure}
+StellarRequiem.
+\newblock mcp-assure: deny-by-default MCP tool-call gate.
+\newblock \url{https://github.com/StellarRequiem/mcp-assure}.
+
+\bibitem{agent-control}
+StellarRequiem.
+\newblock agent-control: mediated local agent control plane.
+\newblock \url{https://github.com/StellarRequiem/agent-control}.
+
+\bibitem{browser-leash}
+StellarRequiem.
+\newblock browser-leash: leashed browser control plane.
+\newblock \url{https://github.com/StellarRequiem/browser-leash}.
+
+\bibitem{desktop-leash}
+StellarRequiem.
+\newblock desktop-leash: leashed desktop control plane.
+\newblock \url{https://github.com/StellarRequiem/desktop-leash}.
+
+\bibitem{agent-soc}
+StellarRequiem.
+\newblock agent-soc: agent-plane freeze and abuse shapes over receipts.
+\newblock \url{https://github.com/StellarRequiem/agent-soc}.
+
+\bibitem{mcp-spec}
+Anthropic et al.\ (community).
+\newblock Model Context Protocol specification and related guidance.
+\newblock \url{https://modelcontextprotocol.io/}.
+
+\end{thebibliography}
+
+\appendix
+
+\section{Claim cards (public wording)}
+\label{app:claims}
+
+\paragraph{Claim A1.}
+Grok Build on a mediated host control plane can drive leashed browser and desktop
+tools under deny-by-default gates.
+\textbf{Evidence:} public agent-control, browser-leash, desktop-leash, mcp-assure;
+prior working paper.
+\textbf{Caveats:} not ambient CUA; not enterprise SOC.
+\textbf{State:} Verified (public repos + paper).
+
+\paragraph{Claim A2.}
+A light remote path via cloud chat Connectors can run allowlisted host status
+skills and post session notes.
+\textbf{Evidence:} operator live connector Connected; \texttt{session\_work} smoke;
+SMTP enroll when configured; public architecture.
+\textbf{Caveats:} tunnel required; not free shell; not multi-tenant SaaS; live
+tunnel URLs must not be published.
+\textbf{State:} Verified for operator stack; public wording as architecture + limits.
+
+\paragraph{Claim A3.}
+The architecture prefers one frontier product surface without claiming model
+leaderboard superiority.
+\textbf{Evidence:} design choice + wiring.
+\textbf{Caveats:} no win-rate claims.
+\textbf{State:} Narrative; publish-ready.
+
+\section{Security publication checklist}
+\label{app:sec}
+
+Before any public mirror (site, PDF, preprint):
+
+\begin{itemize}[leftmargin=*]
+  \item[$\checkmark$] No bus tokens, OAuth client secrets, or SMTP passwords
+  \item[$\checkmark$] No live tunnel hostnames or private overlay addresses
+  \item[$\checkmark$] No TOTP seeds or pairing codes
+  \item[$\checkmark$] No private home paths required in the paper
+  \item[$\checkmark$] Session identifiers only as UUID shapes / fixtures
+  \item[$\checkmark$] Contact address \texttt{security@xclusivexo.com} is intentional public contact
+  \item[$\checkmark$] Claims weaker than evidence; non-claims listed in Section~1.4
+\end{itemize}
+
+\end{document}
