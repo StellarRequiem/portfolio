@@ -1,0 +1,29 @@
+# Re-runnable capture · 2026-08-08 · public-safe posture only
+# Commands: agent-control session · browser-leash status · desktop-leash status
+
+session:
+  work_session_ready: true
+  freeze_active: false
+  bridges_up: true
+  browser_armed: true
+  desktop_armed: true
+  require_post_confirm: true
+  claim: always-available bridges — not always-armed ambient authority
+
+browser-leash:
+  bridge: up
+  armed: true
+  arm_mode: toggle
+  extension: 0.5.2
+  host_policy: open_web+denylist
+  denied_host_suffixes: 1password.com, bitwarden.com, lastpass.com, …
+
+desktop-leash:
+  bridge: up
+  armed: true
+  version: 0.7.0
+  phase: 7 layout-control
+  require_d4_confirm: true
+  app_denylist: 1Password, Keychain Access, Mail, Messages, Wallet, …
+
+# Not claimed: unlimited CUA, enterprise SOC, free shell from phone

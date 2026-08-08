@@ -28,6 +28,7 @@ DOC = [
     "papers/grok-native-median-plane/index.html",
     "capability-statement.html",
     "workflow/index.html", "daemon/index.html", "control-plane/index.html",
+    "media/index.html",
 ]
 # App/interactive pages: own chrome + island navs; superseded by the canonical nav.
 APP = [

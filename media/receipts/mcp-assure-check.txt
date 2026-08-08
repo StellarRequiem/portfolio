@@ -1,0 +1,12 @@
+# Re-runnable capture · 2026-08-08 · host proof (not a marketing mock)
+# Command: mcp-assure check  (mcp-assure 0.3.2)
+
+[PASS] purple/agentic_tool_spray
+[PASS] purple/authz_boundaries
+[PASS] purple/encoded_staging_shape
+[PASS] purple/path_smell_recon
+[PASS] purple/unknown_and_injection
+[PASS] purple/velocity_flood
+[PASS] campaign/synthetic score=15.1 rec=freeze
+
+# control-plane check: OK (mcp-assure 0.3.2)

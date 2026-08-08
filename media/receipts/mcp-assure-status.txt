@@ -1,0 +1,8 @@
+# Re-runnable capture · 2026-08-08
+# Command: mcp-assure status
+
+mcp-assure 0.3.2 — runtime tool-call assurance CLI
+  local · deny-by-default · adaptive campaign watch · hash-chained receipts
+  packs: agent_eval_strict, baseline, mcp_authz_boundaries, strict_local
+  purple fixtures: 6
+  not a hosted vuln scanner (see: docs vs Codex Security in README)

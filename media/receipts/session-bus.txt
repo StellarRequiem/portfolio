@@ -1,0 +1,7 @@
+# Re-runnable capture · public-safe session-bus posture
+# Skills (v2 bind): plane.status, bus.status, git_status, git.log,
+#   host.whoami, session.info, session.devices, disk.free, tasks.list
+
+session_work: plain English → allowlisted skill (same-turn)
+session_task: unmatched free text → note + queue for Mac Build (no free shell)
+claim: median session plane — not ambient phone RPA
