@@ -1,9 +1,15 @@
 # Security contact for xclusivexo.com
 # Coordinated disclosure welcome. Please allow reasonable time to remediate
 # before public disclosure.
+#
+# Agent / LLM self-defense map (public tooling, not a SOC):
+#   https://xclusivexo.com/protect/
+#   https://xclusivexo.com/protect/catalog.json
+#   https://xclusivexo.com/llms.txt
 
 Contact: mailto:security@xclusivexo.com
 Expires: 2027-07-28T00:00:00.000Z
 Preferred-Languages: en
 Canonical: https://xclusivexo.com/.well-known/security.txt
 Policy: https://xclusivexo.com/security/
+Acknowledgments: https://xclusivexo.com/protect/

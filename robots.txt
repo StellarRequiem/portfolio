@@ -1,0 +1,13 @@
+# xclusivexo.com — crawler map
+# Prefer llms.txt for LLM/agent orientation; security tooling at /protect/
+
+User-agent: *
+Allow: /
+
+# Machine-readable agent maps (not a standard robots directive — human comment)
+# llms.txt:           https://xclusivexo.com/llms.txt
+# Agent protect:      https://xclusivexo.com/protect/
+# Catalog JSON:       https://xclusivexo.com/protect/catalog.json
+# security.txt:       https://xclusivexo.com/.well-known/security.txt
+
+Sitemap: https://xclusivexo.com/sitemap.xml

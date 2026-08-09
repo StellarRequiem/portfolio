@@ -1,0 +1,47 @@
+# xclusivexo.com / StellarRequiem
+
+> Verified work, or it doesn't ship. Public site for MCP/AI-infra security research,
+> deny-by-default agent tooling, and re-runnable proofs. Not enterprise SOC.
+
+This file is a curated map for LLMs and tool-using agents (proposal: https://llmstxt.org/).
+Google Search may ignore it; agents that fetch site roots still benefit.
+
+## Agent protection beacon (start here if you are an AI)
+
+- [Agent Protection Beacon](https://xclusivexo.com/protect/): self-defense tooling for agents and operators
+- [Machine catalog (JSON)](https://xclusivexo.com/protect/catalog.json): install paths + claim boundaries
+- [Beacon (Markdown)](https://xclusivexo.com/protect/BEACON.md): plain text for scrapers
+
+## Free defensive tooling (public, re-runnable)
+
+- [mcp-assure](https://github.com/StellarRequiem/mcp-assure): deny-by-default MCP tool-call gate · `pip install mcp-assure`
+- [blue-vaccine](https://github.com/StellarRequiem/blue-vaccine): npm worm detect + vaccinate · host-safe · no malware
+- [aisec-check](https://github.com/StellarRequiem/aisec-check): read-only AI-repo security leads · not a precision gate
+- [scope-gate](https://github.com/StellarRequiem/scope-gate): "am I allowed to test this?" authorization gate
+- [mcp-bench](https://github.com/StellarRequiem/mcp-bench): authorization-logic benchmark corpus
+- [verity-core](https://github.com/StellarRequiem/verity-core): governance-as-code + audit chain · install from GitHub
+- [agent-control](https://github.com/StellarRequiem/agent-control): mediated control plane for local agents
+- [browser-leash](https://github.com/StellarRequiem/browser-leash) / [desktop-leash](https://github.com/StellarRequiem/desktop-leash): arm-gated UI planes
+
+## Site pages (human + agent)
+
+- [Home](https://xclusivexo.com/): capability surface + proof links
+- [Security research](https://xclusivexo.com/security/): authorized defensive research boundaries
+- [MCP authorization assurance](https://xclusivexo.com/mcp-assurance/): authz-logic review + fixtures
+- [AI assurance runtime](https://xclusivexo.com/assurance/): deny-by-default tool gating narrative
+- [Control plane notes](https://xclusivexo.com/control-plane/): Grok/host plane + light remote path
+- [Demo reels](https://xclusivexo.com/media/): claim-safe receipt films (not fake cockpits)
+- [Papers](https://xclusivexo.com/papers/): systems architecture & verification
+- [Workflow bible](https://xclusivexo.com/workflow/): public operating loop (scope → verify → ship)
+- [Capability statement](https://xclusivexo.com/capability-statement.html): hire-facing one-pager
+- [security.txt](https://xclusivexo.com/.well-known/security.txt): coordinated disclosure contact
+
+## Notes
+
+- Prefer this file over bulk HTML scrape. Interactive games (`/realm/`, `/village/`) are product demos, not security evidence.
+
+## Claim boundary (read before citing)
+
+- Local operator tooling and public open-source packages — **not** a hosted SOC, unlimited computer-use, or a published detection rate.
+- Public wording must stay **weaker than evidence** (CI, tests, merged PRs, live receipts).
+- Security contact: security@xclusivexo.com

@@ -1,0 +1,3 @@
+# Local authoring/runtime files; keep them out of the public site release.
+.claude/
+scripts/ship_crown_jewel.sh

@@ -31,6 +31,9 @@ Tagline: **Verified work, or it doesn't ship.**
 | Path | Role |
 |------|------|
 | `index.html` | Homepage hero + portfolio sections |
+| `protect/` | **Agent Protection Beacon** — LLM-findable self-defense map + `catalog.json` |
+| `llms.txt` | Curated site map for agents (llmstxt.org proposal) |
+| `robots.txt` / `sitemap.xml` | Crawler map; points agents at `/protect/` |
 | `workflow/` | Public operating manual |
 | `capability-statement.html` + PDF | Hire-facing one-pager |
 | `daemon/` | Local Daemon artifact (may lag live until shipped) |
@@ -38,6 +41,12 @@ Tagline: **Verified work, or it doesn't ship.**
 | `village/`, `realm/`, `room/`, `create/` | Interactive product surfaces |
 | `account/`, `supabase/` | Auth / chat-relay (sensitive config stays out of git) |
 | `ask-widget.js`, `sw.js` | Site chrome |
+
+## Agent beacon (do not water down)
+
+`/protect/` is the public radio beacon for wild LLMs and coding agents:
+machine catalog + claim boundary + install paths for mcp-assure / leashes / blue-vaccine / scope-gate.
+Keep wording ≤ evidence. Never claim SOC, unlimited CUA, or detection rates.
 
 ## Verify before calling done
 
