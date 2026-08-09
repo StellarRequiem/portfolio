@@ -33,7 +33,7 @@
     "font-size:44vh;line-height:.8;color:rgba(86,206,255,.07);user-select:none}" +
     /* content rides above ambient */
     "body.bf-on>header,body.bf-on>main,body.bf-on>footer,body.bf-on>section," +
-    "body.bf-on .doc,body.bf-on .app,body.bf-on .hero-inner," +
+    "body.bf-on .page,body.bf-on .wrap,body.bf-on .doc,body.bf-on .app,body.bf-on .hero-inner," +
     "body.bf-on .report-header,body.bf-on .report-page{position:relative;z-index:1}" +
     "body.bf-on header.hero{position:relative;z-index:1}" +
     "@media print{.bf-backdrop,.backdrop[data-bifrost]{display:none!important}}";
