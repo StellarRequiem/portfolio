@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>THE LONG HAUL</title>
+<style>
+  :root{
+    --void:#04060a; --panel:#080d16; --panel2:#0c141f;
+    --hull:#c8d2dc; --dim:#6c8aa6; --line:rgba(110,231,255,.20);
+    --cyan:#6ee7ff; --mint:#3df0bb; --amber:#ffb547; --rose:#ff7a9a; --rust:#c2562c;
+    --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--void);color:var(--hull);
+    font-family:var(--mono);font-size:14px;-webkit-font-smoothing:antialiased;overflow:hidden}
+  button{font-family:var(--mono);cursor:pointer}
+
+  .scan{pointer-events:none;position:fixed;inset:0;z-index:60;
+    background:repeating-linear-gradient(to bottom,rgba(0,0,0,.16) 0 1px,transparent 1px 3px)}
+
+  /* ── title / outfit ─────────────────────────────────────── */
+  .screen{position:fixed;inset:0;display:grid;place-items:center;z-index:40;
+    background:radial-gradient(ellipse at 50% 40%,#0b1522,var(--void) 70%)}
+  .screen.hide{display:none}
+  .title-wrap{max-width:780px;padding:0 28px;text-align:center}
+  h1{font-size:clamp(38px,8vw,76px);letter-spacing:.22em;margin:0 0 6px;color:var(--hull);
+    text-shadow:0 0 34px rgba(110,231,255,.28)}
+  .sub{color:var(--rust);letter-spacing:.34em;font-size:12px;margin-bottom:26px}
+  .flavour{color:var(--dim);line-height:1.7;max-width:560px;margin:0 auto 30px;font-size:13px}
+  .tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px}
+  @media(max-width:700px){.tiers{grid-template-columns:1fr}}
+  .tier{background:var(--panel);border:1px solid var(--line);padding:16px 14px;text-align:left;
+    color:var(--hull);transition:border-color .12s,background .12s}
+  .tier:hover,.tier.sel{border-color:var(--cyan);background:var(--panel2)}
+  .tier h3{margin:0 0 4px;font-size:14px;letter-spacing:.12em;color:var(--cyan)}
+  .tier .diff{font-size:10px;letter-spacing:.16em;color:var(--amber);margin-bottom:8px}
+  .tier p{margin:0;font-size:11.5px;color:var(--dim);line-height:1.6}
+  .go{background:var(--mint);color:#04120d;border:0;padding:13px 40px;font-weight:700;
+    letter-spacing:.18em;font-size:13px}
+  .go:hover{background:#7bf7d2}
+  .go:disabled{background:#2a3b3a;color:#5f7a72;cursor:not-allowed}
+
+  /* ── main ───────────────────────────────────────────────── */
+  .app{position:fixed;inset:0;display:grid;grid-template-rows:auto 1fr auto;z-index:10}
+  .bar{display:flex;align-items:center;gap:16px;padding:9px 16px;
+    border-bottom:1px solid var(--line);background:var(--panel);font-size:12px;letter-spacing:.08em}
+  .bar .nm{color:var(--cyan);font-weight:700;letter-spacing:.2em}
+  .bar .sp{flex:1}
+  .bar b{color:var(--hull);font-weight:600}
+  .bar .warn{color:var(--rose)}
+
+  .track{height:3px;background:#0f1a26;position:relative}
+  .track i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--cyan),var(--rust));display:block}
+  .track u{position:absolute;top:-3px;width:1px;height:9px;background:rgba(200,210,220,.35)}
+
+  .stage{position:relative;overflow:hidden;background:#03050a}
+  canvas#view{display:block;width:100%;height:100%}
+  /* right rail */
+  .rail{position:absolute;top:12px;right:12px;width:216px;background:rgba(8,13,22,.9);
+    border:1px solid var(--line)}
+  .rail-tabs{display:flex;border-bottom:1px solid var(--line)}
+  .rt{flex:1;background:transparent;border:0;color:var(--dim);padding:7px 4px;
+    font-size:9px;letter-spacing:.16em}
+  .rt:hover{color:var(--cyan)}
+  .rt.on{background:rgba(110,231,255,.1);color:var(--cyan);font-weight:700}
+  .rail-body{padding:9px 10px;max-height:320px;overflow:auto}
+  .rail-body.hide{display:none}
+  canvas#schem{display:block;width:100%;height:auto;margin-bottom:8px}
+  .sst{display:flex;justify-content:space-between;font-size:10px;margin-bottom:4px}
+  .sst b{color:var(--hull);font-weight:600}
+  .sst .warn{color:var(--amber)} .sst .crit{color:var(--rose)} .sst .good{color:var(--mint)}
+  .sst-note{font-size:9px;color:var(--dim);line-height:1.5;margin-top:7px;
+    border-top:1px solid rgba(110,231,255,.12);padding-top:7px}
+  .rw{display:grid;grid-template-columns:14px 1fr auto;gap:6px;font-size:10px;
+    padding:3px 0;color:var(--dim);align-items:center}
+  .rw.done{color:#43525f} .rw.here{color:var(--cyan);font-weight:700}
+  .rw i{width:7px;height:7px;border-radius:50%;background:#2b3a48;display:block}
+  .rw.done i{background:#3a4c5a} .rw.here i{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+  .cm{margin-bottom:7px;font-size:11px;cursor:pointer;padding:3px 4px;margin-left:-4px}
+  .cm:hover{background:rgba(110,231,255,.07)}
+  .cm.sel{background:rgba(110,231,255,.1)}
+  .cdet{border-top:1px solid rgba(110,231,255,.12);margin-top:6px;padding-top:7px;
+    font-size:10px;color:var(--dim);line-height:1.6}
+  .cdet b{color:var(--cyan);display:block;margin-bottom:3px;letter-spacing:.1em}
+  .cdet .gate{color:var(--amber)}
+
+  /* split feeds — Mission Control and the ship log are different voices */
+  .feeds{position:absolute;left:12px;bottom:12px;display:flex;gap:8px;
+    width:min(560px,58vw);align-items:flex-end}
+  .feed{flex:1;background:rgba(8,13,22,.86);border:1px solid var(--line);padding:7px 9px;
+    max-height:150px;overflow:hidden}
+  .feed h5{margin:0 0 5px;font-size:8.5px;letter-spacing:.2em;color:var(--dim);font-weight:600}
+  #feed-control{border-color:rgba(255,181,71,.32)}
+  #feed-control h5{color:var(--amber)}
+  #ctl-state{color:var(--rose);letter-spacing:.1em}
+  .feed div div{font-size:10.5px;line-height:1.5;margin-bottom:2px;color:var(--dim)}
+  #controllog div{color:var(--amber);opacity:.92}
+  .silence{color:var(--rose)!important;font-style:italic;opacity:.7!important}
+  .cm .n{display:flex;justify-content:space-between;gap:6px}
+  .cm .r{color:var(--dim);font-size:9.5px;letter-spacing:.06em}
+  .cm.dead .n{color:#4a5560;text-decoration:line-through}
+  .cm.dead .r{color:#3a444e}
+  .hp{height:3px;background:#16202c;margin-top:3px}
+  .hp i{display:block;height:100%;background:var(--mint)}
+  .hp.low i{background:var(--amber)} .hp.crit i{background:var(--rose)}
+
+  .logbox{position:absolute;left:12px;bottom:12px;width:min(430px,52vw);max-height:172px;
+    overflow:hidden;background:rgba(8,13,22,.82);border:1px solid var(--line);padding:8px 10px;
+    font-size:11px;line-height:1.55}
+  .logbox div{margin-bottom:2px;color:var(--dim)}
+  .logbox .death{color:var(--rose)} .logbox .control{color:var(--amber)}
+  .logbox .waypoint{color:var(--cyan)} .logbox .arrive{color:var(--mint)}
+  .logbox .fault,.logbox .medical{color:#d69a6a}
+
+  .dash{border-top:1px solid var(--line);background:var(--panel);padding:10px 16px;
+    display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center}
+  @media(max-width:760px){.dash{grid-template-columns:1fr}}
+  .gauges{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+  .g label{display:block;font-size:9px;letter-spacing:.18em;color:var(--dim);margin-bottom:3px}
+  .g .v{font-size:12px;margin-bottom:3px}
+  .g .b{height:4px;background:#16202c}
+  .g .b i{display:block;height:100%;background:var(--cyan)}
+  .g.warn .b i{background:var(--amber)} .g.crit .b i{background:var(--rose)}
+  .g .d{font-size:9px;color:var(--dim);margin-top:2px}
+
+  .levers{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .lv{background:var(--panel2);border:1px solid var(--line);color:var(--hull);padding:7px 10px;
+    font-size:11px;letter-spacing:.08em}
+  .lv:hover{border-color:var(--cyan);color:var(--cyan)}
+  .lv.on{background:var(--cyan);color:#04121a;border-color:var(--cyan);font-weight:700}
+  .lv.run{background:var(--mint);color:#04120d;border-color:var(--mint);font-weight:700}
+
+  /* ── event modal ────────────────────────────────────────── */
+  .ev{position:fixed;inset:0;z-index:50;display:grid;place-items:center;
+    background:rgba(2,4,8,.74);backdrop-filter:blur(3px)}
+  .ev.hide{display:none}
+  .card{width:min(600px,92vw);background:var(--panel);border:1px solid var(--cyan);
+    box-shadow:0 0 60px rgba(110,231,255,.13)}
+  .card .cat{padding:6px 16px;font-size:9.5px;letter-spacing:.24em;
+    background:rgba(110,231,255,.09);color:var(--cyan);border-bottom:1px solid var(--line)}
+  .card .cat.corporate{background:rgba(255,181,71,.1);color:var(--amber)}
+  .card .cat.medical{background:rgba(255,122,154,.1);color:var(--rose)}
+  .card h2{margin:0;padding:16px 20px 6px;font-size:18px;letter-spacing:.1em}
+  .card .body{padding:0 20px 16px;color:var(--dim);line-height:1.72;font-size:13px;min-height:64px}
+  .card .body .cursor{display:inline-block;width:7px;height:13px;background:var(--cyan);
+    vertical-align:text-bottom;animation:bl 1s step-end infinite}
+  @keyframes bl{50%{opacity:0}}
+  .opts{border-top:1px solid var(--line)}
+  .opt{display:block;width:100%;text-align:left;background:transparent;border:0;
+    border-bottom:1px solid rgba(110,231,255,.09);color:var(--hull);padding:12px 20px;font-size:13px}
+  .opt:hover{background:rgba(110,231,255,.07);color:var(--cyan)}
+  .opt small{display:block;color:var(--dim);font-size:10.5px;margin-top:3px}
+  .opt:disabled{opacity:.32;cursor:default}
+
+  /* ── aerobrake ──────────────────────────────────────────── */
+  .aero{position:fixed;inset:0;z-index:55;background:#03050a}
+  .aero.hide{display:none}
+  canvas#aeroview{display:block;width:100%;height:100%}
+  .aero-hud{position:absolute;left:0;right:0;bottom:0;padding:14px 18px;
+    display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
+    background:linear-gradient(transparent,rgba(3,5,10,.9))}
+  .aero-help{font-size:11px;letter-spacing:.1em;color:var(--hull)}
+  .aero-help span{display:block;color:var(--dim);font-size:10px;letter-spacing:.04em;margin-top:4px}
+  .aero-help kbd{border:1px solid var(--line);padding:1px 5px;color:var(--cyan)}
+  .aero-btns{display:flex;gap:8px}
+  .aero-btns .lv{padding:12px 18px;font-size:12px}
+  .aero-btns .lv:active{background:var(--cyan);color:#04121a}
+  .aero-result{position:absolute;inset:0;display:grid;place-items:center;
+    background:rgba(3,5,10,.86);text-align:center;padding:24px}
+  .aero-result.hide{display:none}
+  canvas#evaview{display:block;width:100%;height:100%}
+  .eva-pad{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .eva-row{display:flex;gap:4px}
+  .eva-pad .lv{width:46px;height:38px;font-size:14px;padding:0}
+  .eva-pad .lv:active{background:var(--cyan);color:#04121a}
+  .aero-result h3{font-size:26px;letter-spacing:.2em;margin:0 0 10px}
+  .aero-result p{color:var(--dim);max-width:460px;line-height:1.7;font-size:13px;margin:0 0 20px}
+
+  /* ── end ────────────────────────────────────────────────── */
+  .endwrap{max-width:640px;padding:0 26px;text-align:center}
+  .endwrap h2{font-size:34px;letter-spacing:.2em;margin:0 0 8px}
+  .endwrap h2.good{color:var(--mint)} .endwrap h2.bad{color:var(--rose)}
+  .endwrap .es{color:var(--amber);font-size:26px;letter-spacing:.1em;margin:14px 0}
+  .stones{display:grid;gap:8px;margin:20px 0;text-align:left}
+  .stone{background:var(--panel);border-left:2px solid var(--rose);padding:9px 13px;font-size:11.5px}
+  .stone b{color:var(--hull);letter-spacing:.1em}
+  .stone span{color:var(--dim);display:block;margin-top:2px;font-size:10.5px}
+</style>
+</head>
+<body>
+<div class="scan" aria-hidden="true"></div>
+
+<!-- title / outfitting -->
+<div class="screen" id="s-title">
+  <div class="title-wrap">
+    <h1>THE LONG HAUL</h1>
+    <div class="sub">ASTRAEUS LAUNCH SYSTEMS · COLONY TRANSIT · MANIFEST</div>
+    <p class="flavour">
+      Two hundred and forty days to Mars aboard the <b>MANIFEST</b>. Five crew, one
+      recycler, and a company that will not stop talking.<br><br>
+      Your funding tier decides what you can afford to load. It does not decide
+      what happens next.
+    </p>
+    <div class="tiers" id="tiers"></div>
+    <button class="go" id="launch" disabled>SELECT A TIER</button>
+  </div>
+</div>
+
+<!-- game -->
+<div class="app" id="s-game" style="display:none">
+  <div class="bar">
+    <span class="nm">MANIFEST</span>
+    <span>DAY <b id="b-day">0</b></span>
+    <span id="b-wp">Pad 12</span>
+    <span>ETA <b id="b-eta">—</b></span>
+    <span class="sp"></span>
+    <span id="b-status"></span>
+  </div>
+  <div class="track"><i id="b-track" style="width:0%"></i><span id="b-marks"></span></div>
+
+  <div class="stage">
+    <canvas id="view"></canvas>
+    <div class="rail" id="rail">
+      <div class="rail-tabs">
+        <button class="rt on" data-tab="crew">CREW</button>
+        <button class="rt" data-tab="ship">SHIP</button>
+        <button class="rt" data-tab="route">ROUTE</button>
+      </div>
+      <div class="rail-body" id="tab-crew"><div id="crewlist"></div><div id="crewdetail"></div></div>
+      <div class="rail-body hide" id="tab-ship">
+        <canvas id="schem" width="200" height="132"></canvas>
+        <div id="shipstats"></div>
+      </div>
+      <div class="rail-body hide" id="tab-route"><div id="routelist"></div></div>
+    </div>
+
+    <div class="feeds">
+      <div class="feed" id="feed-control">
+        <h5>MISSION CONTROL <span id="ctl-state"></span></h5>
+        <div id="controllog"></div>
+      </div>
+      <div class="feed" id="feed-ship">
+        <h5>SHIP LOG</h5>
+        <div id="logbox"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dash">
+    <div class="gauges" id="gauges"></div>
+    <div class="levers">
+      <button class="lv" data-th="0.7">COAST</button>
+      <button class="lv on" data-th="1">NOMINAL</button>
+      <button class="lv" data-th="1.5">BURN</button>
+      <span style="width:8px"></span>
+      <button class="lv" data-ra="0.65">SHORT</button>
+      <button class="lv on" data-ra="1">FULL</button>
+      <span style="width:8px"></span>
+      <button class="lv" id="fix">REPAIR</button>
+      <button class="lv" id="eva">SALVAGE</button>
+      <button class="lv run" id="runbtn">RUN</button>
+    </div>
+  </div>
+</div>
+
+<!-- event -->
+<div class="ev hide" id="s-ev">
+  <div class="card">
+    <div class="cat" id="ev-cat">SHIP</div>
+    <h2 id="ev-title"></h2>
+    <div class="body" id="ev-body"></div>
+    <div class="opts" id="ev-opts"></div>
+  </div>
+</div>
+
+<!-- end -->
+<div class="screen hide" id="s-end">
+  <div class="endwrap">
+    <h2 id="e-head"></h2>
+    <div id="e-sub" style="color:var(--dim);font-size:13px;line-height:1.7"></div>
+    <div class="es" id="e-score"></div>
+    <div class="stones" id="e-stones"></div>
+    <button class="go" id="again">RUN IT AGAIN</button>
+  </div>
+</div>
+
+<!-- aerobrake: the corridor -->
+<div class="ev hide" id="s-cross">
+  <div class="card" style="border-color:var(--rust)">
+    <div class="cat" style="background:rgba(194,86,44,.14);color:var(--rust)">CROSSING · AEROBRAKE CORRIDOR</div>
+    <h2>THE CORRIDOR</h2>
+    <div class="body" id="cross-body"></div>
+    <div class="opts" id="cross-opts"></div>
+  </div>
+</div>
+
+<div class="aero hide" id="s-aero">
+  <canvas id="aeroview"></canvas>
+  <div class="aero-hud">
+    <div class="aero-help" id="aero-help">
+      HOLD <kbd>↓</kbd> / <kbd>S</kbd> TO GO DEEPER &nbsp;·&nbsp; <kbd>↑</kbd> / <kbd>W</kbd> TO PULL UP
+      <span>Only depth bleeds velocity. Only depth builds heat.</span>
+    </div>
+    <div class="aero-btns">
+      <button class="lv" id="aero-up">▲ PULL UP</button>
+      <button class="lv" id="aero-dn">▼ DEEPER</button>
+    </div>
+  </div>
+  <div class="aero-result hide" id="aero-result">
+    <h3 id="ar-head"></h3>
+    <p id="ar-body"></p>
+    <button class="go" id="ar-ok">CONTINUE</button>
+  </div>
+</div>
+
+<!-- EVA salvage -->
+<div class="aero hide" id="s-eva">
+  <canvas id="evaview"></canvas>
+  <div class="aero-hud">
+    <div class="aero-help">
+      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows to thrust &nbsp;·&nbsp; <kbd>Esc</kbd> nothing saves you
+      <span>Nothing slows you out here but more thrust. Everything you grab makes stopping harder. Get back to the airlock.</span>
+    </div>
+    <div class="eva-pad">
+      <button class="lv" data-ev="up">▲</button>
+      <div class="eva-row">
+        <button class="lv" data-ev="left">◀</button>
+        <button class="lv" data-ev="down">▼</button>
+        <button class="lv" data-ev="right">▶</button>
+      </div>
+    </div>
+  </div>
+  <div class="aero-result hide" id="eva-result">
+    <h3 id="ev-head"></h3>
+    <p id="ev-body"></p>
+    <button class="go" id="ev-ok">CONTINUE</button>
+  </div>
+</div>
+
+<script src="js/sim.js"></script>
+<script src="js/scenes.js"></script>
+<script src="js/events.js"></script>
+<script src="js/aerobrake.js"></script>
+<script src="js/eva.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

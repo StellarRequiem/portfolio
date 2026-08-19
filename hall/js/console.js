@@ -26,8 +26,15 @@
     return 4;
   }
 
+  /**
+   * Most cabs are single scripts run by the shared `play.html` shell. A long-form cab
+   * can instead declare its own `href` and ship as a self-contained surface — it still
+   * lists on the marquee and still launches from the console, it just doesn't fit in
+   * one canvas.
+   */
   function playHref(id) {
-    const q = "play.html?cab=" + encodeURIComponent(id);
+    const cab = CABS.find(function (c) { return c.id === id; });
+    const q = (cab && cab.href) ? cab.href : "play.html?cab=" + encodeURIComponent(id);
     if (mode === "online") {
       const base = cfg.onlineOrigin.replace(/\/?$/, "/");
       return base + q;
