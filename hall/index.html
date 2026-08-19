@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HALL · CONSOLE</title>
+  <link rel="stylesheet" href="css/hall.css" />
+</head>
+<body>
+  <div class="scan" aria-hidden="true"></div>
+  <div class="console">
+    <div class="brand">xclusivexo · hall console</div>
+    <div class="crt">
+      <div class="term-bar">
+        <span class="ttl">HALL</span>
+        <div class="find">
+          <label for="q">FIND</label>
+          <input id="q" type="search" autocomplete="off" spellcheck="false"
+            placeholder="name, genre, bank…" aria-label="Find a cabinet" />
+        </div>
+        <span class="sp"></span>
+        <div class="flip" role="group" aria-label="Play venue">
+          <button type="button" id="mode-local">LOCAL</button>
+          <button type="button" id="mode-online">ONLINE</button>
+        </div>
+      </div>
+      <div class="term-status" id="status">boot…</div>
+      <div class="term-grid" id="cabs"></div>
+      <div class="term-help">
+        <kbd>↑↓←→</kbd> or <kbd>WASD</kbd> or <kbd>IJKL</kbd> select
+        · <kbd>Enter</kbd> or double-click run
+        · <kbd>/</kbd> find
+        · <kbd>O</kbd> flip local/online
+        · <kbd>Esc</kbd> clear find
+      </div>
+    </div>
+    <div class="boards">
+      <div class="board">
+        <h3>HUMAN · selected</h3>
+        <ol id="human"></ol>
+      </div>
+      <div class="board">
+        <h3>AGENT · selected</h3>
+        <ol id="agent"></ol>
+      </div>
+    </div>
+    <p class="foot">
+      Scores are client-side, honor-system — not a verified leaderboard.
+    </p>
+  </div>
+  <script src="js/cfg.js"></script>
+  <script src="js/registry.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/keys.js"></script>
+  <script src="js/console.js"></script>
+</body>
+</html>

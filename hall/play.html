@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HALL</title>
+  <link rel="stylesheet" href="css/hall.css" />
+</head>
+<body class="play">
+  <div class="scan" aria-hidden="true"></div>
+  <header class="bar">
+    <a href="index.html">← HALL</a>
+    <span class="nm" id="nm">····</span>
+    <span id="blurb" class="dim"></span>
+    <span class="sp"></span>
+    <span>SCORE <span class="stat" id="score">0</span></span>
+    <span>LANE <span class="stat" id="lane">HUMAN</span> <span style="color:var(--dim)">Tab</span></span>
+  </header>
+  <div class="stage-wrap"><canvas id="stage" width="720" height="540"></canvas></div>
+  <div class="hintbar" id="hint">arrows or WASD or IJKL move · E or Space act · Tab lane · Esc hall</div>
+  <div class="bus">
+    <div class="acts" id="acts">
+      <button type="button" data-act="left">LEFT</button>
+      <button type="button" data-act="right">RIGHT</button>
+      <button type="button" data-act="up">UP</button>
+      <button type="button" data-act="down">DOWN</button>
+      <button type="button" data-act="fire">FIRE</button>
+      <button type="button" data-act="cw">CW</button>
+      <button type="button" data-act="ccw">CCW</button>
+      <button type="button" data-act="hard">HARD</button>
+      <button type="button" data-act="hold">HOLD</button>
+      <button type="button" data-act="jump">JUMP</button>
+    </div>
+    <div class="row">
+      <input id="cmd" autocomplete="off" spellcheck="false" placeholder="left left fire  ·  burst at agent speed" />
+      <button type="button" id="go">GO</button>
+    </div>
+    <pre id="telem">TELEM {}</pre>
+  </div>
+  <div class="overlay hide" id="over">
+    <div class="card">
+      <h2>TAG</h2>
+      <div id="overscore" style="color:var(--amber);font:700 22px/1 ui-monospace,monospace"></div>
+      <div class="tagrow" id="tagrow"></div>
+      <div style="color:var(--dim);font-size:12px">3–5 letters · Enter to stamp · Esc skip</div>
+    </div>
+  </div>
+  <script src="js/registry.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/keys.js"></script>
+  <script src="js/telem.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const cabId = (params.get("cab") || "well").toLowerCase();
+    const meta = (CABS.find(c => c.id === cabId) || CABS[0]);
+    document.title = meta.name + " · HALL";
+    document.getElementById("nm").textContent = meta.name;
+    document.getElementById("blurb").textContent = meta.blurb;
+    localStorage.setItem("hall.lastCab", meta.id);
+
+    const keys = Object.create(null);
+    let handle = null;
+    let ended = false;
+    let lane = params.get("lane") === "AGENT" ? "AGENT" : "HUMAN";
+    document.getElementById("lane").textContent = lane;
+
+    const hall = {
+      get lane() { return lane; },
+      keys,
+      acted: false,
+      score(n) {
+        document.getElementById("score").textContent = Math.floor(n).toLocaleString();
+        if (window.HallBus) HallBus.paint();
+      },
+      note(s) { document.getElementById("hint").textContent = s; },
+      over(score) { beginTag(Math.floor(score || 0)); },
+      onKey: null
+    };
+
+    addEventListener("keydown", ev => {
+      if (ev.target.tagName === "INPUT") return;
+      HallKeys.apply(keys, ev, true);
+      if (ev.key === "Escape" && document.getElementById("over").classList.contains("hide")) {
+        location.href = "index.html";
+        return;
+      }
+      if (ev.key === "Tab") {
+        ev.preventDefault();
+        if (!ended) {
+          lane = lane === "HUMAN" ? "AGENT" : "HUMAN";
+          document.getElementById("lane").textContent = lane;
+        }
+        return;
+      }
+      hall.acted = true;
+      if (hall.onKey) {
+        hall.onKey(ev);
+        const arrow = HallKeys.arrowOf(ev);
+        if (arrow && ev.key !== arrow) hall.onKey({ key: arrow, code: arrow, type: "keydown", preventDefault() {} });
+        const act = HallKeys.actionOf(ev);
+        if (act && ev.key !== act) hall.onKey({ key: act, code: "Space", type: "keydown", preventDefault() {} });
+      }
+      if (HallKeys.isNav(ev) || ev.key === " ") ev.preventDefault();
+    });
+    addEventListener("keyup", ev => {
+      if (ev.target.tagName === "INPUT") return;
+      HallKeys.apply(keys, ev, false);
+    });
+
+    function beginTag(score) {
+      if (ended) return;
+      ended = true;
+      document.getElementById("overscore").textContent = score.toLocaleString();
+      const row = document.getElementById("tagrow");
+      row.innerHTML = "";
+      const prev = (Board.lastTag() || "AAA").slice(0, 5);
+      const boxes = [];
+      for (let i = 0; i < 5; i++) {
+        const inp = document.createElement("input");
+        inp.maxLength = 1;
+        inp.value = prev[i] || "";
+        inp.addEventListener("input", () => {
+          inp.value = inp.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+          if (inp.value && boxes[i + 1]) boxes[i + 1].focus();
+        });
+        inp.addEventListener("keydown", ev => {
+          if (ev.key === "Backspace" && !inp.value && boxes[i - 1]) boxes[i - 1].focus();
+          if (ev.key === "Enter") stamp(score);
+          if (ev.key === "Escape") { location.href = "index.html"; }
+        });
+        boxes.push(inp);
+        row.appendChild(inp);
+      }
+      document.getElementById("over").classList.remove("hide");
+      boxes[0].focus();
+    }
+    function stamp(score) {
+      const tag = [...document.querySelectorAll("#tagrow input")].map(i => i.value).join("");
+      if (!Board.submit(meta.id, lane, tag, score)) {
+        hall.note("tag must be 3–5 A–Z / 0–9");
+        return;
+      }
+      location.href = "index.html";
+    }
+
+    const s = document.createElement("script");
+    s.src = "cabs/" + meta.id + ".js";
+    s.onload = () => {
+      const canvas = document.getElementById("stage");
+      handle = window.Cab && Cab.mount(canvas, hall);
+      window.HallHandle = handle;
+      HallBus.attach({ handle, hall, keys, meta });
+      if (lane === "AGENT") HallBus.paint();
+    };
+    function markAgent() {
+      if (ended) return;
+      lane = "AGENT";
+      document.getElementById("lane").textContent = lane;
+    }
+    document.getElementById("acts").addEventListener("click", ev => {
+      const btn = ev.target.closest("[data-act]");
+      if (!btn) return;
+      markAgent();
+      HallBus.act(btn.getAttribute("data-act"));
+    });
+    document.getElementById("go").addEventListener("click", () => {
+      markAgent();
+      HallBus.actMany(document.getElementById("cmd").value);
+      document.getElementById("cmd").blur();
+    });
+    document.getElementById("cmd").addEventListener("keydown", ev => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        markAgent();
+        HallBus.actMany(document.getElementById("cmd").value);
+        document.getElementById("cmd").blur();
+      }
+      if (ev.key === "Escape") { ev.target.blur(); }
+    });
+    s.onerror = () => { hall.note("missing cab " + meta.id); };
+    document.body.appendChild(s);
+  </script>
+</body>
+</html>
