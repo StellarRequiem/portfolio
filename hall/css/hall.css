@@ -34,7 +34,6 @@ h1.marquee {
 .lede { color: var(--dim); max-width: 620px; margin: 0 0 22px; }
 .lede strong { color: var(--ink); font-weight: 600; }
 
-/* console shell */
 .console {
   max-width: 1120px; margin: 18px auto 40px; padding: 0 14px;
 }
@@ -124,6 +123,13 @@ h1.marquee {
 .cab .hi {
   margin-top: 16px; font: 12px/1.4 ui-monospace, Menlo, monospace; color: var(--cyan);
 }
+.cab .start-btn {
+  display: inline-block; margin-top: 12px; padding: 6px 12px;
+  border: 1px solid var(--mint); color: var(--mint); text-decoration: none;
+  font: 700 11px/1 ui-monospace, Menlo, monospace; letter-spacing: .16em;
+  pointer-events: auto;
+}
+.cab .start-btn:hover { background: var(--mint); color: #0b0e13; }
 
 .boards {
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 28px;
@@ -148,7 +154,6 @@ h1.marquee {
 .foot { margin-top: 28px; color: var(--dim); font-size: 12px; }
 .foot code { color: var(--amber); }
 
-/* play shell */
 .play {
   min-height: 100dvh; display: grid; grid-template-rows: auto 1fr auto;
 }
