@@ -26,12 +26,6 @@
     return 4;
   }
 
-  /**
-   * Most cabs are single scripts run by the shared `play.html` shell. A long-form cab
-   * can instead declare its own `href` and ship as a self-contained surface — it still
-   * lists on the marquee and still launches from the console, it just doesn't fit in
-   * one canvas.
-   */
   function playHref(id) {
     const cab = CABS.find(function (c) { return c.id === id; });
     const q = (cab && cab.href) ? cab.href : "play.html?cab=" + encodeURIComponent(id);
@@ -87,6 +81,7 @@
 
   function render() {
     view = filtered();
+    if (sel >= view.length) sel = Math.max(0, Math.min(0, view.length - 1));
     if (sel >= view.length) sel = Math.max(0, view.length - 1);
     const lastId = localStorage.getItem("hall.lastCab");
     if (!filter && lastId) {
@@ -120,12 +115,17 @@
           '<div class="era">' + c.era + " · " + c.genre.toUpperCase() + "</div>" +
           "<h2>" + c.name + "</h2>" +
           "<p>" + c.blurb + "</p>" +
-          '<div class="hi">' + (hi.tag ? (hi.tag + "  " + hi.score) : "—  NO TAG") + "</div>";
+          '<div class="hi">' + (hi.tag ? (hi.tag + "  " + hi.score) : "—  NO TAG") + "</div>" +
+          '<a class="start-btn" href="' + playHref(c.id) + '">START</a>';
         card.addEventListener("click", () => {
           if (i === sel && root.dataset.moved === "1") { launch(c.id); return; }
           sel = i; root.dataset.moved = "1"; syncSel();
         });
         card.addEventListener("dblclick", ev => { ev.preventDefault(); launch(c.id); });
+        card.querySelector(".start-btn").addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          localStorage.setItem("hall.lastCab", c.id);
+        });
         grid.appendChild(card);
       });
       root.appendChild(grid);
