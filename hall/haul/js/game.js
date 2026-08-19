@@ -144,11 +144,34 @@
   });
 
   // ── event presentation ─────────────────────────────────────────────────────
+  /**
+   * The event pool is two decks: the hand-written events in `events.js` and the larger
+   * imported deck in `events-deck.js` (generated from Grok's JSON — see
+   * tools/import-deck.js). They share one schema, so they compete on weight in a single
+   * weighted draw and the player cannot tell which is which.
+   */
+  function pickFromPool() {
+    const deck = (window.HaulDeck && window.HaulDeck.DECK) || [];
+    const pool = E.EVENTS.concat(deck).filter(function (e) {
+      if (seen[e.id]) return false;
+      return !e.when || e.when(run);
+    });
+    if (!pool.length) return null;
+    let total = 0;
+    pool.forEach(function (e) { total += (e.weight || 5); });
+    let r = run.rand() * total;
+    for (let i = 0; i < pool.length; i++) {
+      r -= (pool[i].weight || 5);
+      if (r <= 0) return pool[i];
+    }
+    return pool[pool.length - 1];
+  }
+
   function maybeEvent() {
     if (pendingEvent) return;
     // Roughly one scripted beat every ~11 days, seeded so replays match.
     if (run.rand() > 0.09) return;
-    const ev = E.pick(run, seen);
+    const ev = pickFromPool();
     if (!ev) return;
     seen[ev.id] = true;
     pendingEvent = ev;
@@ -192,7 +215,16 @@
     ev.choices.forEach(function (ch) {
       const b = document.createElement("button");
       b.className = "opt";
-      b.innerHTML = "› " + ch.text + (ch.note ? "<small>" + ch.note + "</small>" : "");
+      // Imported choices can carry a stores requirement. Show it greyed rather than
+      // hiding it — knowing what you *can't* afford is information worth having.
+      let ok = true;
+      if (typeof ch.need === "function") {
+        try { ok = !!ch.need(run, window.Haul); } catch (_) { ok = false; }
+      }
+      b.disabled = !ok;
+      const note = ch.note || (ok ? "" : "Insufficient stores.");
+      b.innerHTML = "› " + ch.text + (note ? "<small>" + note + "</small>" : "");
+      if (!ok) { opts.appendChild(b); return; }
       b.addEventListener("click", function () {
         ch.apply(run, window.Haul);
         run.stats.events += 1;
