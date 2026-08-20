@@ -1,6 +1,6 @@
 // Offline cache for the professional StellarRequiem portfolio shell.
 // Archived interactive routes stay available by direct URL but are not preloaded here.
-const CACHE = "xclvxo-v11";
+const CACHE = "xclvxo-v12";
 const SHELL = [
   "/", "/index.html", "/manifest.webmanifest",
   "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/ask-widget.js", "/bifrost-ambient.js",
@@ -41,11 +41,26 @@ self.addEventListener("fetch", (e) => {
     );
     return;
   }
-  // Same-origin assets: cache-first, then network (and cache the 200).
+  // Same-origin assets: stale-while-revalidate.
+  //
+  // This was cache-first, which meant an asset served once was served forever — a
+  // deployed JS change stayed invisible until someone remembered to bump CACHE above.
+  // That bit us: the Hall shipped a new registry.js and returning visitors kept getting
+  // the old one, so a newly published cab simply did not appear.
+  //
+  // Now: answer instantly from cache (fast, still works offline), but always revalidate
+  // in the background so the next load is current. Deploys self-heal within one visit
+  // instead of depending on anyone remembering the version bump.
   e.respondWith(
-    caches.match(req).then((m) => m || fetch(req).then((r) => {
-      if (r && r.status === 200 && r.type === "basic") { const cp = r.clone(); caches.open(CACHE).then((c) => c.put(req, cp)); }
-      return r;
-    }))
+    caches.match(req).then((m) => {
+      const network = fetch(req).then((r) => {
+        if (r && r.status === 200 && r.type === "basic") {
+          const cp = r.clone();
+          caches.open(CACHE).then((c) => c.put(req, cp));
+        }
+        return r;
+      }).catch(() => m);
+      return m || network;
+    })
   );
 });
