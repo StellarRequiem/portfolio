@@ -25,7 +25,25 @@
   let pendingEvent = null;
   let typeTimer = null;
 
-  const DAY_MS = 190;          // wall-clock per sim day while RUN is engaged
+  /**
+   * PACING.
+   *
+   * The voyage has to read as a voyage. Early builds rolled a flat 9%/day with no
+   * cooldown, which averaged an interruption every 2.1 seconds and could stack two
+   * events on consecutive days — the ship never visibly went anywhere.
+   *
+   * A lower probability alone does not fix that, because a flat roll still permits
+   * bunching. The cooldown is the actual fix: it guarantees a floor of uninterrupted
+   * travel between beats. The grace period does the same job for the launch, so the
+   * opening has room to breathe before the company starts talking.
+   */
+  const DAY_MS = 260;              // wall-clock per sim day at 1x
+  const EVENT_CHANCE = 0.085;      // per-day roll, only once the cooldown has expired
+  const EVENT_COOLDOWN = 10;       // days of guaranteed travel after any event
+  const EVENT_GRACE = 8;           // no events at all before this day
+  const SPEEDS = [1, 2, 4];        // player-facing time control
+  let speedIdx = 0;
+  let lastEventDay = -99;
   let shake = 0;
 
   // ── setup: tier picker ─────────────────────────────────────────────────────
@@ -74,6 +92,7 @@
     pendingEvent = null;
     pass = null;
     crossingDone = false;
+    lastEventDay = -99;
     running = false;
     tAcc = 0;
     $("s-title").classList.add("hide");
@@ -143,6 +162,14 @@
     $("runbtn").classList.toggle("run", !running);
   });
 
+  // Time compression. The default is deliberately slow enough to watch the ship move;
+  // this is here for anyone who would rather not sit through the quiet stretches.
+  $("speed").addEventListener("click", function () {
+    speedIdx = (speedIdx + 1) % SPEEDS.length;
+    $("speed").textContent = SPEEDS[speedIdx] + "×";
+    $("speed").classList.toggle("on", speedIdx > 0);
+  });
+
   // ── event presentation ─────────────────────────────────────────────────────
   /**
    * The event pool is two decks: the hand-written events in `events.js` and the larger
@@ -169,10 +196,12 @@
 
   function maybeEvent() {
     if (pendingEvent) return;
-    // Roughly one scripted beat every ~11 days, seeded so replays match.
-    if (run.rand() > 0.09) return;
+    if (run.day < EVENT_GRACE) return;
+    if (run.day - lastEventDay < EVENT_COOLDOWN) return;
+    if (run.rand() > EVENT_CHANCE) return;
     const ev = pickFromPool();
     if (!ev) return;
+    lastEventDay = run.day;
     seen[ev.id] = true;
     pendingEvent = ev;
     running = false;
@@ -499,7 +528,7 @@
     last = ts;
 
     if (running && !pendingEvent && run.alive && !run.arrived) {
-      tAcc += dt;
+      tAcc += dt * SPEEDS[speedIdx];
       while (tAcc >= DAY_MS) {
         tAcc -= DAY_MS;
         const before = run.crew.filter(function (c) { return c.alive; }).length;
