@@ -53,6 +53,10 @@
   .bar .sp{flex:1}
   .bar b{color:var(--hull);font-weight:600}
   .bar .warn{color:var(--rose)}
+  .sndbtn{background:transparent;border:1px solid var(--line);color:var(--amber);
+    font:600 10px/1 var(--mono);letter-spacing:.14em;padding:4px 8px;cursor:pointer}
+  .sndbtn:hover{border-color:var(--amber)}
+  .sndbtn.off{color:var(--dim)}
 
   .track{height:3px;background:#0f1a26;position:relative}
   .track i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--cyan),var(--rust));display:block}
@@ -225,6 +229,7 @@
     <span>ETA <b id="b-eta">—</b></span>
     <span class="sp"></span>
     <span id="b-status"></span>
+    <button type="button" id="b-snd" class="sndbtn" title="cabinet score (M)">&#9834; ON</button>
   </div>
   <div class="track"><i id="b-track" style="width:0%"></i><span id="b-marks"></span></div>
 
@@ -350,6 +355,8 @@
 
 <script src="js/sim.js"></script>
 <script src="js/manifest.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/scores.js"></script>
 <script src="js/scenes.js"></script>
 <script src="js/events.js"></script>
 <script src="js/events-deck.js"></script>

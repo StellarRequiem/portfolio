@@ -221,3 +221,10 @@ canvas#stage {
   text-transform: uppercase;
 }
 .tagrow input:focus { outline: 1px solid var(--mint); }
+
+/* Cabinet score toggle. Sits in the play-bar next to the lane readout — the score is
+   a property of the cabinet you are at, so its switch belongs on the cabinet. */
+.snd{background:transparent;border:1px solid var(--line);color:var(--amber);
+  font:600 11px/1 ui-monospace,monospace;letter-spacing:.14em;padding:4px 9px;cursor:pointer}
+.snd:hover{border-color:var(--amber)}
+.snd.off{color:var(--dim);border-color:var(--line)}

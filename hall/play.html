@@ -15,6 +15,7 @@
     <span class="sp"></span>
     <span>SCORE <span class="stat" id="score">0</span></span>
     <span>LANE <span class="stat" id="lane">HUMAN</span> <span style="color:var(--dim)">Tab</span></span>
+    <button type="button" id="snd" class="snd" title="toggle the cabinet score (M)">♪ ON</button>
   </header>
   <div class="stage-wrap"><canvas id="stage" width="720" height="540"></canvas></div>
   <div class="hintbar" id="hint">arrows or WASD or IJKL move · E or Space act · Tab lane · Esc hall</div>
@@ -49,6 +50,8 @@
   <script src="js/board.js"></script>
   <script src="js/keys.js"></script>
   <script src="js/telem.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/scores.js"></script>
   <script>
     const params = new URLSearchParams(location.search);
     const cabId = (params.get("cab") || "well").toLowerCase();
@@ -93,6 +96,12 @@
         return;
       }
       hall.acted = true;
+      // Same gesture that starts the hazard clock starts the music.
+      if (ev.key === "m" || ev.key === "M") {
+        HallAudio.setEnabled(!HallAudio.enabled());
+        if (HallAudio.enabled()) HallAudio.wake();
+        paintSnd();
+      } else if (window.HallAudio) HallAudio.wake();
       if (hall.onKey) {
         hall.onKey(ev);
         const arrow = HallKeys.arrowOf(ev);
@@ -151,8 +160,51 @@
       window.HallHandle = handle;
       HallBus.attach({ handle, hall, keys, meta });
       if (lane === "AGENT") HallBus.paint();
+      startScore();
     };
+
+    /**
+     * The cabinet score. Armed at mount but silent until the player acts — browsers
+     * require a gesture before audio, and a machine that starts playing at you
+     * unprompted is obnoxious anyway.
+     *
+     * Tension is polled from the cab's own state(), the same telemetry the agent lane
+     * reads. No cab was modified to feed the music.
+     */
+    let sndTimer = null, prevRate = 0;
+    function startScore() {
+      const entry = window.HallScores && HallScores.get(meta.id);
+      if (!entry || !window.HallAudio) return;
+      HallAudio.arm(entry.def);
+      paintSnd();
+      if (sndTimer) clearInterval(sndTimer);
+      sndTimer = setInterval(() => {
+        if (!handle || !handle.state) return;
+        let st; try { st = handle.state(); } catch (_) { return; }
+        if (st && st.alive === false) { HallAudio.tension(0); return; }
+        const t = entry.rate
+          ? entry.tension(st, prevRate)
+          : entry.tension(st);
+        if (entry.rate && st) prevRate = st[entry.rate] || 0;
+        HallAudio.tension(t);
+      }, 250);
+    }
+    function paintSnd() {
+      const b = document.getElementById("snd");
+      if (b && window.HallAudio) {
+        const on = HallAudio.enabled();
+        b.textContent = on ? "\u266a ON" : "\u266a OFF";
+        b.classList.toggle("off", !on);
+      }
+    }
+    document.getElementById("snd").addEventListener("click", () => {
+      HallAudio.setEnabled(!HallAudio.enabled());
+      if (HallAudio.enabled()) HallAudio.wake();
+      paintSnd();
+    });
     function markAgent() {
+      // A bus click is a gesture too, so the agent lane gets a score as well.
+      if (window.HallAudio) HallAudio.wake();
       if (ended) return;
       lane = "AGENT";
       document.getElementById("lane").textContent = lane;

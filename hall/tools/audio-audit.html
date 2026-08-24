@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>SCORE AUDIT</title>
+<style>body{background:#04060a;color:#c8d2dc;font:12px ui-monospace,monospace;padding:20px}
+pre{white-space:pre}</style></head>
+<body><pre id="out">rendering…</pre>
+<script src="../js/audio.js"></script>
+<script src="../js/scores.js"></script>
+<script>
+/**
+ * Offline audit for the cabinet scores.
+ *
+ * Renders each score at a ladder of tension values through the ENGINE'S OWN emit(),
+ * via HallAudio.renderOffline, and measures the result. "It sounds good" is not a
+ * claim anyone can re-run; RMS, peak, clip count and per-layer note counts are.
+ *
+ * What it is checking for, in order of how badly the first pass failed each one:
+ *   - does the arrangement keep changing all the way to 1.0, or saturate early
+ *   - is the loudness consistent from cabinet to cabinet
+ *   - is the resting state actually audible
+ *   - does anything clip
+ */
+const LADDER = [0, 0.25, 0.5, 0.75, 1.0];
+
+async function one(id, T) {
+  const entry = HallScores.get(id);
+  const r = await HallAudio.renderOffline(entry.def, T, 4);
+  const d = r.buffer.getChannelData(0);
+  let sum = 0, peak = 0, clipped = 0;
+  for (let k = 0; k < d.length; k++) {
+    const v = d[k], a = v < 0 ? -v : v;
+    sum += v * v; if (a > peak) peak = a; if (a >= 0.999) clipped++;
+  }
+  const rms = Math.sqrt(sum / d.length);
+  return { id, T, rms, peak, clipped, bpm: r.bpm, mode: r.mode, notes: r.notes,
+           dbfs: 20 * Math.log10(Math.max(1e-9, rms)) };
+}
+
+window.AUDIT = async function () {
+  const rows = [];
+  for (const id of HallScores.ids()) for (const T of LADDER) rows.push(await one(id, T));
+  return rows;
+};
+
+AUDIT().then(rows => {
+  window.AUDIT_RESULT = rows;
+  const L = ["pad","bass","drums","arp","lead","counter"];
+  let s = "cab    T     rms      dBFS   peak   clip   " + L.map(x=>x.padStart(7)).join("") + "\n";
+  s += "-".repeat(46 + L.length*7) + "\n";
+  rows.forEach(r => {
+    s += r.id.padEnd(7) + r.T.toFixed(2).padEnd(6) + r.rms.toFixed(4).padEnd(9) +
+         r.dbfs.toFixed(1).padStart(6) + "  " + r.peak.toFixed(3).padStart(6) + "  " +
+         String(r.clipped).padStart(5) + "  " +
+         L.map(k => String(r.notes[k] || 0).padStart(7)).join("") + "\n";
+  });
+  document.getElementById("out").textContent = s;
+});
+</script></body></html>

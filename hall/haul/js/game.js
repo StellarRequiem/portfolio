@@ -11,6 +11,7 @@
   const S = window.HaulScenes;
   const E = window.HaulEvents;
   const MF = window.HaulManifest;
+  const AU = window.HallAudio;
 
   const $ = function (id) { return document.getElementById(id); };
   /** Manifest lines originate with supporters, so they are escaped before they
@@ -122,6 +123,7 @@
     $("s-title").classList.add("hide");
     $("s-end").classList.add("hide");
     $("s-game").style.display = "grid";
+    armScore();
     sizeCanvas();
     stars = S.makeStars(run.seed, 220, cv.width, cv.height);
     buildMarks();
@@ -893,6 +895,64 @@
     }
   };
 
+  // ── score ──────────────────────────────────────────────────────────────────
+  /**
+   * The voyage score. Eight bars at 68bpm, because unlike a cabinet this one plays for
+   * the length of a 240-day transit and a short loop would become the reason somebody
+   * reaches for the mute.
+   *
+   * Tension here is the ship's condition rather than the player's excitement — crew
+   * lost, habitat degraded, stores running thin. The music gets worse as the MANIFEST
+   * does, which is the only honest way to score a game about attrition.
+   */
+  let scoreTimer = null;
+  function armScore() {
+    const entry = window.HallScores && HallScores.get("haul");
+    if (!entry || !AU) return;
+    AU.arm(entry.def);
+    AU.wake();
+    paintSnd();
+    if (scoreTimer) clearInterval(scoreTimer);
+    scoreTimer = setInterval(function () {
+      if (!run) return;
+      const H = window.Haul;
+      const living = H.living(run).length;
+      // Margin: how much of the voyage the remaining stores actually cover.
+      const left = H.daysLeft ? H.daysLeft(run) : null;
+      const need = Math.max(1, window.Haul.NOMINAL_DAYS - run.day);
+      const margin = left == null ? 1 : Math.max(0, Math.min(1, left / need));
+      AU.tension(entry.tension({
+        living: living, hab: run.mod.hab, margin: margin,
+        progress: run.progress
+      }));
+    }, 900);
+  }
+  function paintSnd() {
+    const b = $("b-snd");
+    if (b && AU) {
+      const on = AU.enabled();
+      b.innerHTML = on ? "&#9834; ON" : "&#9834; OFF";
+      b.classList.toggle("off", !on);
+    }
+  }
+  if ($("b-snd")) {
+    $("b-snd").addEventListener("click", function () {
+      AU.setEnabled(!AU.enabled());
+      if (AU.enabled()) AU.wake();
+      paintSnd();
+      $("b-snd").blur();
+    });
+  }
+  addEventListener("keydown", function (ev) {
+    if (ev.target && ev.target.tagName === "INPUT") return;
+    if (ev.key === "m" || ev.key === "M") {
+      if (!AU) return;
+      AU.setEnabled(!AU.enabled());
+      if (AU.enabled()) AU.wake();
+      paintSnd();
+    }
+  });
+
   // ── end ────────────────────────────────────────────────────────────────────
   function showEnd() {
     const alive = window.Haul.living(run).length;
@@ -936,6 +996,9 @@
       st.appendChild(d);
     });
 
+    // Let the score fall away rather than cut — the stones deserve the quiet.
+    if (AU) { AU.tension(0); setTimeout(function () { AU.stop(2.2); }, 400); }
+    if (scoreTimer) { clearInterval(scoreTimer); scoreTimer = null; }
     setTimeout(function () { $("s-end").classList.remove("hide"); }, 700);
   }
 })();
