@@ -81,11 +81,56 @@
     { key: "content",  label: "Mission Content Lead", gates: "morale" }
   ];
 
-  // Surnames only — never a full name that reads as a specific real person.
+  /**
+   * Crew surnames. Surnames only, never a full name — a bare surname does not read as
+   * a specific living person, and the crew are meant to feel like a real international
+   * roster rather than a cast.
+   *
+   * Deliberately wide: a colony ship draws from wherever the programme recruits, and a
+   * bigger pool means the five names differ meaningfully run to run. Diacritics are
+   * kept because they are part of the names.
+   */
   const NAMES = [
-    "KOVÁCS", "OKONKWO", "PATEL", "REYES", "LINDQVIST", "HADDAD", "NAKAMURA",
-    "ÖZTÜRK", "MBEKI", "SOKOLOV", "FERREIRA", "DUBOIS", "AL-RASHID", "TANAKA"
+    // Slavic — Russian, Polish, Czech, Ukrainian, South Slavic, Bulgarian
+    "SOKOLOV", "VOLKOV", "NOVIKOV", "ORLOV", "KUZNETSOV", "MEDVEDEV",
+    "KOWALCZYK", "WÓJCIK", "ZIELIŃSKI", "KAMIŃSKI", "LEWANDOWSKA",
+    "NOVÁK", "SVOBODA", "DVOŘÁK", "ČERNÝ",
+    "BONDARENKO", "KOVALENKO", "TKACHENKO",
+    "PETROVIĆ", "JOVANOVIĆ", "MARKOVIĆ", "HORVAT", "DIMITROV", "GEORGIEV",
+
+    // Germanic — German, Austrian, Swiss, Dutch, Nordic
+    "SCHNEIDER", "WEBER", "FISCHER", "BECKER", "HOFFMANN", "RICHTER",
+    "WAGNER", "ZIMMERMANN", "SCHÄFER", "GRUBER", "HUBER", "STEINER",
+    "VAN DIJK", "DE VRIES", "BAKKER", "VISSER",
+    "LINDQVIST", "ANDERSSON", "LARSSON", "ERIKSEN", "HALVORSEN", "BJØRNSTAD",
+
+    // Caucasus — Georgian, Armenian, Azerbaijani
+    "BERIDZE", "GELASHVILI", "TSERETELI", "JAPARIDZE", "MAISURADZE",
+    "HAKOBYAN", "SARGSYAN", "PETROSYAN", "AVETISYAN", "GRIGORYAN",
+    "MAMMADOV", "HUSEYNOV", "GULIYEV",
+
+    // and the rest of the roster
+    "KOVÁCS", "OKONKWO", "PATEL", "REYES", "HADDAD", "NAKAMURA",
+    "ÖZTÜRK", "MBEKI", "FERREIRA", "DUBOIS", "AL-RASHID", "TANAKA",
+    "ADEYEMI", "CHEN", "SINGH", "MORALES", "OYELARAN", "RAHMAN"
   ];
+
+  /**
+   * Names contributed by supporters, loaded at runtime from the colonist manifest if
+   * one is present. They join the same draw as everyone else — a manifest name is a
+   * crew member, not a cameo, which means it can also be lost with all hands. That is
+   * the deal, and the manifest page says so plainly.
+   */
+  let PATRON_NAMES = [];
+  function registerPatrons(list) {
+    PATRON_NAMES = (list || [])
+      .map(function (n) { return String(n || "").trim().toUpperCase(); })
+      .filter(function (n) { return n.length >= 2 && n.length <= 18; });
+    return PATRON_NAMES.length;
+  }
+  function namePool() {
+    return NAMES.concat(PATRON_NAMES);
+  }
 
   /**
    * Funding tier is the difficulty dial, exactly like the original's occupation choice:
@@ -120,7 +165,7 @@
   const USE = { o2: 0.84, water: 3.0, cal: 0.62 };
 
   function makeCrew(rand) {
-    const pool = NAMES.slice();
+    const pool = namePool();
     return ROLES.map(function (role) {
       const i = Math.floor(rand() * pool.length);
       const name = pool.splice(i, 1)[0];
@@ -471,6 +516,8 @@
     NOMINAL_DAYS: NOMINAL_DAYS,
     BRAKE_RESERVE: BRAKE_RESERVE,
     WAYPOINTS: WAYPOINTS, ROLES: ROLES, TIERS: TIERS, USE: USE, CAUSES: CAUSES,
+    NAMES: NAMES,
+    registerPatrons: registerPatrons, namePool: namePool,
     rngFrom: rngFrom, hashSeed: hashSeed,
     createRun: createRun, step: step, score: score, simulate: simulate,
     living: living, hasRole: hasRole, avgMorale: avgMorale,

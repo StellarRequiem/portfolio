@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>COLONIST MANIFEST — THE LONG HAUL</title>
+<meta name="description" content="The colonist manifest for THE LONG HAUL. Supporters are listed as crew, assigned a berth, and drawn into the game's own name pool." />
+<style>
+  :root{
+    --void:#04060a; --panel:#080d16; --panel2:#0c141f;
+    --hull:#c8d2dc; --dim:#6c8aa6; --line:rgba(110,231,255,.20);
+    --cyan:#6ee7ff; --mint:#3df0bb; --amber:#ffb547; --rose:#ff7a9a; --rust:#c2562c;
+    --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--void);color:var(--hull);
+    font-family:var(--mono);font-size:14px;-webkit-font-smoothing:antialiased}
+  a{color:var(--cyan)}
+  .scan{pointer-events:none;position:fixed;inset:0;z-index:60;
+    background:repeating-linear-gradient(to bottom,rgba(0,0,0,.16) 0 1px,transparent 1px 3px)}
+
+  .wrap{max-width:940px;margin:0 auto;padding:46px 24px 90px;position:relative;z-index:1}
+
+  header{border-bottom:1px solid var(--line);padding-bottom:26px;margin-bottom:34px}
+  .back{font-size:10.5px;letter-spacing:.2em;color:var(--dim);text-decoration:none}
+  .back:hover{color:var(--cyan)}
+  h1{font-size:clamp(28px,6vw,52px);letter-spacing:.2em;margin:18px 0 8px;
+    text-shadow:0 0 34px rgba(110,231,255,.22)}
+  .sub{color:var(--rust);letter-spacing:.32em;font-size:11px}
+  .lede{color:var(--dim);line-height:1.8;max-width:640px;margin:22px 0 0;font-size:13px}
+  .lede b{color:var(--hull);font-weight:600}
+
+  h2{font-size:12px;letter-spacing:.28em;color:var(--cyan);margin:44px 0 16px;font-weight:600}
+  h2 .n{color:var(--dim);letter-spacing:.1em;margin-left:10px;font-weight:400}
+
+  /* muster strip */
+  .muster{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+    border:1px solid var(--line);margin-top:30px}
+  @media(max-width:640px){.muster{grid-template-columns:repeat(2,1fr)}}
+  .muster div{background:var(--panel);padding:13px 14px}
+  .muster b{display:block;font-size:19px;color:var(--hull);letter-spacing:.06em}
+  .muster span{display:block;font-size:9.5px;letter-spacing:.18em;color:var(--dim);margin-top:5px}
+
+  /* tiers */
+  .tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:760px){.tiers{grid-template-columns:1fr}}
+  .tier{background:var(--panel);border:1px solid var(--line);padding:18px 16px;position:relative}
+  .tier.founder{border-color:rgba(255,181,71,.4)}
+  .tier h3{margin:0 0 3px;font-size:13px;letter-spacing:.14em;color:var(--cyan)}
+  .tier.founder h3{color:var(--amber)}
+  .tier .price{font-size:10px;letter-spacing:.16em;color:var(--rust);margin-bottom:11px}
+  .tier ul{margin:0;padding-left:16px;color:var(--dim);font-size:11.5px;line-height:1.85}
+  .tier li::marker{color:var(--line)}
+
+  /* roster */
+  .roster{border:1px solid var(--line);background:var(--panel)}
+  .rrow{display:grid;grid-template-columns:26px 1fr 92px 96px;gap:14px;align-items:baseline;
+    padding:11px 15px;border-bottom:1px solid rgba(110,231,255,.08)}
+  .rrow:last-child{border-bottom:0}
+  @media(max-width:620px){.rrow{grid-template-columns:22px 1fr;row-gap:5px}
+    .rrow .berth,.rrow .seed{grid-column:2;font-size:10px}}
+  .rrow .ix{color:var(--line);font-size:10px;text-align:right}
+  .rrow .nm{letter-spacing:.12em;color:var(--hull)}
+  .rrow .nm i{display:block;font-style:italic;color:var(--dim);font-size:10.5px;
+    letter-spacing:.02em;margin-top:3px;opacity:.9}
+  .rrow .berth{color:var(--dim);font-size:10.5px;letter-spacing:.1em}
+  .rrow .seed a{color:var(--mint);font-size:10.5px;letter-spacing:.1em;text-decoration:none;
+    border-bottom:1px dotted rgba(61,240,187,.4)}
+  .rrow .seed a:hover{color:#7bf7d2;border-bottom-style:solid}
+  .rrow.founder .nm{color:var(--amber)}
+
+  .empty{border:1px dashed var(--line);background:var(--panel);padding:30px 26px;color:var(--dim);
+    line-height:1.85;font-size:12.5px}
+  .empty b{color:var(--hull);display:block;letter-spacing:.16em;margin-bottom:9px;font-size:12px}
+
+  .warn{border-left:2px solid var(--rose);background:var(--panel);padding:15px 18px;
+    color:var(--dim);font-size:12px;line-height:1.85;margin-top:16px}
+  .warn b{color:var(--rose);letter-spacing:.14em}
+
+  .board{margin-top:20px;border:1px solid var(--line);background:var(--panel2);padding:20px 20px}
+  .board .st{display:inline-block;font-size:9.5px;letter-spacing:.2em;color:#04120d;
+    background:var(--amber);padding:3px 9px;margin-bottom:11px}
+  .board p{margin:0;color:var(--dim);font-size:12px;line-height:1.85}
+
+  footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--line);
+    color:var(--dim);font-size:10.5px;line-height:1.95}
+  footer b{color:var(--hull);letter-spacing:.12em}
+</style>
+</head>
+<body>
+<div class="scan" aria-hidden="true"></div>
+<div class="wrap">
+
+<header>
+  <a class="back" href="index.html">&larr; RETURN TO THE PAD</a>
+  <h1>COLONIST MANIFEST</h1>
+  <div class="sub">ASTRAEUS LAUNCH SYSTEMS · TRANSIT VESSEL <b>MANIFEST</b> · BERTHING REGISTER</div>
+  <p class="lede">
+    Every berth aboard the <b>MANIFEST</b> is spoken for by somebody. This is the register
+    of who. Supporters who buy a founders pack are entered here by name, assigned a berth,
+    and — this is the part that matters — <b>folded into the game's own crew name pool</b>.
+    Your name is not printed in a credits crawl at the end. It is drawn as a colonist, given
+    a role, and sent to Mars with four strangers and a recycler of uncertain temperament.
+  </p>
+  <div class="muster">
+    <div><b id="m-souls">0</b><span>SOULS REGISTERED</span></div>
+    <div><b id="m-berths">0</b><span>BERTHS ASSIGNED</span></div>
+    <div><b id="m-mass">0 t</b><span>CONSUMABLES ALLOCATED</span></div>
+    <div><b id="m-window">240 d</b><span>NOMINAL TRANSIT</span></div>
+  </div>
+</header>
+
+<h2>BERTH CLASSES</h2>
+<div class="tiers">
+  <div class="tier founder">
+    <h3>FOUNDERS BERTH</h3>
+    <div class="price" data-price="founder">PRICE TBD</div>
+    <ul>
+      <li>Name on the manifest, in founders amber</li>
+      <li>Berth on A/B/C deck, assigned for good</li>
+      <li>Your surname enters the crew name pool</li>
+      <li>A personal voyage seed — a run that is yours and reproducible</li>
+      <li>One line of your own on the roster, and on the headstone if it comes to that</li>
+    </ul>
+  </div>
+  <div class="tier">
+    <h3>CONTRACT CREW</h3>
+    <div class="price" data-price="contract">PRICE TBD</div>
+    <ul>
+      <li>Name on the manifest</li>
+      <li>Assigned berth</li>
+      <li>Your surname enters the crew name pool</li>
+      <li>A personal voyage seed</li>
+    </ul>
+  </div>
+  <div class="tier">
+    <h3>LOTTERY COLONIST</h3>
+    <div class="price" data-price="lottery">PRICE TBD</div>
+    <ul>
+      <li>Name on the manifest</li>
+      <li>Assigned berth</li>
+      <li>Your surname enters the crew name pool</li>
+    </ul>
+  </div>
+</div>
+
+<div class="warn">
+  <b>A NOTE ON RISK, FROM LEGAL.</b><br>
+  A name on this manifest is a crew name like any other. It can be drawn as your pilot and
+  it can be drawn as the one who does not make it — hypoxia, dehydration, a decompression
+  event on day 171. Astraeus does not intervene in the draw and neither do we. A credit that
+  cannot lose is not a credit, it is a logo. This one can lose.
+</div>
+
+<div class="board">
+  <div class="st">BOARDING NOT YET OPEN</div>
+  <p>
+    Berth sales are not live. When they open, this is where they will open from. Until then
+    the register stands empty and honest — no placeholder colonists, no names that were never
+    contributed.
+  </p>
+</div>
+
+<h2>THE REGISTER <span class="n" id="r-updated"></span></h2>
+<div id="roster-mount"></div>
+
+<footer>
+  <b>ABOUT THE REGISTER.</b><br>
+  Names are listed only with the agreement of the person named, and the house style is
+  surname-or-handle only — the roster is a ship's document, not a directory of identifiable
+  people. Berth, deck, and voyage seed are derived from the name itself rather than stored,
+  so the register is reproducible from the name list alone and nobody's berth moves because
+  a row above them was edited. Entries are reviewed before they are added, because this text
+  renders on a public page and is drawn as a crew name in a game other people play.<br><br>
+  <b>THE LONG HAUL</b> is a work of parody. Astraeus Launch Systems, the transit vessel
+  MANIFEST, and the Founder are fictional, and any resemblance to a real launch provider is
+  the joke.
+</footer>
+
+</div>
+
+<script src="js/sim.js"></script>
+<script src="js/manifest.js"></script>
+<script>
+/**
+ * Renders the register. Deliberately reads the same data file the game reads, through the
+ * same module, so the page and the crew pool can never disagree about who is aboard.
+ */
+(function () {
+  "use strict";
+  const $ = function (id) { return document.getElementById(id); };
+  const esc = function (t) {
+    return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  };
+
+  /* Consumables allocated is computed from the game's real tier loadouts rather than
+     written down here, so the muster strip cannot drift away from the simulation. */
+  function massFor(counts) {
+    const T = window.Haul.TIERS;
+    let kg = 0;
+    Object.keys(counts).forEach(function (tier) {
+      const L = T[tier] && T[tier].load;
+      if (!L) return;
+      kg += counts[tier] * (L.o2 + L.water + L.cal + L.fuel + L.parts * 12);
+    });
+    return kg;
+  }
+
+  function row(r, i) {
+    const d = document.createElement("div");
+    d.className = "rrow" + (r.tier === "founder" ? " founder" : "");
+    d.innerHTML =
+      "<div class='ix'>" + String(i + 1).padStart(3, "0") + "</div>" +
+      "<div class='nm'>" + esc(r.name) +
+        (r.line ? "<i>" + esc(r.line) + "</i>" : "") + "</div>" +
+      "<div class='berth'>BERTH " + esc(r.berth) + "</div>" +
+      "<div class='seed'><a href='index.html?seed=" + encodeURIComponent(r.seed) + "' " +
+        "title='Fly this colonist&#39;s voyage — same seed, same run, every time'>" +
+        esc(r.seed) + "</a></div>";
+    return d;
+  }
+
+  function render(roster) {
+    const mount = $("roster-mount");
+    mount.innerHTML = "";
+
+    if (!roster.length) {
+      const e = document.createElement("div");
+      e.className = "empty";
+      e.innerHTML =
+        "<b>NO COLONISTS REGISTERED</b>" +
+        "Berthing has not opened, so the register is empty. It will stay that way until " +
+        "there are real supporters to list — an invented roster would be a lie told in the " +
+        "first paragraph of a page about honesty, and the game already has a company that " +
+        "does that for a living.";
+      mount.appendChild(e);
+      return;
+    }
+
+    const wrap = document.createElement("div");
+    wrap.className = "roster";
+    roster.forEach(function (r, i) { wrap.appendChild(row(r, i)); });
+    mount.appendChild(wrap);
+  }
+
+  window.HaulManifest.load(window.Haul).then(function (roster) {
+    render(roster);
+    const c = window.HaulManifest.count();
+    $("m-souls").textContent = c.total;
+    $("m-berths").textContent = c.total;
+    $("m-mass").textContent = (massFor(c.by) / 1000).toFixed(1) + " t";
+    $("m-window").textContent = window.Haul.NOMINAL_DAYS + " d";
+    const up = window.HaulManifest.updated();
+    if (up) $("r-updated").textContent = "· AS OF " + up;
+  });
+})();
+</script>
+</body>
+</html>

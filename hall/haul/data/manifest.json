@@ -1,0 +1,19 @@
+{
+  "_schema": {
+    "note": "Colonist manifest. One entry per supporter. This file is the source of truth for both the public manifest page and the in-game name pool.",
+    "fields": {
+      "name": "REQUIRED. Surname or handle as it should appear on the roster. 2-18 characters. Rendered uppercase. Surname-only is the house style — it matches the crew roster and keeps the page from being a list of identifiable full names.",
+      "tier": "REQUIRED. founder | contract | lottery. Mirrors the game's own funding tiers.",
+      "line": "OPTIONAL. One short line, shown under the name on the manifest page. Max ~90 chars.",
+      "joined": "OPTIONAL. YYYY-MM-DD. Sorts the roster; absent entries sort last."
+    },
+    "rules": [
+      "Never add a name that was not actually contributed. An invented entry is fabricated social proof and is worse than an empty page.",
+      "Names are shown publicly. Only add an entry when the person has agreed to be listed.",
+      "Moderate before adding: this text renders on a public page and is drawn as a crew name in-game.",
+      "Berth number and deck are DERIVED from the name, never stored. See js/manifest.js."
+    ]
+  },
+  "updated": null,
+  "colonists": []
+}

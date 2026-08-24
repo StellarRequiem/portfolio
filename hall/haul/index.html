@@ -40,6 +40,10 @@
     letter-spacing:.18em;font-size:13px}
   .go:hover{background:#7bf7d2}
   .go:disabled{background:#2a3b3a;color:#5f7a72;cursor:not-allowed}
+  .mf-link{margin-top:22px;font-size:10.5px;letter-spacing:.2em;color:var(--dim)}
+  .mf-link a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--line);padding-bottom:2px}
+  .mf-link a:hover{color:var(--cyan);border-color:var(--cyan)}
+  .mf-link span{margin-left:10px;color:var(--rust)}
 
   /* ── main ───────────────────────────────────────────────── */
   .app{position:fixed;inset:0;display:grid;grid-template-rows:auto 1fr auto;z-index:10}
@@ -186,6 +190,7 @@
   .stone{background:var(--panel);border-left:2px solid var(--rose);padding:9px 13px;font-size:11.5px}
   .stone b{color:var(--hull);letter-spacing:.1em}
   .stone span{color:var(--dim);display:block;margin-top:2px;font-size:10.5px}
+  .stone span.mf{color:var(--amber);font-style:italic;margin-top:4px;opacity:.85}
 </style>
 </head>
 <body>
@@ -204,6 +209,10 @@
     </p>
     <div class="tiers" id="tiers"></div>
     <button class="go" id="launch" disabled>SELECT A TIER</button>
+    <div class="mf-link">
+      <a href="manifest.html">COLONIST MANIFEST</a>
+      <span id="mf-count"></span>
+    </div>
   </div>
 </div>
 
@@ -340,6 +349,7 @@
 </div>
 
 <script src="js/sim.js"></script>
+<script src="js/manifest.js"></script>
 <script src="js/scenes.js"></script>
 <script src="js/events.js"></script>
 <script src="js/events-deck.js"></script>
@@ -348,5 +358,15 @@
 <script src="js/aerobrake.js"></script>
 <script src="js/eva.js"></script>
 <script src="js/game.js"></script>
+<script>
+  /* Fold the supporter roster into the crew name pool. Fire-and-forget: the game is
+     already playable by the time this resolves, and an absent manifest is normal. */
+  if (window.HaulManifest) {
+    window.HaulManifest.load(window.Haul).then(function (r) {
+      var n = document.getElementById("mf-count");
+      if (n && r.length) n.textContent = r.length + " listed";
+    });
+  }
+</script>
 </body>
 </html>

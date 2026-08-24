@@ -10,8 +10,16 @@
 
   const S = window.HaulScenes;
   const E = window.HaulEvents;
+  const MF = window.HaulManifest;
 
   const $ = function (id) { return document.getElementById(id); };
+  /** Manifest lines originate with supporters, so they are escaped before they
+   *  reach innerHTML — the roster is the one place player-supplied text renders. */
+  const esc = function (t) {
+    return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  };
   const cv = $("view");
   const ctx = cv.getContext("2d");
 
@@ -85,8 +93,24 @@
     $("s-game").style.display = "none";
   });
 
+  /**
+   * A voyage seed may be handed in via ?seed= — that is what makes the personal seed
+   * printed on each manifest berth an actual playable run rather than a decorative
+   * code. Anything else gets a fresh clock-derived seed, so the default is still a
+   * new voyage every time.
+   */
+  function requestedSeed() {
+    try {
+      const q = new URLSearchParams(window.location.search).get("seed");
+      if (!q) return null;
+      const clean = q.trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
+      return clean.length >= 3 ? clean : null;
+    } catch (_) { return null; }
+  }
+
   function start(tier) {
-    run = window.Haul.createRun({ seed: "haul-" + Date.now(), tier: tier });
+    const forced = requestedSeed();
+    run = window.Haul.createRun({ seed: forced || ("haul-" + Date.now()), tier: tier });
     seen = {};
     vent = [];
     pendingEvent = null;
@@ -904,7 +928,11 @@
     run.memorials.forEach(function (m) {
       const d = document.createElement("div");
       d.className = "stone";
-      d.innerHTML = "<b>" + m.name + "</b><span>" + m.label + " · " + m.cause + " · day " + m.day + "</span>";
+      // A manifest name that dies is buried with its own line rather than the stock one.
+      // It is the whole reason the listing is worth having: the credit can lose.
+      const p = MF && MF.lookup(m.name);
+      d.innerHTML = "<b>" + m.name + "</b><span>" + m.label + " · " + m.cause + " · day " + m.day +
+        (p ? "</span><span class='mf'>" + (p.line ? esc(p.line) : "Berth " + p.berth + " · " + p.tierLabel) + "</span>" : "</span>");
       st.appendChild(d);
     });
 
