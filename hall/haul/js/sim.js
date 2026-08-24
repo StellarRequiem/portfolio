@@ -98,11 +98,11 @@
     },
     contract: {
       label: "Contract Crew", money: 5200, scoreMult: 1.8,
-      load: { o2: 208, water: 726, cal: 772, fuel: 104, parts: 16 }
+      load: { o2: 197, water: 692, cal: 742, fuel: 100, parts: 14 }
     },
     lottery: {
       label: "Lottery Colonist", money: 2600, scoreMult: 3.2,
-      load: { o2: 178, water: 624, cal: 664, fuel: 88, parts: 10 }
+      load: { o2: 190, water: 668, cal: 700, fuel: 92, parts: 13 }
     }
   };
 

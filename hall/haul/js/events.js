@@ -257,7 +257,10 @@
     {
       id: "occupancy",
       art: "station", cat: "corporate", weight: 5,
-      when: function (s) { return s.day > 25 && Haul.living(s).length >= 2; },
+      // Takes the sim module as a parameter rather than reaching for a global: the
+      // headless tuner has no `window`, and a gate that only works in a browser is a
+      // gate the balance sweep silently cannot evaluate.
+      when: function (s, H) { return s.day > 25 && H.living(s).length >= 2; },
       title: "OCCUPANCY NOTICE",
       body: "ALS billing shows this cabin as sold twice. The second passenger is not " +
             "aboard. Finance asks you to pick which name remains on the manifest.",

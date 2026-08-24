@@ -177,28 +177,22 @@
    * tools/import-deck.js). They share one schema, so they compete on weight in a single
    * weighted draw and the player cannot tell which is which.
    */
+  /**
+   * Selection and cadence now live in `director.js`, shared with the headless tuner.
+   * That is deliberate: while this logic lived here next to the DOM, the balance sweep
+   * could not run it, so every number we tuned against came from a game without events.
+   */
   function pickFromPool() {
-    const deck = (window.HaulDeck && window.HaulDeck.DECK) || [];
-    const pool = E.EVENTS.concat(deck).filter(function (e) {
-      if (seen[e.id]) return false;
-      return !e.when || e.when(run);
+    return window.HaulDirector.choose(run, window.Haul, seen, {
+      authored: E.EVENTS,
+      deck: (window.HaulDeck && window.HaulDeck.DECK) || [],
+      physics: window.HaulPhysics || null
     });
-    if (!pool.length) return null;
-    let total = 0;
-    pool.forEach(function (e) { total += (e.weight || 5); });
-    let r = run.rand() * total;
-    for (let i = 0; i < pool.length; i++) {
-      r -= (pool[i].weight || 5);
-      if (r <= 0) return pool[i];
-    }
-    return pool[pool.length - 1];
   }
 
   function maybeEvent() {
     if (pendingEvent) return;
-    if (run.day < EVENT_GRACE) return;
-    if (run.day - lastEventDay < EVENT_COOLDOWN) return;
-    if (run.rand() > EVENT_CHANCE) return;
+    if (!window.HaulDirector.ready(run, lastEventDay)) return;
     const ev = pickFromPool();
     if (!ev) return;
     lastEventDay = run.day;
