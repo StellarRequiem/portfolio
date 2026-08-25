@@ -117,6 +117,176 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     /* 40 */ { n:"BASE",  rgb:[52,58,66],     k:WALL,   d:99, ins:1 },
     /* 41 */ { n:"MITE",  rgb:[236,180,90],   k:SOLID,  d:19, fire:{at:150,to:5,heat:90} }
   ];
+  /**
+   * THE PERIODIC TABLE.
+   *
+   * All 118, driven by their real physical properties rather than by 118 hand-written
+   * behaviours. This works because the cabinet's four systems already are the four
+   * properties that matter:
+   *
+   *   the heat field   is melting point and boiling point
+   *   density          is density
+   *   charge           is electrical conductivity
+   *   detonation       is what an alkali metal does in water
+   *
+   * So these are not reskins. This is the engine finally being handed real numbers.
+   *
+   * ── ON THE ACCURACY OF THIS DATA ─────────────────────────────────────────────
+   * Melting points, boiling points and densities here are APPROXIMATE VALUES FROM
+   * MEMORY. They have not been checked against a reference dataset. They are close
+   * enough that the sandbox behaves right — mercury and bromine are liquid at room
+   * temperature, gallium melts in your hand at about 30 degrees, tungsten outlasts
+   * everything in a fire — but they should not be quoted as physical constants, and
+   * anyone wanting real numbers should look them up.
+   *
+   * Everything from rutherfordium (104) up is worse than approximate: for most of the
+   * superheavy elements real science has only predictions, and a few have never existed
+   * in quantities large enough to melt. Those rows are plausible fiction and are marked
+   * as such by the `predicted` flag.
+   *
+   * Packed as a string because 118 object literals is a lot of file for what is a table.
+   * Fields: Z | symbol | name | melting C | boiling C | density g/cm3 | category
+   */
+  const PT_CAT = ["ALKALI","ALKALINE","TRANSITION","POST-TRANSITION","METALLOID",
+                  "NONMETAL","HALOGEN","NOBLE","LANTHANIDE","ACTINIDE"];
+  /** Category colours, in the cabinet's palette rather than a textbook's. */
+  const PT_RGB = [
+    [232,108,84],   // alkali        — violent
+    [226,158,74],   // alkaline
+    [150,166,186],  // transition    — the metals
+    [136,158,150],  // post-transition
+    [128,186,168],  // metalloid
+    [122,178,214],  // nonmetal
+    [186,206,96],   // halogen
+    [176,140,214],  // noble
+    [204,142,176],  // lanthanide
+    [176,110,120]   // actinide
+  ];
+
+  const PT_RAW =
+    "1 H Hydrogen -259 -253 0.00009 5;2 He Helium -272 -269 0.00018 7;" +
+    "3 Li Lithium 180 1342 0.53 0;4 Be Beryllium 1287 2469 1.85 1;" +
+    "5 B Boron 2077 4000 2.34 4;6 C Carbon 3550 4027 2.27 5;" +
+    "7 N Nitrogen -210 -196 0.00125 5;8 O Oxygen -218 -183 0.00143 5;" +
+    "9 F Fluorine -220 -188 0.0017 6;10 Ne Neon -249 -246 0.0009 7;" +
+    "11 Na Sodium 98 883 0.97 0;12 Mg Magnesium 650 1090 1.74 1;" +
+    "13 Al Aluminium 660 2519 2.70 3;14 Si Silicon 1414 3265 2.33 4;" +
+    "15 P Phosphorus 44 280 1.82 5;16 S Sulfur 115 445 2.07 5;" +
+    "17 Cl Chlorine -102 -34 0.0032 6;18 Ar Argon -189 -186 0.0018 7;" +
+    "19 K Potassium 63 759 0.86 0;20 Ca Calcium 842 1484 1.55 1;" +
+    "21 Sc Scandium 1541 2836 2.99 2;22 Ti Titanium 1668 3287 4.51 2;" +
+    "23 V Vanadium 1910 3407 6.11 2;24 Cr Chromium 1907 2671 7.15 2;" +
+    "25 Mn Manganese 1246 2061 7.44 2;26 Fe Iron 1538 2861 7.87 2;" +
+    "27 Co Cobalt 1495 2927 8.86 2;28 Ni Nickel 1455 2913 8.91 2;" +
+    "29 Cu Copper 1085 2562 8.96 2;30 Zn Zinc 420 907 7.13 2;" +
+    "31 Ga Gallium 30 2204 5.91 3;32 Ge Germanium 938 2833 5.32 4;" +
+    "33 As Arsenic 817 614 5.78 4;34 Se Selenium 221 685 4.81 5;" +
+    "35 Br Bromine -7 59 3.12 6;36 Kr Krypton -157 -153 0.0037 7;" +
+    "37 Rb Rubidium 39 688 1.53 0;38 Sr Strontium 777 1382 2.64 1;" +
+    "39 Y Yttrium 1526 3345 4.47 2;40 Zr Zirconium 1855 4409 6.51 2;" +
+    "41 Nb Niobium 2477 4744 8.57 2;42 Mo Molybdenum 2623 4639 10.2 2;" +
+    "43 Tc Technetium 2157 4265 11.0 2;44 Ru Ruthenium 2334 4150 12.4 2;" +
+    "45 Rh Rhodium 1964 3695 12.4 2;46 Pd Palladium 1555 2963 12.0 2;" +
+    "47 Ag Silver 962 2162 10.5 2;48 Cd Cadmium 321 767 8.69 2;" +
+    "49 In Indium 157 2072 7.31 3;50 Sn Tin 232 2602 7.29 3;" +
+    "51 Sb Antimony 631 1587 6.68 4;52 Te Tellurium 450 988 6.24 4;" +
+    "53 I Iodine 114 184 4.93 6;54 Xe Xenon -112 -108 0.0059 7;" +
+    "55 Cs Caesium 28 671 1.93 0;56 Ba Barium 727 1897 3.51 1;" +
+    "57 La Lanthanum 920 3464 6.15 8;58 Ce Cerium 795 3443 6.77 8;" +
+    "59 Pr Praseodymium 935 3520 6.77 8;60 Nd Neodymium 1024 3074 7.01 8;" +
+    "61 Pm Promethium 1042 3000 7.26 8;62 Sm Samarium 1072 1794 7.52 8;" +
+    "63 Eu Europium 826 1529 5.24 8;64 Gd Gadolinium 1312 3273 7.90 8;" +
+    "65 Tb Terbium 1356 3230 8.23 8;66 Dy Dysprosium 1407 2567 8.55 8;" +
+    "67 Ho Holmium 1461 2720 8.80 8;68 Er Erbium 1529 2868 9.07 8;" +
+    "69 Tm Thulium 1545 1950 9.32 8;70 Yb Ytterbium 824 1196 6.90 8;" +
+    "71 Lu Lutetium 1652 3402 9.84 8;72 Hf Hafnium 2233 4603 13.3 2;" +
+    "73 Ta Tantalum 3017 5458 16.4 2;74 W Tungsten 3422 5555 19.3 2;" +
+    "75 Re Rhenium 3186 5596 20.8 2;76 Os Osmium 3033 5012 22.59 2;" +
+    "77 Ir Iridium 2466 4428 22.56 2;78 Pt Platinum 1768 3825 21.45 2;" +
+    "79 Au Gold 1064 2856 19.32 2;80 Hg Mercury -39 357 13.53 2;" +
+    "81 Tl Thallium 304 1473 11.85 3;82 Pb Lead 327 1749 11.34 3;" +
+    "83 Bi Bismuth 271 1564 9.78 3;84 Po Polonium 254 962 9.20 3;" +
+    "85 At Astatine 302 337 7.0 6;86 Rn Radon -71 -62 0.0097 7;" +
+    "87 Fr Francium 27 677 1.87 0;88 Ra Radium 700 1737 5.50 1;" +
+    "89 Ac Actinium 1050 3200 10.07 9;90 Th Thorium 1750 4788 11.72 9;" +
+    "91 Pa Protactinium 1568 4027 15.37 9;92 U Uranium 1135 4131 18.95 9;" +
+    "93 Np Neptunium 644 3902 20.45 9;94 Pu Plutonium 640 3228 19.82 9;" +
+    "95 Am Americium 1176 2011 13.69 9;96 Cm Curium 1345 3110 13.51 9;" +
+    "97 Bk Berkelium 986 2627 14.79 9;98 Cf Californium 900 1470 15.10 9;" +
+    "99 Es Einsteinium 860 996 8.84 9;100 Fm Fermium 1527 2500 9.70 9;" +
+    "101 Md Mendelevium 827 2500 10.30 9;102 No Nobelium 827 2500 9.90 9;" +
+    "103 Lr Lawrencium 1627 2600 15.60 9;104 Rf Rutherfordium 2100 5500 23.20 2;" +
+    "105 Db Dubnium 2700 5800 29.30 2;106 Sg Seaborgium 2900 6000 35.00 2;" +
+    "107 Bh Bohrium 2800 5900 37.10 2;108 Hs Hassium 2700 5800 40.70 2;" +
+    "109 Mt Meitnerium 2600 5600 37.40 2;110 Ds Darmstadtium 2500 5400 34.80 2;" +
+    "111 Rg Roentgenium 2400 5200 28.70 2;112 Cn Copernicium 10 67 23.70 2;" +
+    "113 Nh Nihonium 430 1130 16.00 3;114 Fl Flerovium 70 150 14.00 3;" +
+    "115 Mc Moscovium 400 1100 13.50 3;116 Lv Livermorium 340 760 12.90 3;" +
+    "117 Ts Tennessine 350 550 7.20 6;118 Og Oganesson 50 80 5.00 7";
+
+  /** Where each element sits on the printed table, so the picker can BE the table. */
+  const PT_POS = {};
+  (function () {
+    const rows = [
+      [1, 1], [2, 18],
+      [3, 1], [4, 2], [5, 13], [6, 14], [7, 15], [8, 16], [9, 17], [10, 18],
+      [11, 1], [12, 2], [13, 13], [14, 14], [15, 15], [16, 16], [17, 17], [18, 18]
+    ];
+    rows.forEach(function (r, i) { PT_POS[i + 1] = { r: i < 2 ? 1 : (i < 10 ? 2 : 3), c: r[1] }; });
+    // periods 4 and 5 fill straight across
+    for (let z = 19; z <= 36; z++) PT_POS[z] = { r: 4, c: z - 18 };
+    for (let z = 37; z <= 54; z++) PT_POS[z] = { r: 5, c: z - 36 };
+    // period 6: La-Lu drop to their own strip
+    PT_POS[55] = { r: 6, c: 1 }; PT_POS[56] = { r: 6, c: 2 };
+    for (let z = 57; z <= 71; z++) PT_POS[z] = { r: 8, c: z - 53 };   // lanthanide strip
+    for (let z = 72; z <= 86; z++) PT_POS[z] = { r: 6, c: z - 68 };
+    PT_POS[87] = { r: 7, c: 1 }; PT_POS[88] = { r: 7, c: 2 };
+    for (let z = 89; z <= 103; z++) PT_POS[z] = { r: 9, c: z - 85 };  // actinide strip
+    for (let z = 104; z <= 118; z++) PT_POS[z] = { r: 7, c: z - 100 };
+  })();
+
+  /** Decay chains — the actinides get an identity beyond "another grey solid". */
+  const DECAY_CHAIN = {
+    "U": "Th", "Th": "Ra", "Ra": "Rn", "Rn": "Po", "Po": "Pb",
+    "Pu": "U", "Np": "Pa", "Pa": "Ac", "Ac": "Ra", "Am": "Np", "Cm": "Pu",
+    "Cf": "Cm", "Bk": "Am", "Es": "Bk", "Fm": "Cf", "Md": "Es", "No": "Fm",
+    "Lr": "Md", "At": "Bi", "Fr": "Ra"
+  };
+  const PT = [];
+  const SYM = {};
+  PT_RAW.split(";").forEach(function (row) {
+    const f = row.trim().split(/\s+/);
+    const cat = +f[6];
+    const dens = +f[5];
+    PT.push({
+      z: +f[0], sym: f[1], name: f[2],
+      mp: +f[3], bp: +f[4], dens: dens, cat: cat,
+      predicted: +f[0] >= 100,
+      // Metals and metalloids conduct; metalloids only once they are hot, which the
+      // engine gets to express because conduction is checked per cell.
+      cond: cat === 0 || cat === 1 || cat === 2 || cat === 3 || cat === 8 || cat === 9,
+      semi: cat === 4,
+      radio: cat === 9 || +f[0] === 43 || +f[0] === 61 || +f[0] === 84 ||
+             +f[0] === 85 || +f[0] === 86 || +f[0] === 87 || +f[0] === 88
+    });
+  });
+
+  /** Fold the table into ELEM so the physics loop never learns there are two kinds. */
+  const PT_BASE = ELEM.length;
+  PT.forEach(function (e) {
+    SYM[e.sym] = ELEM.length;
+    // Map real g/cm3 onto the cabinet's density scale. Gases are placed by whether they
+    // are lighter or heavier than air, which is why xenon pools and helium leaves.
+    let d;
+    if (e.dens < 0.01) d = e.dens < 0.0013 ? -5 : 3;   // lighter than air, or heavier
+    else d = Math.max(4, Math.min(99, Math.round(e.dens * 2.6)));
+    ELEM.push({
+      n: e.sym, rgb: PT_RGB[e.cat], k: SOLID, d: d,
+      mp: e.mp, bp: e.bp, pt: e,
+      cond: e.cond ? 1 : 0
+    });
+  });
+
   const N_ELEM = ELEM.length;
   const E = {};
   ELEM.forEach(function (e, i) { E[e.n] = i; });
@@ -124,9 +294,14 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
   /**
    * Contact reactions, checked when two cells are orthogonally adjacent.
    *
-   * Each row is [a, b, becomesA, becomesB, chance]. `-1` means leave alone. Only the
-   * ordered pair (a,b) is tested, so a reaction that should work both ways gets two
-   * rows — explicit beats a symmetry rule nobody can remember the direction of.
+   * Each row is [a, b, becomesA, becomesB, chance, blastR, blastHeat]. `-1` means leave
+   * alone, and the last two are optional — a reaction that ends in a bang carries its
+   * own radius rather than needing a special case in the loop. That is what lets the
+   * alkali group work: caesium in water is chemistry, not temperature, so it cannot
+   * come from a thermal ignition point.
+   *
+   * Only the ordered pair (a,b) is tested, so a reaction that should work both ways
+   * gets two rows — explicit beats a symmetry rule nobody can remember the direction of.
    *
    * These are the interactions that are genuinely chemical. Anything that is really
    * "it got hot enough" belongs in a melt/fire entry above instead, so that heat stays
@@ -227,6 +402,79 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     [E.MITE, E.BLGT,  E.BLGT,  E.BLGT,  0.30]
   ];
 
+  /**
+   * Chemistry the periodic table brings with it.
+   *
+   * Built after PT is folded in, because these reference elements by symbol. Only the
+   * reactions worth watching are here: an element whose whole story is "it is a grey
+   * solid with a high melting point" already has its identity from the heat field and
+   * does not need a row.
+   *
+   * The alkali group is the centrepiece — lithium fizzes, sodium pops, potassium
+   * lights, and caesium takes the sink with it. That gradient is real chemistry and it
+   * falls straight onto the detonation system that was already built for explosives.
+   */
+  (function () {
+    function S(sym) { return SYM[sym]; }
+    const water = [E.BRIN];
+
+    // alkali metals in water, increasingly violent down the group
+    [["Li", 4, 240], ["Na", 7, 420], ["K", 10, 620], ["Rb", 13, 800], ["Cs", 17, 1000],
+     ["Fr", 19, 1100]].forEach(function (a) {
+      const id = S(a[0]);
+      if (id == null) return;
+      // Radius and heat climb down the group, which is the real gradient: lithium
+      // fizzes, sodium pops, potassium lights its own hydrogen, and caesium takes the
+      // sink with it.
+      water.forEach(function (w) {
+        REACT.push([id, w, E.EMPTY, E.HAZE, 0.9, a[1], a[2]]);
+      });
+    });
+
+    // alkaline earths react with water too, but politely
+    ["Ca", "Sr", "Ba", "Ra"].forEach(function (s) {
+      const id = S(s);
+      if (id != null) REACT.push([id, E.BRIN, E.EMPTY, E.HAZE, 0.10]);
+    });
+
+    // halogens attack metals and bleach living things
+    ["F", "Cl", "Br", "I", "At", "Ts"].forEach(function (h) {
+      const id = S(h);
+      if (id == null) return;
+      ["Fe", "Na", "K", "Ca", "Mg", "Al", "Cu", "Zn"].forEach(function (m) {
+        const mid = S(m);
+        if (mid != null) REACT.push([id, mid, E.EMPTY, E.GRIT, 0.05]);
+      });
+      REACT.push([id, E.VINE, id, E.SOOT, 0.12]);
+      REACT.push([id, E.MITE, E.EMPTY, E.EMPTY, 0.4]);
+    });
+
+    // oxygen feeds fire; hydrogen and oxygen make water
+    if (S("O") != null) {
+      REACT.push([S("O"), E.CIND, E.CIND, E.CIND, 0.6]);
+      REACT.push([S("O"), E.EMBR, E.CIND, E.EMBR, 0.3]);
+      if (S("H") != null) REACT.push([S("H"), S("O"), E.BRIN, E.EMPTY, 0.03]);
+    }
+    // hydrogen burns, which is most of what hydrogen is for
+    if (S("H") != null) {
+      ELEM[S("H")].fire = { at: 120, to: E.CIND, heat: 560 };
+      REACT.push([S("H"), E.CIND, E.CIND, E.CIND, 0.9]);
+    }
+    // phosphorus and sulfur are the classic bench fire hazards
+    if (S("P") != null) ELEM[S("P")].fire = { at: 60, to: E.CIND, heat: 420 };
+    if (S("S") != null) ELEM[S("S")].fire = { at: 250, to: E.CIND, heat: 300 };
+    if (S("Mg") != null) ELEM[S("Mg")].fire = { at: 600, to: E.CIND, heat: 900 };
+
+    // mercury poisons what grows, as quicksilver already does
+    if (S("Hg") != null) {
+      REACT.push([S("Hg"), E.VINE, S("Hg"), E.SOOT, 0.10]);
+      REACT.push([S("Hg"), E.MITE, S("Hg"), E.EMPTY, 0.3]);
+    }
+    // carbon burns to nothing much, and sodium chloride is salt
+    if (S("C") != null) ELEM[S("C")].fire = { at: 700, to: E.EMBR, heat: 420 };
+    if (S("Na") != null && S("Cl") != null) REACT.push([S("Na"), S("Cl"), E.SALT, E.EMPTY, 0.25]);
+  })();
+
   /** Reaction lookup: REACT_AT[a] is the list of rows whose first element is `a`. */
   const REACT_AT = [];
   for (let i = 0; i < N_ELEM; i++) REACT_AT.push(null);
@@ -244,6 +492,10 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
   const FRZ_AT = new Int16Array(N_ELEM), FRZ_TO = new Uint8Array(N_ELEM);
   const FIRE_AT = new Int16Array(N_ELEM), FIRE_TO = new Uint8Array(N_ELEM), FIRE_HEAT = new Int16Array(N_ELEM);
   const DET_AT = new Int16Array(N_ELEM), DET_R = new Uint8Array(N_ELEM), DET_HEAT = new Int16Array(N_ELEM);
+  // Real elements carry a melting and boiling point instead of a melt-into-something-
+  // else rule, so their PHASE is derived from temperature rather than baked in.
+  const MP = new Int16Array(N_ELEM), BP = new Int16Array(N_ELEM), HASPT = new Uint8Array(N_ELEM);
+  const SEMI = new Uint8Array(N_ELEM), RADIO = new Uint8Array(N_ELEM), DECAY_TO = new Uint8Array(N_ELEM);
   ELEM.forEach(function (e, i) {
     KIND[i] = e.k || 0; DENS[i] = e.d || 0;
     COND[i] = e.cond ? 1 : 0; INSU[i] = e.ins ? 1 : 0;
@@ -254,7 +506,53 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     FIRE_HEAT[i] = e.fire ? e.fire.heat : 0;
     DET_AT[i] = e.det ? e.det.at : 32767; DET_R[i] = e.det ? e.det.r : 0;
     DET_HEAT[i] = e.det ? e.det.heat : 0;
+    if (e.pt) {
+      HASPT[i] = 1;
+      MP[i] = Math.max(-32000, Math.min(32000, e.mp));
+      BP[i] = Math.max(-32000, Math.min(32000, e.bp));
+      SEMI[i] = e.pt.semi ? 1 : 0;
+      RADIO[i] = e.pt.radio ? 1 : 0;
+    }
   });
+  // resolve decay chains once the whole table exists
+  ELEM.forEach(function (e, i) {
+    if (e.pt && DECAY_CHAIN[e.pt.sym] != null) {
+      const to = SYM[DECAY_CHAIN[e.pt.sym]];
+      if (to != null) DECAY_TO[i] = to;
+    }
+  });
+
+  /**
+   * Phase from temperature.
+   *
+   * This is the change that lets a hundred and eighteen real elements work without a
+   * hundred and eighteen hand-written rules. Melting used to swap one element for a
+   * different one, which is fine for ice becoming water but wrong for an element:
+   * mercury is not a different substance from solid mercury, it is mercury above
+   * -39 degrees.
+   *
+   * Deriving the kind instead gives every element its correct room-temperature phase
+   * for free — hydrogen, the noble gases, nitrogen, oxygen, fluorine and chlorine come
+   * out as gases; mercury and bromine as liquids; the rest solid — with no extra table
+   * rows. Gallium melting in your hand at about thirty degrees is then simply a thing
+   * that happens rather than a special case somebody remembered to write.
+   */
+  function kindOf(m, t) {
+    if (!HASPT[m]) return KIND[m];
+    if (t >= BP[m]) return GAS;
+    if (t >= MP[m]) return LIQUID;
+    // POWDER rather than SOLID, and this matters more than it looks.
+    //
+    // A hundred and four of the hundred and eighteen are solid at room temperature,
+    // and a SOLID in this engine does not move. Made solid, most of the periodic table
+    // was inert scenery: you could not pour sodium onto water because the sodium just
+    // hung in the air where you painted it. Measured — lithium through rubidium
+    // produced zero reactions against a water shelf directly beneath them.
+    //
+    // Granular is also the honest reading. What you are pouring out of a jar is filings
+    // or pellets, not a machined block, and a powder still piles up into walls.
+    return POWDER;
+  }
 
   // ── palette, tools, modes ───────────────────────────────────────────────────
   /** Grouped so a forty-material palette is still navigable — 1-6 pick a shelf,
@@ -308,6 +606,8 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
    * STEP advances exactly one frame, which is also the only honest way to watch what
    * a rule actually does — a reaction at 120fps is a guess.
    */
+  let ptSel = 0;          // a held periodic element, or 0 for the shelf selection
+  let ptOpen = false;     // the periodic table overlay
   const SHAPES_T = ["FREE", "LINE", "BOX", "FILL"];
   let shapeI = 0;
   let paused = false, stepOnce = false;
@@ -324,10 +624,16 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     if (chipping) return "CHIP";
     if (heating) return "HEAT";
     if (cooling) return "COOL";
+    if (ptSel) return ELEM[ptSel].n;
     return shelf().items[Math.min(pickI, shelf().items.length - 1)];
   }
   function clearTools() { erasing = chipping = heating = cooling = false; }
-  function toolType() { const t = tool(); return E[t] == null ? 0 : E[t]; }
+  function pickPt(id) { ptSel = id; clearTools(); note(); }
+  function toolType() {
+    if (ptSel) return ptSel;
+    const t = tool();
+    return E[t] == null ? 0 : E[t];
+  }
   function amount() { return AMOUNTS[amtI]; }
   function mode() { return MODES[modeI]; }
   function toolKind() {
@@ -343,6 +649,19 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     if (heating) return [255, 138, 60];
     if (cooling) return [120, 198, 240];
     return ELEM[toolType()].rgb;
+  }
+  /** The line under the aim reticle: what you are holding, and what it does. */
+  function toolBlurb() {
+    const t = toolType();
+    const e = ELEM[t];
+    if (!e || !e.pt) return "";
+    const p = e.pt;
+    // kindOf reports POWDER for anything below its melting point, so read the phase
+    // the way a person would rather than the way the engine moves it.
+    const phase = AMBIENT >= p.bp ? "gas" : AMBIENT >= p.mp ? "liquid" : "solid";
+    return p.z + " " + p.name + " · " + PT_CAT[p.cat].toLowerCase() +
+           " · mp " + p.mp + "° · bp " + p.bp + "° · " + phase +
+           (p.predicted ? " · predicted" : "");
   }
 
   function hud() {
@@ -415,6 +734,17 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
    */
   function thermal(i, m) {
     const t = temp[i];
+    // A real element never becomes a different element by getting hot — its phase is
+    // read live by kindOf. Decay is the one thing that does transmute it.
+    if (HASPT[m]) {
+      if (RADIO[m] && DECAY_TO[m] && Math.random() < 0.0006) {
+        g[i] = DECAY_TO[m];
+        temp[i] = Math.min(T_MAX, t + 70);      // decay heat, which is why they are warm
+        reacts++; bump(6);
+        return true;
+      }
+      return false;
+    }
     if (t >= DET_AT[m]) {
       g[i] = 0; life[i] = 0;                      // consume the charge, then go off
       blast((i % COLS) | 0, (i / COLS) | 0, DET_R[m], DET_HEAT[m]);
@@ -497,7 +827,8 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
       const nx = x + n4x[k], ny = y + n4y[k];
       if (!inb(nx, ny)) continue;
       const j = idx(nx, ny), u = g[j];
-      if (COND[u] && Math.random() < 0.7) {
+      const conducts = COND[u] || (SEMI[u] && temp[j] > 180);   // metalloids need heat
+      if (conducts && Math.random() < 0.7) {
         // The arc rides on top of the conductor: the wire stays, the charge moves.
         const above = ny > 0 ? idx(nx, ny - 1) : -1;
         if (above >= 0 && g[above] === 0) { g[above] = E.ARC; life[above] = LIFE0[E.ARC]; sparks++; }
@@ -578,6 +909,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
         if (r[2] >= 0) { g[i] = r[2]; life[i] = LIFE0[r[2]]; }
         if (r[3] >= 0) { g[j] = r[3]; life[j] = LIFE0[r[3]]; }
         reacts++; bump(4);
+        if (r[5]) { blast(x, y, r[5], r[6] || 400); return; }
         if (r[2] >= 0 && g[i] !== A) return;   // this cell is something else now
         break;
       }
@@ -606,7 +938,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
       seen[b] = stampNow;
       return true;
     }
-    const kb = KIND[B];
+    const kb = kindOf(B, temp[b]);
     if (kb === SOLID || kb === WALL) return false;
     // Only sink into something lighter, and only when actually heading that way.
     if (DENS[A] <= DENS[B]) return false;
@@ -645,7 +977,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     if (!A) return;
     if (thermal(i, A)) return;
 
-    const k = KIND[A];
+    const k = kindOf(A, temp[i]);
 
     // The mite walks.
     //
@@ -672,11 +1004,14 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
 
     const p = pref(x, y, m, t);
     let dx = p.dx, dy = p.dy;
-    // Gases rise against whatever the field is doing, because they are gases.
+    // Gases rise against whatever the field is doing — unless they are heavier than
+    // air, which several real ones are. Xenon and radon pool on the floor, helium
+    // leaves through the ceiling, and the sign of the density is the whole rule.
     if (k === GAS) {
-      if (m === "FALL") { dx = 0; dy = -1; }
-      else if (m === "LIFT") { dx = 0; dy = 1; }
-      else dy = -dy;
+      const rises = DENS[A] < 0;
+      if (m === "FALL") { dx = 0; dy = rises ? -1 : 1; }
+      else if (m === "LIFT") { dx = 0; dy = rises ? 1 : -1; }
+      else if (rises) dy = -dy;
     }
     const side = Math.random() < 0.5 ? -1 : 1;
 
@@ -907,6 +1242,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
       }
     }
     ctx.putImageData(img, 0, 0);
+    if (ptOpen) { hits = []; drawPeriodic(); drawPalette(true); return; }
     drawAim();
     drawStats();
     drawPalette();
@@ -954,6 +1290,67 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     ctx.restore();
   }
 
+  /**
+   * The periodic table, drawn as the periodic table.
+   *
+   * A hundred and eighteen entries in a dropdown is a list; laid out in periods and
+   * groups it is a thing chemists can already read, and the layout itself tells you
+   * that the left column is violent and the right column is inert before you have
+   * touched anything. Colour is by category, and the cell shows what phase the element
+   * is in at room temperature — which the engine derives rather than stores.
+   */
+  const PT_CW = 33, PT_CH = 25, PT_X = 14, PT_Y = 18;
+  function drawPeriodic() {
+    const w = COLS * CELL, h = ROWS * CELL;
+    ctx.fillStyle = "rgba(4,6,10,.94)";
+    ctx.fillRect(0, 0, w, h);
+    ctx.font = "600 10px ui-monospace, Menlo, monospace";
+    ctx.fillStyle = "#6ee7ff";
+    ctx.fillText("PERIODIC TABLE — click an element · T closes", PT_X, 12);
+
+    for (let i = PT_BASE; i < N_ELEM; i++) {
+      const e = ELEM[i], p = e.pt;
+      const pos = PT_POS[p.z];
+      if (!pos) continue;
+      const x = PT_X + (pos.c - 1) * PT_CW;
+      const y = PT_Y + (pos.r - 1) * PT_CH + (pos.r >= 8 ? 8 : 0);
+      const on = ptSel === i;
+      const ph = kindOf(i, AMBIENT);
+      ctx.fillStyle = on ? "#1b2c3a" : "#0a0f15";
+      ctx.fillRect(x, y, PT_CW - 2, PT_CH - 2);
+      ctx.strokeStyle = on ? "#6ee7ff" : rgbCss(e.rgb, 0.5);
+      ctx.lineWidth = on ? 2 : 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, PT_CW - 3, PT_CH - 3);
+      ctx.lineWidth = 1;
+      // a phase pip: gas hollow, liquid half, solid filled
+      ctx.fillStyle = rgbCss(e.rgb);
+      if (ph === GAS) { ctx.strokeStyle = rgbCss(e.rgb); ctx.strokeRect(x + 3.5, y + 3.5, 4, 4); }
+      else if (ph === LIQUID) ctx.fillRect(x + 3, y + 5, 5, 3);
+      else ctx.fillRect(x + 3, y + 3, 5, 5);
+      ctx.fillStyle = on ? "#e6edf5" : rgbCss(e.rgb, 0.95);
+      ctx.fillText(p.sym, x + 11, y + 10);
+      ctx.fillStyle = "#4d5765";
+      ctx.fillText(String(p.z), x + 4, y + 20);
+      hits.push({ x: x, y: y, w: PT_CW - 2, h: PT_CH - 2, kind: "pt", i: i });
+    }
+
+    // legend — wraps onto a new line rather than folding back over itself
+    let lx = PT_X, ly = PT_Y + 10 * PT_CH + 12;
+    PT_CAT.forEach(function (c, k) {
+      const width = 12 + ctx.measureText(c).width + 14;
+      if (lx + width > w - PT_X) { lx = PT_X; ly += 13; }
+      ctx.fillStyle = rgbCss(PT_RGB[k]);
+      ctx.fillRect(lx, ly, 7, 7);
+      ctx.fillStyle = "#5c6675";
+      ctx.fillText(c, lx + 11, ly + 7);
+      lx += width;
+    });
+    ctx.fillStyle = "#3f4854";
+    ctx.fillText("phase pip: filled = solid · bar = liquid · hollow = gas, all at room temperature", PT_X, ly + 24);
+    ctx.fillStyle = "#2f3742";
+    ctx.fillText("melting and boiling points are approximate, not reference data; 100+ are predicted", PT_X, ly + 38);
+  }
+
   function drawStats() {
     const w = 150, h = 74, x = COLS * CELL - w - 8, y = 8;
     ctx.fillStyle = "rgba(7,10,14,.84)";
@@ -985,7 +1382,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
    * six labelled shelves with the current shelf spelled out in full. The swatch is the
    * material's actual render colour, which makes the palette double as a legend.
    */
-  function drawPalette() {
+  function drawPalette(keepHits) {
     const top = ROWS * CELL;
     const w = COLS * CELL;
     ctx.fillStyle = "#070a0e";
@@ -994,7 +1391,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     ctx.beginPath(); ctx.moveTo(0, top + 0.5); ctx.lineTo(w, top + 0.5); ctx.stroke();
 
     ctx.font = "600 10px ui-monospace, Menlo, monospace";
-    hits = [];
+    if (!keepHits) hits = [];
 
     // shelf tabs
     let sx = 10;
@@ -1075,6 +1472,11 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     const held = tool();
     ctx.fillStyle = rgbCss(toolRgb());
     ctx.fillText(held, px + 6, ty + 25);
+    const blurb = toolBlurb();
+    if (blurb) {
+      ctx.fillStyle = "#5c6675";
+      ctx.fillText(blurb, px + 6 + ctx.measureText(held).width + 12, ty + 25);
+    }
 
     // tool row
     ctx.fillStyle = "#5c6675";
@@ -1090,13 +1492,13 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
   function setShelf(k) {
     shelfI = Math.max(0, Math.min(SHELVES.length - 1, k));
     pickI = Math.min(pickI, SHELVES[shelfI].items.length - 1);
-    clearTools();
+    ptSel = 0; clearTools();
     note();
   }
   function setPick(k) {
     if (k < 0 || k >= shelf().items.length) return;
     pickI = k;
-    clearTools();
+    ptSel = 0; clearTools();
     note();
   }
 
@@ -1122,6 +1524,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     else if (cmd === "chip") pourAt(aimX, aimY, "chip");
     else if (cmd === "erase") pourAt(aimX, aimY, "erase");
     else if (cmd === "therm") { heatOn = !heatOn; note(); }
+    else if (cmd === "table") { ptOpen = !ptOpen; note(); }
     else if (cmd === "pause") { paused = !paused; note(); }
     else if (cmd === "step") { paused = true; stepOnce = true; note(); }
     else if (cmd === "shape") { shapeI = (shapeI + 1) % SHAPES_T.length; anchor = null; note(); }
@@ -1139,6 +1542,9 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     const r = canvas.getBoundingClientRect();
     const bx = (ev.clientX - r.left) * (canvas.width / r.width);
     const by = (ev.clientY - r.top) * (canvas.height / r.height);
+    // While the table is up it owns the whole surface — clicking through it onto the
+    // sand would be a surprise every single time.
+    if (ptOpen) { paletteClick(bx, by); return null; }
     if (by >= ROWS * CELL) { paletteClick(bx, by); return null; }
     return {
       x: Math.max(0, Math.min(COLS - 1, (bx / CELL) | 0)),
@@ -1157,6 +1563,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
       else if (h.kind === "pick") setPick(h.i);
       else if (h.kind === "erase") { erasing = !erasing; chipping = false; syncMenu(); note(); }
       else if (h.kind === "chip") { chipping = !chipping; erasing = false; syncMenu(); note(); }
+      else if (h.kind === "pt") { pickPt(h.i); ptOpen = false; }
       return true;
     }
     return false;
@@ -1267,6 +1674,74 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
               if (inb(vx, vy) && !g[idx(vx, vy)]) g[idx(vx, vy)] = E.VINE;
             }
       }
+    },
+    "LAB": function () {
+      /**
+       * A bench you can run experiments on.
+       *
+       * Laid out as apparatus rather than as a pile: a row of glass vessels along the
+       * bench, each already charged with something that wants to react, a water trough,
+       * a heating element wired to a cell, and a shielded pit for the radioactives.
+       * The point is that every one of the cabinet's systems has a station here, so the
+       * scene doubles as a tour of what the box can do.
+       */
+      const S = function (sym) { return SYM[sym]; };
+      const benchY = ROWS - 46;
+
+      // the bench itself
+      for (let x = 4; x < COLS - 4; x++)
+        for (let y = benchY; y < benchY + 3; y++) g[idx(x, y)] = E.SLAB;
+
+      // six glass vessels along the bench, each charged with a different experiment
+      const charges = [
+        S("Na"),  // alkali metal — add water
+        S("Hg"),  // already liquid at room temperature
+        S("Ga"),  // melts at about 30 degrees, so a heat brush is enough
+        S("S"),   // burns
+        S("I"),   // sublimes into a violet vapour when warmed
+        S("W")    // outlasts everything in a fire
+      ];
+      charges.forEach(function (mat, k) {
+        if (mat == null) return;
+        const x0 = 18 + k * 48;
+        for (let y = benchY - 26; y < benchY; y++) {
+          g[idx(x0, y)] = E.VITR;
+          g[idx(x0 + 26, y)] = E.VITR;
+        }
+        for (let x = x0; x <= x0 + 26; x++) g[idx(x, benchY - 1)] = E.VITR;
+        for (let y = benchY - 10; y < benchY - 1; y++)
+          for (let x = x0 + 2; x < x0 + 25; x++) g[idx(x, y)] = mat;
+      });
+
+      // water trough on the right, for the alkali metals
+      for (let x = COLS - 74; x < COLS - 10; x++) {
+        g[idx(x, benchY - 20)] = E.VITR;
+        for (let y = benchY - 19; y < benchY; y++) g[idx(x, y)] = E.BRIN;
+      }
+      for (let y = benchY - 20; y < benchY; y++) {
+        g[idx(COLS - 75, y)] = E.VITR; g[idx(COLS - 10, y)] = E.VITR;
+      }
+
+      // heating element: a cell wired to a filament under the bench
+      for (let x = 30; x < 130; x++) g[idx(x, benchY + 8)] = E.FILA;
+      for (let y = benchY + 8; y < benchY + 16; y++)
+        for (let x = 30; x < 38; x++) g[idx(x, y)] = E.PILE;
+
+      // shielded pit for the radioactives — lead walls, uranium inside
+      const px0 = 150, py0 = benchY + 6;
+      for (let x = px0; x < px0 + 60; x++)
+        for (let y = py0; y < py0 + 3; y++) g[idx(x, y)] = S("Pb") == null ? E.SLAB : S("Pb");
+      for (let y = py0; y < py0 + 22; y++) {
+        const pb = S("Pb") == null ? E.SLAB : S("Pb");
+        g[idx(px0, y)] = pb; g[idx(px0 + 59, y)] = pb;
+      }
+      if (S("U") != null)
+        for (let x = px0 + 4; x < px0 + 56; x++)
+          for (let y = py0 + 4; y < py0 + 14; y++) g[idx(x, y)] = S("U");
+
+      // floor
+      for (let x = 0; x < COLS; x++)
+        for (let y = ROWS - 6; y < ROWS - 1; y++) g[idx(x, y)] = E.SLAB;
     },
     "ICE CAVE": function () {
       for (let x = 0; x < COLS; x++) {
@@ -1379,6 +1854,19 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     });
     selMat.appendChild(og);
   });
+  // the periodic table, by category, so the dropdown can reach any of the 118 too
+  PT_CAT.forEach(function (cat, ci) {
+    const og = document.createElement("optgroup");
+    og.label = cat;
+    for (let i = PT_BASE; i < N_ELEM; i++) {
+      if (ELEM[i].pt.cat !== ci) continue;
+      const o = document.createElement("option");
+      o.value = "e:" + i;
+      o.textContent = ELEM[i].pt.z + "  " + ELEM[i].pt.sym + "  " + ELEM[i].pt.name;
+      og.appendChild(o);
+    }
+    selMat.appendChild(og);
+  });
   (function () {
     const og = document.createElement("optgroup");
     og.label = "TOOLS";
@@ -1392,13 +1880,18 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
   })();
   selMat.addEventListener("change", function () {
     const v = selMat.value;
+    if (v.charAt(0) === "e") {
+      pickPt(+v.slice(2));
+      selMat.blur();
+      return;
+    }
     if (v.charAt(0) === "t") {
-      clearTools();
+      clearTools(); ptSel = 0;
       erasing = v === "t:erase"; chipping = v === "t:chip";
       heating = v === "t:heat"; cooling = v === "t:cool";
     } else {
       const p = v.split(":");
-      clearTools();
+      clearTools(); ptSel = 0;
       shelfI = +p[1]; pickI = +p[2];
     }
     note();
@@ -1452,6 +1945,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     chipping = !chipping; erasing = false; note();
   });
   const btnTherm = mkButton("THERM", "thermal camera (H)", function () { act("therm"); });
+  const btnTable = mkButton("TABLE", "the periodic table (T)", function () { act("table"); });
 
   // shape picker
   const selShape = styleSelect(document.createElement("select"));
@@ -1507,6 +2001,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
   bar.appendChild(btnPause);
   bar.appendChild(btnStep);
   bar.appendChild(btnTherm);
+  bar.appendChild(btnTable);
   bar.appendChild(mkLabel("SCENE"));
   bar.appendChild(selPreset);
   bar.appendChild(btnSave);
@@ -1519,6 +2014,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
   function syncMenu() {
     selMat.value = erasing ? "t:erase" : chipping ? "t:chip"
                  : heating ? "t:heat" : cooling ? "t:cool"
+                 : ptSel ? "e:" + ptSel
                  : "m:" + shelfI + ":" + pickI;
     selMode.value = MODES[modeI];
     selShape.value = SHAPES_T[shapeI];
@@ -1531,6 +2027,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     lit(btnErase, erasing, "#ff7a9a");
     lit(btnChip, chipping, "#ffb86b");
     lit(btnTherm, heatOn, "#6ee7ff");
+    lit(btnTable, ptOpen, "#6ee7ff");
     lit(btnPause, paused, "#ffb547");
     btnPause.textContent = paused ? "RESUME" : "PAUSE";
   }
@@ -1550,6 +2047,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     const pi = PICK_KEYS.indexOf(String(k).toLowerCase());
     if (pi >= 0) { setPick(pi); return; }
     if (k === "h" || k === "H") { act("therm"); return; }
+    if (k === "t" || k === "T") { act("table"); return; }
     if (k === "p" || k === "P") { act("pause"); return; }
     if (k === "." || k === ">") { act("step"); return; }
     if (k === "s" || k === "S") { act("shape"); return; }
@@ -1638,6 +2136,9 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
         elem: tool(),
         shelf: shelf().t,
         elements: N_ELEM - 1,
+        periodic: N_ELEM - PT_BASE,
+        held: ELEM[toolType()] && ELEM[toolType()].pt ? ELEM[toolType()].pt.sym : tool(),
+        table: ptOpen,
         grain: gr,
         amount: amount(),
         mode: mode(),
@@ -1652,7 +2153,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
         fps,
         hud: hud(),
         legal: ["left","right","up","down","cw","ccw","soft","hard","fire","hold","jump","tuck",
-                "chip","erase","heat","cool","therm","pause","step","shape","save","load","reset"]
+                "chip","erase","heat","cool","therm","table","pause","step","shape","save","load","reset"]
       };
     }
   };

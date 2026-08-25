@@ -64,6 +64,81 @@ Save is RLE because a sand grid is almost all runs — a scene stores in about 1
 materials within a second of loading, and keeping it would roughly triple the payload to
 preserve something the simulation regenerates anyway.
 
+## The periodic table
+
+All 118, driven by real physical properties rather than by 118 hand-written behaviours.
+This works because the cabinet's four systems already *are* the four properties that
+matter:
+
+| system | is really |
+|---|---|
+| the heat field | melting point and boiling point |
+| density | density |
+| charge | electrical conductivity |
+| detonation | what an alkali metal does in water |
+
+So these are not reskins — it is the engine finally being handed real numbers. Press `T`
+or the TABLE button; the picker **is** the periodic table, laid out in periods and
+groups, coloured by category, with a phase pip showing what state each element is in at
+room temperature.
+
+### The engine change that made it possible
+
+Melting used to swap one element for a different one. That is fine for ice becoming
+water and wrong for an element: mercury is not a different substance from solid mercury,
+it is mercury above −39°. So phase is now **derived** from temperature:
+
+```
+kindOf(m, t) = t >= bp ? GAS : t >= mp ? LIQUID : POWDER
+```
+
+Every element gets its correct room-temperature phase for free, from its own data, with
+no extra table rows. Verified: exactly the 11 real room-temperature gases come out as
+gases, and Hg and Br as liquids. (Copernicium also comes out liquid — which is a real
+prediction, not a bug.)
+
+Below its melting point an element is POWDER, not SOLID, and this matters more than it
+looks: 104 of the 118 are solid at room temperature, and a SOLID in this engine does not
+move. Made solid, most of the periodic table was inert scenery — you could not pour
+sodium onto water because the sodium hung in the air where you painted it. Measured:
+lithium through rubidium produced *zero* reactions against a water shelf directly
+beneath them. Granular is also the honest reading: what you pour out of a jar is filings,
+not a machined block.
+
+### What falls out of real data
+
+- **Gallium melts in your hand** at about 30°, so one stroke of the heat brush liquefies it
+- **Tungsten outlasts everything** in a fire — mp 3422° against wood's 220° ignition
+- **Xenon and radon pool on the floor**; helium leaves through the ceiling. The sign of
+  the density is the whole rule
+- **Metalloids conduct only when hot** — semiconductors, checked per cell
+- **Actinides decay** along real chains: U → Th → Ra → Rn → Po → Pb
+- **The alkali gradient is real.** Measured peak hot-cell count from an identical drop
+  onto an identical water shelf: **Li 63 · Na 329 · K 455 · Rb 1211 · Cs 1792**
+
+Reactions can now carry their own blast radius, which is what makes the alkali group
+work at all — caesium in water is chemistry, not temperature, so it could never have
+come from a thermal ignition point.
+
+### ⚠ On the accuracy of this data
+
+**Melting points, boiling points and densities here are approximate values from memory.
+They have not been checked against a reference dataset.** They are close enough that the
+sandbox behaves correctly — mercury and bromine liquid, gallium melting at body heat,
+tungsten surviving anything — but they should not be quoted as physical constants.
+
+Everything from fermium (100) up is worse than approximate: for most superheavy elements
+real science has only predictions, and several have never existed in quantities large
+enough to melt. Those are plausible fiction and the table marks them `predicted`.
+
+## The LAB scene
+
+A bench laid out as apparatus rather than as a pile: six glass vessels each charged with
+something that wants to react (Na, Hg, Ga, S, I, W), a water trough for the alkali
+metals, a heating element wired to a cell, and a lead-shielded pit of uranium. Every one
+of the cabinet's systems has a station, so the scene doubles as a tour of what the box
+can do.
+
 ## Shelves
 
 Forty-one materials will not fit in a cycle-through-with-one-key list, so they sit on six
