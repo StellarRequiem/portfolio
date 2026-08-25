@@ -1079,6 +1079,24 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
 
     const k = kindOf(A, temp[i]);
 
+    /**
+     * A charge does not drift.
+     *
+     * ARC was declared a GAS so it would render as a bright weightless thing, and that
+     * one word broke the entire electrical system. stepCell runs movement BEFORE
+     * touch(), and returns as soon as a cell successfully moves — so an arc, being
+     * buoyant, rose into the empty space above the wire and returned every single
+     * frame, and touch() (which is where conduct() lives) never ran at all.
+     *
+     * Measured before this: 238 sparks created and charge failing to cross even TEN
+     * cells of wire. The sparks were real, they simply floated off instead of
+     * conducting. Diagonal neighbours were necessary but not sufficient; this is the
+     * other half.
+     *
+     * An arc is a charge riding on a conductor. It stays where it is put.
+     */
+    if (A === E.ARC) { touch(x, y, i); return; }
+
     // The mite walks.
     //
     // Everything else in the cabinet is a material that reacts; this is the one thing
@@ -2194,13 +2212,19 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
         for (let x = 155; x < 244; x++) g[idx(x, wy)] = E.FILA;     // wire beyond it
         fillBlock(244, wy - 6, 262, wy + 6, E.CHRG, AMBIENT);       // the charge
         for (let x = 14; x < 262; x++) g[idx(x, wy - 1)] = 0;       // the arc channel
-        // a burner under the gate, unlit
-        fillBlock(138, wy + 10, 156, wy + 16, E.CARB, AMBIENT);
+        // The burner sits DIRECTLY under the gate, touching it.
+        //
+        // It was thirteen rows below, across open air, and the heat never arrived:
+        // measured, the burner held 900° while the silicon sat at exactly 20° for the
+        // whole run. Air diffuses heat but also relaxes toward room temperature every
+        // step, and over that distance the relaxation wins. Conduction through contact
+        // is the only thing that reliably carries heat here.
+        fillBlock(138, wy + 1, 156, wy + 5, E.CARB, AMBIENT);
       },
       tick: function (ms) {
         // light the burner after ten seconds, and keep it lit — a one-frame pulse of
         // heat diffuses away long before the silicon reaches its conducting temperature
-        if (ms > 10000) heatBlock(138, ROWS - 50, 156, ROWS - 44, 900);
+        if (ms > 10000) heatBlock(138, ROWS - 59, 156, ROWS - 55, 900);
       },
       beats: [
         { at: 0, text: "A cell, a wire, and a plug of silicon in the middle of the run. The charge cannot get past the silicon.",
@@ -2209,8 +2233,17 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
         { after: 10500, text: "The burner under the gate is lit." },
         { after: 15000, text: "Once the silicon passes about 180 degrees it starts conducting, and the circuit closes.",
           sub: "the engine checks conductivity per cell against that cell's own temperature." },
-        { when: function (s) { return s.blasts > 0; }, by: 30000,
-          text: "And the charge at the far end goes off. The switch was the temperature.",
+        // This beat used to assert that the charge at the far end had gone off. It
+        // fires on a deadline when its predicate is not met, and the detonation has
+        // never actually been observed here — so the line said something untrue every
+        // time it timed out. It now describes only what is certain (the gate is hot,
+        // and the arcs are crossing it), and the detonation gets its own beat that can
+        // only appear if it really happens.
+        { when: function (s) { return s.sparks > 12000; }, by: 26000,
+          text: "The gate is hot and the arcs are crossing it. The switch was the temperature.",
+          sub: "silicon is an insulator cold and a conductor hot — that is the whole of what a semiconductor is." },
+        { when: function (s) { return s.blasts > 0; },
+          text: "And the charge at the far end goes off.",
           sub: "run finished." }
       ]
     }

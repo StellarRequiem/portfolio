@@ -162,14 +162,27 @@ beat 2 of THE LONG FUSE arriving 0.3s in, off 82 burns left over from a previous
 
 ### Two bugs in the charge system
 
-**Charge never actually travelled along a wire.** An arc rides in the empty cell above
-the conductor carrying it. With a four-cell neighbourhood, an arc on a horizontal wire
-finds exactly one conductor — the one directly beneath it — and the rule then places the
-new arc "above that conductor", which is the cell the arc is already in. It re-created
-itself in place forever. The wire one step along is *diagonal* to the arc, so seeing
-diagonals is what turns a stationary spark into a current. An earlier note in this repo
-recorded "282 sparks — the battery is emitting and the wire is carrying"; that was the
-battery pulsing in place, miscounted as transport.
+**Charge never actually travelled along a wire**, for two independent reasons.
+
+*One:* an arc rides in the empty cell above the conductor carrying it. With a four-cell
+neighbourhood, an arc on a horizontal wire finds exactly one conductor — the one directly
+beneath it — and the rule then places the new arc "above that conductor", which is the
+cell the arc is already in. It re-created itself in place forever. The wire one step
+along is *diagonal* to the arc, so seeing diagonals is necessary.
+
+*Two, and this was the real one:* `ARC` was declared a **gas**, so it renders bright and
+weightless. But `stepCell` runs movement *before* `touch()`, and returns as soon as a
+cell moves — so an arc, being buoyant, rose into the empty space above the wire and
+returned every single frame, and `touch()`, which is where `conduct()` lives, never ran
+at all. One word in a table broke the entire electrical system.
+
+Measured before: 238 sparks created, charge failing to cross even **ten** cells.
+Measured after: wires of 60, 120 and 190 cells all carry current to a charge at the far
+end and detonate it, at a steady 120fps. A charge does not drift; it stays where it is
+put.
+
+An earlier note in this repo recorded "282 sparks — the battery is emitting and the wire
+is carrying". That was the battery pulsing in place, miscounted as transport.
 
 **A predicate beat could stall a run forever.** Beats advance strictly in order, so one
 unreachable predicate blocks every beat behind it. THE LONG FUSE waited on `fire > 300`
