@@ -33,7 +33,7 @@
  * that, not decoration.
  */
 window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
-  const COLS = 320, ROWS = 200, CELL = 2, UI = 132;
+  const COLS = 320, ROWS = 200, CELL = 2, UI = 168;
   canvas.width = COLS * CELL;
   canvas.height = ROWS * CELL + UI;
   canvas.style.zIndex = "5";
@@ -288,6 +288,10 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
   let simMs = 0;
   let heatOn = false;                              // the thermal-camera overlay
   let erasing = false, chipping = false;
+  /** Click targets, rebuilt every paint. Recording the rectangles as they are drawn is
+   *  what keeps the hit test and the pixels honest — the previous version recomputed
+   *  them from an assumed stride, which is how a palette ends up one button off. */
+  let hits = [];
 
   function idx(x, y) { return y * COLS + x; }
   function inb(x, y) { return x >= 0 && y >= 0 && x < COLS && y < ROWS; }
@@ -315,7 +319,12 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     return tool() + " · " + shelf().t + " · G" + gr + " · ×" + amount() + " · " + mode() +
            (heatOn ? " · THERM" : "");
   }
-  function note() { hall.note(hud() + " · 1-6 shelf, QWERTYU pick, H heat view"); }
+  function note() {
+    // Every path that changes selection ends up here — keys, canvas palette, agent bus,
+    // and the menu — so this is the one honest place to keep the toolbar in step.
+    if (typeof syncMenu === "function") syncMenu();
+    hall.note(hud() + " · 1-6 shelf, QWERTYU pick, H heat view, D erase, F chip");
+  }
 
   function bump(n) { score += n; hall.score(score); }
 
@@ -853,6 +862,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     ctx.beginPath(); ctx.moveTo(0, top + 0.5); ctx.lineTo(w, top + 0.5); ctx.stroke();
 
     ctx.font = "600 10px ui-monospace, Menlo, monospace";
+    hits = [];
 
     // shelf tabs
     let sx = 10;
@@ -865,6 +875,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
       ctx.strokeRect(sx + 0.5, top + 9.5, tw - 1, 17);
       ctx.fillStyle = on ? "#6ee7ff" : "#5c6675";
       ctx.fillText((k + 1) + " " + s.t, sx + 9, top + 22);
+      hits.push({ x: sx, y: top + 9, w: tw, h: 18, kind: "shelf", i: k });
       sx += tw + 6;
     });
 
@@ -887,18 +898,60 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
       ctx.fillText(name, px + 23, py + 14);
       ctx.fillStyle = "#4d5765";
       ctx.fillText(keys[k] || "", px + 23, py + 25);
+      hits.push({ x: px, y: py, w: bw, h: 30, kind: "pick", i: k });
       px += bw + 5;
     });
 
+    // ERASE and CHIP.
+    //
+    // These used to exist only as a right-drag, a shift-drag and an undocumented D key,
+    // which meant the single most-reached-for tool in a sandbox was invisible.
+    //
+    // They get their OWN ROW rather than trailing the materials: on a seven- or
+    // eight-material shelf the row ran past the 640px edge, so CHIP was drawn
+    // off-canvas while its click target stayed reachable — a button you could hit but
+    // could not see. Their own row also says the right thing about them, since they are
+    // tools rather than things you pour.
+    px = 10;
+    const ty = top + 74;
+    ctx.fillStyle = "#4d5765";
+    ctx.fillText("TOOLS", px, ty + 19);
+    px += 44;
+    [["ERASE", erasing, [255, 122, 154], "D · right-drag"],
+     ["CHIP",  chipping, [255, 184, 107], "F · shift-drag"]].forEach(function (t) {
+      const name = t[0], on = t[1], c = t[2], hintText = t[3];
+      const bw = 108;
+      ctx.fillStyle = on ? "#241118" : "#0a0f15";
+      ctx.fillRect(px, ty, bw, 30);
+      ctx.strokeStyle = on ? rgbCss(c) : rgbCss(c, 0.4);
+      ctx.lineWidth = on ? 2 : 1;
+      ctx.strokeRect(px + 0.5, ty + 0.5, bw - 1, 29);
+      ctx.lineWidth = 1;
+      ctx.fillStyle = rgbCss(c);
+      ctx.fillRect(px + 7, ty + 9, 12, 12);
+      ctx.fillStyle = on ? "#f2e9ec" : rgbCss(c, 0.9);
+      ctx.fillText(name, px + 25, ty + 14);
+      ctx.fillStyle = "#4d5765";
+      ctx.fillText(hintText, px + 25, ty + 25);
+      hits.push({ x: px, y: ty, w: bw, h: 30, kind: name.toLowerCase() });
+      px += bw + 14;
+    });
+
+    // current selection, spelled out where the eye already is
+    ctx.fillStyle = "#3f4854";
+    ctx.fillText("HOLDING", px + 6, ty + 14);
+    const held = tool();
+    ctx.fillStyle = rgbCss(toolRgb());
+    ctx.fillText(held, px + 6, ty + 25);
+
     // tool row
     ctx.fillStyle = "#5c6675";
-    const line2 = "MODE " + mode() + "  ([ ]) · SIZE " + gr + " (wheel) · FLOW ×" + amount() +
-                  " (shift-wheel) · " + (erasing ? "ERASE" : chipping ? "CHIP" : tool());
-    ctx.fillText(line2, 10, top + 88);
+    const line2 = "GRAVITY " + mode() + " (E) · BRUSH " + gr + " (wheel) · FLOW ×" + amount() + " (shift-wheel)";
+    ctx.fillText(line2, 10, top + 124);
     ctx.fillStyle = "#3f4854";
-    ctx.fillText("right-drag ERASE · shift-drag CHIP · H thermal view · R reset · F chip at aim · space pour", 10, top + 104);
+    ctx.fillText("menu above the box picks any of the 41 · H thermal view · R reset · space pour · wheel brush", 10, top + 140);
     ctx.fillStyle = "#2f3742";
-    ctx.fillText("heat is a real field: things melt, boil, ignite and freeze because of it. PILE+FILA carry charge. ARC sets off CHRG.", 10, top + 119);
+    ctx.fillText("heat is a real field: things melt, boil, ignite and freeze because of it. PILE+FILA carry charge. ARC sets off CHRG.", 10, top + 155);
   }
 
   // ── input ───────────────────────────────────────────────────────────────────
@@ -959,23 +1012,19 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
   }
 
   /** The palette is clickable, because a forty-material shelf that is keyboard-only is
-   *  a shelf most people will never see past the first row of. */
+   *  a shelf most people will never see past the first row of. Zones come from what was
+   *  actually drawn, so the buttons and their targets cannot drift apart. */
   function paletteClick(bx, by) {
-    const top = ROWS * CELL;
-    ctx.font = "600 10px ui-monospace, Menlo, monospace";
-    if (by >= top + 9 && by <= top + 27) {
-      let sx = 10;
-      for (let k = 0; k < SHELVES.length; k++) {
-        const tw = ctx.measureText(SHELVES[k].t).width + 18;
-        if (bx >= sx && bx <= sx + tw) { setShelf(k); return; }
-        sx += tw + 6;
-      }
-      return;
+    for (let i = 0; i < hits.length; i++) {
+      const h = hits[i];
+      if (bx < h.x || bx > h.x + h.w || by < h.y || by > h.y + h.h) continue;
+      if (h.kind === "shelf") setShelf(h.i);
+      else if (h.kind === "pick") setPick(h.i);
+      else if (h.kind === "erase") { erasing = !erasing; chipping = false; syncMenu(); note(); }
+      else if (h.kind === "chip") { chipping = !chipping; erasing = false; syncMenu(); note(); }
+      return true;
     }
-    if (by >= top + 38 && by <= top + 68) {
-      const k = Math.floor((bx - 10) / 67);
-      if (k >= 0 && k < shelf().items.length) setPick(k);
-    }
+    return false;
   }
 
   function onDown(ev) {
@@ -1007,6 +1056,149 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     note();
   }
 
+  // ── the menu bar ────────────────────────────────────────────────────────────
+  /**
+   * A real HTML toolbar above the canvas.
+   *
+   * The canvas palette shows one shelf at a time, which is right for reaching while you
+   * paint but wrong for *finding* something — with forty-one materials you should not
+   * have to remember which shelf ARC lives on. The dropdown lists everything at once,
+   * grouped, so the whole inventory is one click away. Both surfaces drive the same
+   * state and each redraws the other, so they can never disagree about what is selected.
+   */
+  const bar = document.createElement("div");
+  bar.className = "grain-bar";
+  bar.style.cssText =
+    "display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;" +
+    "padding:8px 10px;font:600 11px ui-monospace,Menlo,monospace;color:#7d8796;" +
+    "background:#070a0e;border:1px solid rgba(110,231,255,.2);max-width:100%";
+
+  function mkLabel(t) {
+    const s = document.createElement("span");
+    s.textContent = t;
+    s.style.cssText = "letter-spacing:.14em;color:#4d5765";
+    return s;
+  }
+  function styleSelect(s) {
+    s.style.cssText =
+      "background:#0b1017;color:#cfd6df;border:1px solid #243040;padding:4px 6px;" +
+      "font:600 11px ui-monospace,Menlo,monospace;letter-spacing:.06em;cursor:pointer";
+    return s;
+  }
+
+  // material picker — everything, grouped by shelf, plus the tools
+  const selMat = styleSelect(document.createElement("select"));
+  SHELVES.forEach(function (s, si) {
+    const og = document.createElement("optgroup");
+    og.label = s.t;
+    s.items.forEach(function (name, ii) {
+      const o = document.createElement("option");
+      o.value = "m:" + si + ":" + ii;
+      o.textContent = name;
+      og.appendChild(o);
+    });
+    selMat.appendChild(og);
+  });
+  (function () {
+    const og = document.createElement("optgroup");
+    og.label = "TOOLS";
+    [["ERASE", "t:erase"], ["CHIP", "t:chip"]].forEach(function (t) {
+      const o = document.createElement("option");
+      o.value = t[1]; o.textContent = t[0];
+      og.appendChild(o);
+    });
+    selMat.appendChild(og);
+  })();
+  selMat.addEventListener("change", function () {
+    const v = selMat.value;
+    if (v.charAt(0) === "t") {
+      erasing = v === "t:erase"; chipping = v === "t:chip";
+    } else {
+      const p = v.split(":");
+      erasing = chipping = false;
+      shelfI = +p[1]; pickI = +p[2];
+    }
+    note();
+    selMat.blur();      // hand the keyboard back to the cabinet
+  });
+
+  // gravity mode
+  const selMode = styleSelect(document.createElement("select"));
+  MODES.forEach(function (m) {
+    const o = document.createElement("option");
+    o.value = m; o.textContent = m;
+    selMode.appendChild(o);
+  });
+  selMode.addEventListener("change", function () {
+    modeI = MODES.indexOf(selMode.value);
+    note(); selMode.blur();
+  });
+
+  // brush size and flow
+  const selSize = styleSelect(document.createElement("select"));
+  for (let i = 1; i <= 8; i++) {
+    const o = document.createElement("option");
+    o.value = String(i); o.textContent = "G" + i;
+    selSize.appendChild(o);
+  }
+  selSize.addEventListener("change", function () { gr = +selSize.value; note(); selSize.blur(); });
+
+  const selFlow = styleSelect(document.createElement("select"));
+  AMOUNTS.forEach(function (a, i) {
+    const o = document.createElement("option");
+    o.value = String(i); o.textContent = "×" + a;
+    selFlow.appendChild(o);
+  });
+  selFlow.addEventListener("change", function () { amtI = +selFlow.value; note(); selFlow.blur(); });
+
+  function mkButton(text, title, onClick) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = text;
+    b.title = title;
+    b.style.cssText =
+      "background:transparent;border:1px solid #243040;color:#8b95a4;padding:4px 9px;" +
+      "font:600 11px ui-monospace,Menlo,monospace;letter-spacing:.12em;cursor:pointer";
+    b.addEventListener("click", function () { onClick(); b.blur(); });
+    return b;
+  }
+  const btnErase = mkButton("ERASE", "erase (D, or right-drag)", function () {
+    erasing = !erasing; chipping = false; note();
+  });
+  const btnChip = mkButton("CHIP", "chip one step down (F, or shift-drag)", function () {
+    chipping = !chipping; erasing = false; note();
+  });
+  const btnTherm = mkButton("THERM", "thermal camera (H)", function () { act("therm"); });
+  const btnReset = mkButton("RESET", "clear the lab (R)", function () { act("reset"); });
+
+  bar.appendChild(mkLabel("MATERIAL"));
+  bar.appendChild(selMat);
+  bar.appendChild(btnErase);
+  bar.appendChild(btnChip);
+  bar.appendChild(mkLabel("GRAVITY"));
+  bar.appendChild(selMode);
+  bar.appendChild(mkLabel("BRUSH"));
+  bar.appendChild(selSize);
+  bar.appendChild(selFlow);
+  bar.appendChild(btnTherm);
+  bar.appendChild(btnReset);
+  if (canvas.parentNode) canvas.parentNode.insertBefore(bar, canvas);
+
+  /** Push current state into the toolbar. Called whenever anything changes selection,
+   *  from either surface, so the two views stay in step. */
+  function syncMenu() {
+    selMat.value = erasing ? "t:erase" : chipping ? "t:chip" : "m:" + shelfI + ":" + pickI;
+    selMode.value = MODES[modeI];
+    selSize.value = String(gr);
+    selFlow.value = String(amtI);
+    btnErase.style.color = erasing ? "#ff7a9a" : "#8b95a4";
+    btnErase.style.borderColor = erasing ? "#ff7a9a" : "#243040";
+    btnChip.style.color = chipping ? "#ffb86b" : "#8b95a4";
+    btnChip.style.borderColor = chipping ? "#ffb86b" : "#243040";
+    btnTherm.style.color = heatOn ? "#6ee7ff" : "#8b95a4";
+    btnTherm.style.borderColor = heatOn ? "#6ee7ff" : "#243040";
+  }
+
   canvas.addEventListener("pointerdown", onDown);
   canvas.addEventListener("pointermove", onMove);
   addEventListener("pointerup", onUp);
@@ -1023,7 +1215,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     if (pi >= 0) { setPick(pi); return; }
     if (k === "h" || k === "H") { act("therm"); return; }
     if (k === "r" || k === "R") { act("reset"); return; }
-    if (k === "f" || k === "F") { act("chip"); return; }
+    if (k === "f" || k === "F") { chipping = !chipping; erasing = false; note(); return; }
     if (k === "d" || k === "D") { erasing = !erasing; chipping = false; note(); return; }
     if (k === "[" || k === "-") { act("soft"); return; }
     if (k === "]" || k === "=" || k === "+") { act("hard"); return; }
@@ -1097,6 +1289,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
       removeEventListener("pointerup", onUp);
       canvas.removeEventListener("wheel", onWheel);
       canvas.removeEventListener("contextmenu", onContext);
+      if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
     },
     act,
     actBurst,
