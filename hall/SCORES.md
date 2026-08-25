@@ -71,7 +71,16 @@ drifted underneath.
 4. **FLIP's tension ran backwards.** `balls` is balls *remaining*, not a multiball count.
    The table opened at 0.85 and got calmer every time you drained. Corrected: the
    plunger is quiet, a live ball is tense, the last ball is the tensest thing on it.
-5. **HAUL could not reach its own upper layers.** A ship down a crew member with half
+5. **Three tension constants were guessed, not measured.** Verifying on the live site
+   caught TAR reading `heat` as a 0-12 dial when it is an unbounded collision counter
+   that reached **291 in twenty seconds** — the score pegged at maximum within seconds
+   and stayed there. It is now a *rate*, so a clean stretch lets the music come back
+   down. Replayed against a captured 80-sample run: **0% pegged, was 56.9%**, 39
+   distinct tension values spanning 0.18-0.79, with clean windows and collision windows
+   landing in different bands. The same audit found VOID pegging at 11 rocks when late
+   waves split well past that, and GRAIN pegging at 2,600 filled cells out of a grid
+   of **64,000**.
+6. **HAUL could not reach its own upper layers.** A ship down a crew member with half
    its habitat gone measured 0.29, so the melody never played. Voyage progress is now
    its own pressure and the score builds across the transit.
 

@@ -47,24 +47,39 @@
              bassAt: function (b) { return b === 0 || b === 6 || b === 10; } },
       tension: function (s) {
         if (!s) return 0;
-        const rocks = clamp((s.rocks || 0) / 11);
+        const rocks = clamp((s.rocks || 0) / 16);   // late waves split well past 11
         const hurt = clamp((3 - (s.lives == null ? 3 : s.lives)) / 3);
         return clamp(0.1 + rocks * 0.6 + hurt * 0.34);
       }
     },
 
-    /* Race. Heat is already an intensity dial the game keeps for itself, so the score
-       just reads it. Distance adds a slow floor so a long clean run still builds. */
+    /* Race.
+       RECALIBRATED against a real run. Heat was read as a 0-12 dial; it is an
+       unbounded collision counter that reached 291 in twenty seconds of bad driving,
+       so the score pegged at maximum almost immediately and stayed there for the rest
+       of the run — the same saturation the engine was fixed for, reintroduced through
+       a guessed constant.
+       It is now a RATE: collisions since the last sample. Sustained bad driving is
+       loud, a clean stretch lets the music come back down, and the score can actually
+       respond to how you are driving instead of to how long you have been alive.
+       Distance stays as a slow floor, scaled to a real run rather than to a guess. */
     tar: {
       def: { id: "tar", trim: 0.882, root: 52, mode: "phrygian", bpm: 152, bars: 4,
              prog: [0, 0, 6, 5], bassWave: "sawtooth", arpWave: "square", leadWave: "sawtooth",
              bassAt: function (b) { return b % 2 === 0; } },
-      tension: function (s) {
+      tension: function (s, prev) {
         if (!s) return 0;
-        const heat = clamp((s.heat || 0) / 12);
-        const far = clamp((s.dist || 0) / 9000);
-        return clamp(0.16 + heat * 0.62 + far * 0.3);
-      }
+        // Measured: an unsteered car takes 13-23 hits per sample window, a driver who
+        // is actually steering takes none. Weighting the rate too heavily made the
+        // score binary — pegged for the crasher, and so quiet for the clean driver that
+        // the drums never came in at all. Distance carries more of it now, so a long
+        // clean run still builds, and the rate has room before it saturates.
+        const rate = prev ? Math.max(0, (s.heat || 0) - prev) : 0;
+        const hot = clamp(rate / 20);
+        const far = clamp((s.dist || 0) / 25000);
+        return clamp(0.18 + hot * 0.45 + far * 0.37);
+      },
+      rate: "heat"
     },
 
     /* Pinball.
@@ -111,7 +126,9 @@
         // Rate, not total: what matters is whether something is happening now.
         const rate = prev ? Math.max(0, (s.reacts || 0) - prev) : 0;
         const busy = clamp(rate / 90);
-        const full = clamp((s.filled || 0) / 2600);
+        // Grid is 320x200 = 64,000 cells and starts around 750 filled. The old divisor
+        // of 2600 pegged at 4% full — a few seconds of pouring and the term was spent.
+        const full = clamp(((s.filled || 0) - 750) / 18000);
         return clamp(0.06 + busy * 0.66 + full * 0.26);
       },
       rate: "reacts"
