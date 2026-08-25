@@ -1,3 +1,14 @@
+/**
+ * Bump on every deploy that changes a cab script.
+ *
+ * Cab sources used to load from a bare `cabs/<id>.js`, so a browser that had the file
+ * would keep serving it — the same staleness that once made a newly published cab
+ * invisible on the floor, only harder to spot because the cabinet still ran, just an
+ * older version of itself. The build tag goes on the URL so a changed cab is a
+ * different resource.
+ */
+window.HALL_BUILD = "7";
+
 window.CABS = [
   { id: "well", name: "WELL", era: "PZL", blurb: "STACK · COMBO · RISE",  genre: "puzzle", bank: "floor1" },
   { id: "grain",name: "GRAIN",era: "LAB", blurb: "SIZE · POUR · FLUX",    genre: "grain",  bank: "floor1" },

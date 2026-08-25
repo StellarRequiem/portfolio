@@ -115,8 +115,11 @@
       }
     },
 
-    /* The sand lab. Nothing here can kill you, so tension is not danger — it is how
-       much is happening. A still cabinet is nearly silent; a running reaction fills out. */
+    /* The sand lab. Nothing here can kill you, so tension is not danger — it is how much
+       is happening, and of what kind. A still cabinet is nearly silent. A cabinet where
+       something is *burning* is a different piece of music from one where somebody is
+       quietly pouring sand, which is the whole point of scoring a sandbox: the score is
+       the only thing in the room that reacts to what you built. */
     grain: {
       def: { id: "grain", trim: 1.156, root: 55, mode: "lydian", bpm: 84, bars: 8,
              prog: [0, 4, 2, 5], bassWave: "triangle", arpWave: "triangle", leadWave: "triangle",
@@ -126,10 +129,16 @@
         // Rate, not total: what matters is whether something is happening now.
         const rate = prev ? Math.max(0, (s.reacts || 0) - prev) : 0;
         const busy = clamp(rate / 90);
-        // Grid is 320x200 = 64,000 cells and starts around 750 filled. The old divisor
-        // of 2600 pegged at 4% full — a few seconds of pouring and the term was spent.
+        // Grid is 320x200 = 64,000 cells and starts around 750 filled. A divisor of
+        // 2,600 pegged at 4% full — a few seconds of pouring and the term was spent.
         const full = clamp(((s.filled || 0) - 750) / 18000);
-        return clamp(0.06 + busy * 0.66 + full * 0.26);
+        // Fire and heat carry their own weight, so setting the lab alight moves the
+        // music even when the reaction *count* is not especially high.
+        const burning = clamp((s.fire || 0) / 900);
+        const heat = clamp((s.hot || 0) / 2600);
+        // Weights sum to 1.0 exactly, so a lab that is merely well alight still has
+        // somewhere left to go — the top of the range should cost something.
+        return clamp(0.06 + busy * 0.36 + full * 0.14 + burning * 0.26 + heat * 0.18);
       },
       rate: "reacts"
     },
