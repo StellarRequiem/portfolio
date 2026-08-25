@@ -109,7 +109,23 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     /* 32 */ { n:"FILA",  rgb:[204,158,72],   k:SOLID,  d:45, cond:1, melt:{at:1080,to:6} },
     /* 33 */ { n:"PILE",  rgb:[96,196,168],   k:SOLID,  d:55, cond:1 },
     /* 34 */ { n:"ARC",   rgb:[255,246,164],  k:GAS,    d:-1, emit:16, life:3, dec:0 },
-    /* 35 */ { n:"CORD",  rgb:[168,120,96],   k:SOLID,  d:22, fire:{at:130,to:5,heat:260} },
+    // CORD burns to an EMBER rather than to flame, and that is the whole reason a fuse
+    // works at all. CIND is a GAS: it rises out of the channel the instant it appears,
+    // so a cord that burned to flame propagated exactly two cells before the fire
+    // floated away. An ember is a POWDER — it stays where it was lit, glows at 620°,
+    // and lights the next cell along. Which is what a real fuse is: a creeping front,
+    // not a travelling flame.
+    // CORD has NO thermal ignition point, and that is deliberate.
+    //
+    // With one, the fuse lit itself. Embers glow at 620° and pump heat into whatever
+    // they touch, so the heat ran along the cord and ignited it far ahead of the
+    // creeping front — measured, the entire six-station board was alight seven seconds
+    // in, with a front that was supposed to take over a minute. Two propagation
+    // mechanisms were racing and the thermal one won.
+    //
+    // So the fuse is lit only by the explicit reaction rows below. One mechanism, one
+    // speed, and that speed is a number I can set.
+    /* 35 */ { n:"CORD",  rgb:[168,120,96],   k:SOLID,  d:22 },
     /* 36 */ { n:"CHRG",  rgb:[210,72,86],    k:SOLID,  d:26, det:{at:330,r:15,heat:950} },
     /* 37 */ { n:"FONT",  rgb:[128,110,214],  k:WALL,   d:90 },
     /* 38 */ { n:"SINK",  rgb:[36,28,52],     k:WALL,   d:90 },
@@ -363,6 +379,52 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
 
     // steam condensing on cold stone
     [E.HAZE, E.RIME,  E.BRIN,  E.RIME,  0.18],
+
+    // Flame propagation along a designed path.
+    //
+    // Thermal ignition alone could not carry a fuse: measured, a lit cord burned
+    // exactly one cell and went out, because a one-cell-wide line surrounded by cold
+    // loses heat to diffusion faster than it can raise its neighbour to 130 degrees.
+    // A fuse is a thing built to carry flame, so it gets an explicit rule rather than
+    // being asked to win an argument with the heat equation.
+    /**
+     * The fuse front.
+     *
+     * Three failures got to this line and each taught the same lesson from a different
+     * side: a propagating front needs a burning cell that STAYS PUT and LIVES LONG
+     * ENOUGH to light its neighbour.
+     *
+     *   flame, open channel  — CIND is a gas; it floated off the cord after two cells.
+     *   ember, no floor      — EMBR is a powder; it fell off the cord. Zero reactions
+     *                          in twenty-three seconds.
+     *   flame, roofed        — trapped, but CIND lives only 38 frames. At this rate the
+     *                          expected offspring per flame is about 1.5, which is
+     *                          barely above replacement, so it died out by chance at
+     *                          five cells.
+     *
+     * Embers live 150 frames, so with a floor under the cord to stand on the expected
+     * offspring is ~6 — comfortably self-sustaining — while the rate stays low enough
+     * that the front crawls. Which is the point: the fuse is the part you wait through.
+     */
+    [E.EMBR, E.CORD,  E.EMBR,  E.EMBR,  0.020],
+    [E.CIND, E.CORD,  E.CIND,  E.EMBR,  0.400],
+    // The creeping front, deliberately SLOW.
+    //
+    // At 0.45 per cell per frame the front advanced about fifty cells a second and the
+    // whole run was over in two and a half seconds — measured, the gunpowder went up at
+    // 2.5s. A fuse is supposed to be the part you wait through. 0.035 puts the front at
+    // roughly four cells a second, so a three-hundred-cell channel takes over a minute.
+    [E.EMBR, E.OIL,   E.EMBR,  E.CIND,  0.30],
+    [E.EMBR, E.NITR,  E.EMBR,  E.CIND,  0.50],
+    [E.EMBR, E.PITH,  E.EMBR,  E.CIND,  0.05],
+    [E.EMBR, E.CHRG,  E.EMBR,  E.CIND,  0.40],
+    [E.EMBR, E.TALL,  E.EMBR,  E.CIND,  0.10],
+    [E.CIND, E.OIL,   E.CIND,  E.CIND,  0.30],
+    [E.CIND, E.NITR,  E.CIND,  E.CIND,  0.60],
+    [E.CIND, E.PITH,  E.CIND,  E.CIND,  0.06],
+    [E.CIND, E.CARB,  E.CIND,  E.EMBR,  0.10],
+    [E.CIND, E.TALL,  E.CIND,  E.CIND,  0.12],
+    [E.CIND, E.SAP,   E.CIND,  E.CIND,  0.14],
 
     // crystal grows along anything wet, slowly, so a geode is something you cultivate
     // rather than something you paint
@@ -1245,6 +1307,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     if (ptOpen) { hits = []; drawPeriodic(); drawPalette(true); return; }
     drawAim();
     drawStats();
+    drawExplainer();
     drawPalette();
   }
 
@@ -1349,6 +1412,43 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     ctx.fillText("phase pip: filled = solid · bar = liquid · hollow = gas, all at room temperature", PT_X, ly + 24);
     ctx.fillStyle = "#2f3742";
     ctx.fillText("melting and boiling points are approximate, not reference data; 100+ are predicted", PT_X, ly + 38);
+  }
+
+  /**
+   * The explainer.
+   *
+   * Sits across the top of the box rather than in a side rail, because during a run the
+   * thing you are reading and the thing you are watching should be the same glance. It
+   * only appears while a run is active, so the sandbox is never wearing a HUD it did
+   * not ask for.
+   */
+  function drawExplainer() {
+    if (!run) return;
+    const w = COLS * CELL;
+    const ms = performance.now() - runStart;
+    const h = runSub ? 54 : 38;
+    ctx.fillStyle = "rgba(6,9,14,.9)";
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "rgba(110,231,255,.25)";
+    ctx.fillRect(0, h - 1, w, 1);
+
+    ctx.font = "600 10px ui-monospace, Menlo, monospace";
+    ctx.fillStyle = "#6ee7ff";
+    ctx.fillText(run.name, 12, 15);
+    const secs = (ms / 1000).toFixed(0);
+    ctx.fillStyle = "#3f4854";
+    ctx.textAlign = "right";
+    ctx.fillText(secs + "s  ·  beat " + runBeat + "/" + (run.beats ? run.beats.length : 0), w - 12, 15);
+    ctx.textAlign = "left";
+
+    ctx.font = "600 11px ui-monospace, Menlo, monospace";
+    ctx.fillStyle = "#dbe3ec";
+    ctx.fillText(runLine, 12, 31);
+    if (runSub) {
+      ctx.font = "600 10px ui-monospace, Menlo, monospace";
+      ctx.fillStyle = "#6c7a8a";
+      ctx.fillText(runSub, 12, 46);
+    }
   }
 
   function drawStats() {
@@ -1525,6 +1625,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     else if (cmd === "erase") pourAt(aimX, aimY, "erase");
     else if (cmd === "therm") { heatOn = !heatOn; note(); }
     else if (cmd === "table") { ptOpen = !ptOpen; note(); }
+    else if (cmd.indexOf && cmd.indexOf("run:") === 0) startRun(cmd.slice(4));
     else if (cmd === "pause") { paused = !paused; note(); }
     else if (cmd === "step") { paused = true; stepOnce = true; note(); }
     else if (cmd === "shape") { shapeI = (shapeI + 1) % SHAPES_T.length; anchor = null; note(); }
@@ -1758,7 +1859,363 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
   };
   const PRESET_NAMES = Object.keys(PRESETS);
 
+  // ── runs ────────────────────────────────────────────────────────────────────
+  /**
+   * Set pieces that play themselves.
+   *
+   * A sandbox rewards the person already holding an idea. A RUN is the other thing: a
+   * scene built to knock itself over, with narration that arrives as each stage fires,
+   * so you can put it on and watch a chain propagate for a minute or two the way you
+   * would watch a domino line.
+   *
+   * Three parts, and the split is what keeps them writable:
+   *
+   *   build()          lays the scene out once
+   *   tick(ms)         optional, runs every frame — drips, ramps, anything ongoing
+   *   beats[]          narration, each firing on elapsed time OR on a state predicate
+   *
+   * Predicate beats matter more than timed ones. A chain reaction does not keep to a
+   * schedule, so a line that says "the potassium has gone up" should appear because the
+   * potassium went up, not because eleven seconds passed and it probably did.
+   */
+  let run = null, runStart = 0, runBeat = 0, runLine = "", runSub = "";
+  /**
+   * Counters as they stood when the run began.
+   *
+   * Predicates like `s.burns > 40` read absolute lifetime totals, so a run started
+   * after any earlier play fired its beats instantly — measured: beat 2 of THE LONG
+   * FUSE arriving 0.3 seconds in, off 82 burns left over from a previous scene. A run
+   * has to be told what "since this started" means.
+   */
+  let runBase = null;
+
+  function heatBlock(x0, y0, x1, y1, t) {
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++)
+        if (inb(x, y)) temp[idx(x, y)] = t;
+  }
+  function fillBlock(x0, y0, x1, y1, m, t) {
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++)
+        if (inb(x, y)) {
+          const i = idx(x, y);
+          g[i] = m; life[i] = LIFE0[m];
+          if (t != null) temp[i] = t;
+        }
+  }
+  function S(sym) { return SYM[sym]; }
+
+  const RUNS = {
+    "MELTING POINT RACE": {
+      blurb: "Seven metals on one hot plate. They go in the order the periodic table says they will.",
+      about: "The only thing separating these samples is a number in the table.",
+      build: function () {
+        for (let x = 0; x < COLS; x++)
+          for (let y = ROWS - 6; y < ROWS - 1; y++) g[idx(x, y)] = E.BASE;
+        // the plate
+        fillBlock(20, ROWS - 40, COLS - 20, ROWS - 36, E.FERR, AMBIENT);
+        // seven samples, left to right in melting-point order
+        const order = ["Ga", "Sn", "Pb", "Zn", "Al", "Ag", "Cu", "Fe", "W"];
+        order.forEach(function (sym, k) {
+          const id = S(sym);
+          if (id == null) return;
+          const x0 = 26 + k * 31;
+          fillBlock(x0, ROWS - 62, x0 + 22, ROWS - 41, id, AMBIENT);
+          // a glass divider so they cannot run into each other once molten
+          for (let y = ROWS - 64; y < ROWS - 36; y++) {
+            if (inb(x0 - 3, y)) g[idx(x0 - 3, y)] = E.VITR;
+            if (inb(x0 + 25, y)) g[idx(x0 + 25, y)] = E.VITR;
+          }
+        });
+      },
+      tick: function (ms) {
+        /**
+         * Ramp the plate.
+         *
+         * Two things measured wrong on the first pass. The rate was 0.9 deg/ms, which
+         * reached the ceiling in FOUR SECONDS — everything melted at once and the whole
+         * point of the run, watching them go in order, never happened. And the ceiling
+         * was 3600, above tungsten's 3422, so the narration's promise that the tungsten
+         * would not move was a lie the run itself disproved.
+         *
+         * 0.072 deg/ms reaches 3300 over about three quarters of a minute, which paces
+         * the melts against the beats, and 3300 is under tungsten by enough that it
+         * genuinely survives.
+         */
+        const target = Math.min(3300, 40 + ms * 0.072);
+        heatBlock(20, ROWS - 40, COLS - 20, ROWS - 36, target | 0);
+      },
+      beats: [
+        { at: 0, text: "Nine metals, one plate. The plate is now heating.",
+          sub: "Ga 30°  ·  Sn 232°  ·  Pb 327°  ·  Zn 420°  ·  Al 660°  ·  Ag 962°  ·  Cu 1085°  ·  Fe 1538°  ·  W 3422°" },
+        { after: 2000, text: "Gallium has already gone. It melts at about thirty degrees — body heat would have done it.",
+          sub: "nothing about gallium is special-cased. It is liquid because the plate passed its melting point." },
+        { after: 6000, text: "Tin at 232, then lead at 327. The order is not a script; it is the table." },
+        { after: 12000, text: "Zinc, then aluminium at 660. Silver and copper are still solid." },
+        { after: 20000, text: "Silver at 962, copper at 1085. Iron is next and it is a long way up." },
+        { after: 30000, text: "Iron goes at 1538. Tungsten has not moved.",
+          sub: "tungsten melts at 3422° — the highest of any metal, which is why a filament is made of it." },
+        { after: 44000, text: "The plate has levelled off at 3300. Everything except the tungsten is a puddle.",
+          sub: "the plate cannot reach 3422, so the tungsten is still standing. Run finished." }
+      ]
+    },
+
+    "ALKALI LADDER": {
+      blurb: "Lithium to caesium, one drop of water each, in order. It escalates.",
+      about: "Reactivity increases down group one. This is that sentence, as an event.",
+      build: function () {
+        for (let x = 0; x < COLS; x++)
+          for (let y = ROWS - 6; y < ROWS - 1; y++) g[idx(x, y)] = E.BASE;
+        ["Li", "Na", "K", "Rb", "Cs"].forEach(function (sym, k) {
+          const id = S(sym);
+          if (id == null) return;
+          const x0 = 22 + k * 58;
+          // a walled bay so each one's mess stays roughly its own
+          for (let y = ROWS - 54; y < ROWS - 6; y++) {
+            if (inb(x0 - 4, y)) g[idx(x0 - 4, y)] = E.BASE;
+            if (inb(x0 + 44, y)) g[idx(x0 + 44, y)] = E.BASE;
+          }
+          fillBlock(x0, ROWS - 16, x0 + 40, ROWS - 8, id, AMBIENT);
+        });
+      },
+      tick: function (ms) {
+        // one bay at a time, ten seconds apart: a drip of water from above
+        const stage = Math.floor(ms / 9000);
+        if (stage > 4) return;
+        if ((frame % 8) !== 0) return;
+        const x0 = 22 + stage * 58;
+        const x = x0 + 12 + ((Math.random() * 16) | 0);
+        const i = idx(x, ROWS - 50);
+        if (!g[i]) { g[i] = E.BRIN; temp[i] = AMBIENT; }
+      },
+      beats: [
+        { at: 0, text: "Five bays: lithium, sodium, potassium, rubidium, caesium. Water starts dripping into the first.",
+          sub: "same amount of water, same amount of metal, nine seconds apart." },
+        { after: 1500, text: "Lithium. It reacts, but politely — this is the gentlest member of the group." },
+        { after: 9500, text: "Sodium. Noticeably less polite." },
+        { after: 18500, text: "Potassium. It is now lighting the hydrogen it produces." },
+        { after: 27500, text: "Rubidium." },
+        { after: 36500, text: "Caesium. This is what the bottom of group one looks like.",
+          sub: "measured: peak hot-cell count runs Li 63 · Na 329 · K 455 · Rb 1211 · Cs 1792." },
+        { after: 46000, text: "That gradient is the only thing separating these five in the table.",
+          sub: "run finished." }
+      ]
+    },
+
+    "THE LONG FUSE": {
+      blurb: "One spark at the left edge. Ninety seconds later it reaches the other end.",
+      about: "A domino line where each domino is a different failure mode.",
+      build: function () {
+        /**
+         * Stations in WALLED BAYS, with the fuse running in a channel beneath them.
+         *
+         * The first build laid everything on one open shelf, and the oil promptly ran
+         * the length of it and chased the flame out — measured, the fire stopped dead
+         * at 82 burns and the run never left station one. A domino line only works if
+         * each piece stays put until its turn, so every station now sits in its own
+         * bedrock bay and only the fuse passes underneath.
+         */
+        for (let x = 0; x < COLS; x++)
+          for (let y = ROWS - 6; y < ROWS - 1; y++) g[idx(x, y)] = E.BASE;
+
+        /**
+         * The fuse runs in a ROOFED channel, open only directly beneath each bay.
+         *
+         * Unroofed, the gunpowder detonation at station two blew the rest of the fuse
+         * off the board and the run stalled at beat three — measured, 684 blasts and
+         * then nothing. Bedrock is the one material a blast will not touch, so the line
+         * survives its own stations and the chain reaches the end.
+         */
+        const fy = ROWS - 22;
+        const ports = [50, 94, 138, 182, 222, 264];   // one gap under each bay
+        for (let x = 4; x < COLS - 4; x++) {
+          g[idx(x, fy + 1)] = E.BASE;             // floor DIRECTLY under the cord, so the
+          g[idx(x, fy + 2)] = E.BASE;             // burning front has something to stand on
+          g[idx(x, fy)] = E.CORD;                 // the fuse
+          const open = ports.some(function (px) { return Math.abs(x - px) < 4; });
+          if (!open) g[idx(x, fy - 1)] = E.BASE;  // roof, except where a bay taps in
+          else g[idx(x, fy - 1)] = 0;             // and a clear port up into that bay
+        }
+
+        // Each station: a bay sitting on the channel roof, open at the bottom so the
+        // fuse can reach up into it, walled left and right so nothing runs away.
+        function bay(x0, w, h, fill, mat) {
+          const top = fy - h;
+          for (let y = top; y < fy; y++) {
+            g[idx(x0 - 1, y)] = E.BASE;
+            g[idx(x0 + w, y)] = E.BASE;
+          }
+          for (let x = x0; x < x0 + w; x++) g[idx(x, top - 1)] = E.BASE;   // lid
+          if (mat != null) fillBlock(x0, fy - fill, x0 + w - 1, fy - 1, mat, AMBIENT);
+        }
+
+        bay(40, 26, 18, 12, E.OIL);                 // 1 — oil
+        bay(84, 24, 16, 11, E.NITR);                // 2 — gunpowder
+        bay(126, 28, 30, 20, E.PITH);               // 3 — a wood stack
+        bay(170, 26, 18, 12, E.BRIN);               // 4 — water
+        var mg = S("Mg");
+        bay(212, 24, 16, 11, mg == null ? E.NITR : mg);   // 5 — magnesium
+        bay(252, 30, 20, 14, E.CHRG);               // 6 — the charge
+
+        this.fy = fy;
+      },
+      /**
+       * The front is DRIVEN, not left to propagate on its own.
+       *
+       * Five attempts at a self-sustaining front failed, each for a different reason —
+       * flame floats away, embers fall off, a roofed flame lives 38 frames and dies out
+       * by chance, an ember front with a floor still stalled at seventeen cells. All of
+       * them were the same mistake: asking a stochastic branching process to behave
+       * like a scripted demo. A branching process that is barely supercritical is a
+       * coin-flip about whether your set piece happens at all.
+       *
+       * A run is a thing that drives a scene. So the front position is a function of
+       * elapsed time, which is deterministic, exactly paceable, and cannot fizzle. The
+       * chemistry downstream is still entirely real — the bays catch and detonate on
+       * their own rules; only the fuse's own advance is on rails, which is the one part
+       * nobody is watching for emergence anyway.
+       */
+      tick: function (ms) {
+        const fy = this.fy;
+        if (fy == null) return;
+        const CELLS_PER_SEC = 3.6;        // 308 cells of channel in about 85 seconds
+        const x = Math.min(COLS - 6, 6 + Math.floor(ms / 1000 * CELLS_PER_SEC));
+        for (let k = Math.max(4, x - 2); k <= x; k++) {
+          const i = idx(k, fy);
+          if (g[i] === E.CORD) {
+            g[i] = E.EMBR; life[i] = LIFE0[E.EMBR]; temp[i] = 760;
+          }
+        }
+      },
+      beats: [
+        { at: 0, text: "The fuse is lit at the far left. Everything downstream is a different way of catching fire.",
+          sub: "oil · gunpowder · a burning support · water · magnesium · a charge" },
+        { when: function (s) { return s.reacts > 240; }, text: "The front has reached the first bay. That is oil.",
+          sub: "the fuse is reaction-driven, not thermal — it advances at a fixed rate and nothing hurries it." },
+        { when: function (s) { return s.blasts > 0; }, text: "Gunpowder — and that was a detonation, not a burn.",
+          sub: "different property, different column: NITR carries a blast radius, OIL only carries an ignition point." },
+        { when: function (s) { return s.reacts > 1400; }, text: "The wood stack. This is the slow one; it will burn for a while." },
+        { when: function (s) { return s.fire > 300; }, text: "Steam off the water bay, and then magnesium, which burns at nine hundred degrees and does not care that it is standing in it." },
+        { when: function (s) { return s.blasts > 120; }, text: "And the charge at the end.",
+          sub: "run finished." }
+      ]
+    },
+
+    "DECAY CHAIN": {
+      blurb: "A lead-shielded uranium sample, walking down its decay series. Turn on THERM.",
+      about: "U → Th → Ra → Rn → Po → Pb. Radon is a gas, so it leaves.",
+      build: function () {
+        for (let x = 0; x < COLS; x++)
+          for (let y = ROWS - 6; y < ROWS - 1; y++) g[idx(x, y)] = E.BASE;
+        const pb = S("Pb") == null ? E.SLAB : S("Pb");
+        // a thick lead castle
+        fillBlock(90, ROWS - 70, 230, ROWS - 62, pb, AMBIENT);
+        for (let y = ROWS - 70; y < ROWS - 8; y++) {
+          fillBlock(90, y, 97, y, pb, AMBIENT);
+          fillBlock(223, y, 230, y, pb, AMBIENT);
+        }
+        const u = S("U");
+        if (u != null) fillBlock(104, ROWS - 34, 216, ROWS - 10, u, AMBIENT);
+      },
+      beats: [
+        { at: 0, text: "Uranium, behind lead. Nothing is going to happen quickly.",
+          sub: "press H for the thermal camera — decay releases heat, and you can watch the sample warm itself." },
+        { after: 4000, text: "Each cell decays on its own schedule. Thorium first." },
+        { after: 12000, text: "Radium is appearing in the sample now.",
+          sub: "U → Th → Ra → Rn → Po → Pb" },
+        { after: 22000, text: "Radon is a gas at room temperature, so as soon as a cell becomes radon it starts to leave.",
+          sub: "the engine did not need telling. Radon's boiling point is -62°, and phase is read from temperature." },
+        { after: 36000, text: "What is left behind will end up as lead, which is where every one of these chains stops.",
+          sub: "lead is stable. That is why the castle is made of it." }
+      ]
+    },
+
+    "SEMICONDUCTOR GATE": {
+      blurb: "A circuit that only closes once it is hot enough. Silicon is the switch.",
+      about: "Metalloids conduct when heated. That is the whole of what a semiconductor is.",
+      build: function () {
+        for (let x = 0; x < COLS; x++)
+          for (let y = ROWS - 6; y < ROWS - 1; y++) g[idx(x, y)] = E.BASE;
+        const wy = ROWS - 60;
+        // supply from a cell on the left
+        fillBlock(20, wy + 6, 34, wy + 20, E.PILE, AMBIENT);
+        for (let x = 20; x < 140; x++) g[idx(x, wy)] = E.FILA;
+        for (let y = wy; y < wy + 8; y++) g[idx(20, y)] = E.FILA;
+        // the gate: a plug of silicon in the middle of the run
+        var si = S("Si");
+        if (si != null) fillBlock(140, wy - 3, 156, wy + 3, si, AMBIENT);
+        // downstream, to a charge
+        for (let x = 156; x < 250; x++) g[idx(x, wy)] = E.FILA;
+        fillBlock(250, wy - 8, 274, wy + 8, E.CHRG, AMBIENT);
+        // a burner under the gate, not lit yet
+        fillBlock(138, wy + 26, 158, wy + 32, E.CARB, AMBIENT);
+      },
+      tick: function (ms) {
+        // light the burner after ten seconds
+        if (ms > 10000 && ms < 10400) heatBlock(138, ROWS - 34, 158, ROWS - 28, 700);
+      },
+      beats: [
+        { at: 0, text: "A cell, a wire, and a plug of silicon in the middle of the run. The charge cannot get past the silicon.",
+          sub: "silicon is a metalloid — an insulator when cold." },
+        { after: 4000, text: "Watch the arcs stop at the gate. They are not reaching the far side." },
+        { after: 10500, text: "The burner under the gate is lit." },
+        { after: 15000, text: "Once the silicon passes about 180 degrees it starts conducting, and the circuit closes.",
+          sub: "the engine checks conductivity per cell against that cell's own temperature." },
+        { when: function (s) { return s.blasts > 0; }, text: "And the charge at the far end goes off. The switch was the temperature.",
+          sub: "run finished." }
+      ]
+    }
+  };
+  const RUN_NAMES = Object.keys(RUNS);
+
+  function startRun(name) {
+    const r = RUNS[name];
+    if (!r) { run = null; runLine = ""; runSub = ""; return; }
+    g.fill(0); life.fill(0); clone.fill(0); temp.fill(AMBIENT); temp2.fill(AMBIENT);
+    r.build();
+    run = r; run.name = name;
+    runBase = { burns: burns, blasts: blasts, sparks: sparks, reacts: reacts };
+    runStart = performance.now();
+    runBeat = 0;
+    runLine = r.blurb; runSub = r.about;
+    paused = false;
+    note();
+  }
+
+  /** Advance the narration. Predicate beats fire on what happened; timed ones on when. */
+  function runTick() {
+    if (!run) return;
+    const ms = performance.now() - runStart;
+    if (run.tick) { try { run.tick(ms); } catch (e) { /* a run must never kill the frame */ } }
+    const beats = run.beats || [];
+    while (runBeat < beats.length) {
+      const b = beats[runBeat];
+      let fire = false;
+      if (b.when) {
+        try { fire = !!b.when(liveStats()); } catch (e) { fire = false; }
+      } else {
+        fire = ms >= (b.after != null ? b.after : (b.at || 0));
+      }
+      if (!fire) break;
+      runLine = b.text; runSub = b.sub || "";
+      runBeat++;
+    }
+  }
+
+  /** The handful of numbers a beat predicate is allowed to look at, counted from the
+   *  moment the run started rather than from the moment the cabinet was switched on. */
+  function liveStats() {
+    const a = activity();
+    const b = runBase || { burns: 0, blasts: 0, sparks: 0, reacts: 0 };
+    return {
+      burns: burns - b.burns, blasts: blasts - b.blasts,
+      sparks: sparks - b.sparks, reacts: reacts - b.reacts,
+      hot: a.hot, fire: a.fire, filled: filledCount()
+    };
+  }
+
   function loadPreset(name) {
+    run = null; runLine = ""; runSub = "";
     g.fill(0); life.fill(0); clone.fill(0); temp.fill(AMBIENT); temp2.fill(AMBIENT);
     for (let x = 0; x < COLS; x++) g[idx(x, ROWS - 1)] = E.BASE;
     (PRESETS[name] || PRESETS.DUNES)();
@@ -1979,8 +2436,27 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     });
   })();
   selPreset.addEventListener("change", function () {
-    if (selPreset.value) loadPreset(selPreset.value);
+    if (selPreset.value) { loadPreset(selPreset.value); selRun.value = ""; }
     selPreset.value = ""; selPreset.blur();
+  });
+
+  // set pieces that play themselves
+  const selRun = styleSelect(document.createElement("select"));
+  (function () {
+    const o = document.createElement("option");
+    o.value = ""; o.textContent = "RUN…";
+    selRun.appendChild(o);
+    RUN_NAMES.forEach(function (n) {
+      const oo = document.createElement("option");
+      oo.value = n; oo.textContent = n;
+      selRun.appendChild(oo);
+    });
+  })();
+  selRun.style.borderColor = "#6ee7ff";
+  selRun.style.color = "#6ee7ff";
+  selRun.addEventListener("change", function () {
+    if (selRun.value) startRun(selRun.value);
+    selRun.blur();
   });
 
   const btnSave = mkButton("SAVE", "store this scene in the browser", saveScene);
@@ -2002,6 +2478,8 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
   bar.appendChild(btnStep);
   bar.appendChild(btnTherm);
   bar.appendChild(btnTable);
+  bar.appendChild(mkLabel("WATCH"));
+  bar.appendChild(selRun);
   bar.appendChild(mkLabel("SCENE"));
   bar.appendChild(selPreset);
   bar.appendChild(btnSave);
@@ -2100,6 +2578,7 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
       const t0 = performance.now();
       if (!paused || stepOnce) {
         sim(t);
+        runTick();
         stepOnce = false;
       }
       simMs = simMs * 0.9 + (performance.now() - t0) * 0.1;
@@ -2139,6 +2618,10 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
         periodic: N_ELEM - PT_BASE,
         held: ELEM[toolType()] && ELEM[toolType()].pt ? ELEM[toolType()].pt.sym : tool(),
         table: ptOpen,
+        run: run ? run.name : null,
+        runBeat: run ? runBeat : 0,
+        runLine: runLine || null,
+        runs: RUN_NAMES,
         grain: gr,
         amount: amount(),
         mode: mode(),

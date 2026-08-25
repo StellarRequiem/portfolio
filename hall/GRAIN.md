@@ -131,6 +131,56 @@ Everything from fermium (100) up is worse than approximate: for most superheavy 
 real science has only predictions, and several have never existed in quantities large
 enough to melt. Those are plausible fiction and the table marks them `predicted`.
 
+## Runs — set pieces that play themselves
+
+A sandbox rewards whoever already has an idea. A **run** is the other thing: a scene
+built to knock itself over, with narration arriving as each stage fires, so you can put
+it on and watch a chain propagate for a minute or two the way you'd watch a domino line.
+
+Pick one from **WATCH** in the toolbar. Three parts, and the split is what keeps them
+writable:
+
+- `build()` lays the scene out once
+- `tick(ms)` optional, every frame — drips, ramps, anything ongoing
+- `beats[]` narration, each firing on elapsed time **or** on a state predicate
+
+Predicate beats matter more than timed ones. A chain reaction doesn't keep to a
+schedule, so a line saying "the potassium has gone up" should appear *because the
+potassium went up*, not because eleven seconds passed and it probably did.
+
+| run | what it shows |
+|---|---|
+| MELTING POINT RACE | nine metals on one ramping hot plate, going in table order |
+| ALKALI LADDER | Li→Cs, one water drip each, nine seconds apart |
+| THE LONG FUSE | six walled bays, one fuse, about ninety seconds end to end |
+| DECAY CHAIN | shielded uranium walking down U→Th→Ra→Rn→Po→Pb |
+| SEMICONDUCTOR GATE | a circuit that only closes once the silicon is hot |
+
+Run predicates count **from the moment the run started**, not from lifetime totals —
+without that, a run started after any earlier play fired its beats instantly (measured:
+beat 2 of THE LONG FUSE arriving 0.3s in, off 82 burns left over from a previous scene).
+
+### What THE LONG FUSE cost, and what it taught
+
+Five attempts at a self-sustaining fuse front failed, each differently:
+
+1. **flame in an open channel** — CIND is a gas; it floated off the cord after two cells
+2. **oil on an open shelf** — it ran the length of the shelf and chased the flame out
+3. **embers with no floor** — EMBR is a powder; it fell off the cord. Zero reactions in 23s
+4. **flame in a roofed channel** — trapped, but CIND lives 38 frames, giving ~1.5 expected
+   offspring per flame. Barely above replacement, so it died out by chance at five cells
+5. **embers with a floor** — stalled at seventeen cells
+
+All the same mistake: asking a **stochastic branching process to behave like a scripted
+demo**. A branching process that is barely supercritical is a coin-flip about whether
+your set piece happens at all.
+
+The fix was to stop trying. A run is a thing that *drives* a scene, so the front position
+is now a function of elapsed time — deterministic, exactly paceable, cannot fizzle. The
+chemistry downstream is still entirely real; the bays catch and detonate on their own
+rules. Only the fuse's own advance is on rails, which is the one part nobody was watching
+for emergence anyway.
+
 ## The LAB scene
 
 A bench laid out as apparatus rather than as a pile: six glass vessels each charged with
