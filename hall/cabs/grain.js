@@ -883,17 +883,55 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
    * arc goes on cooldown via `life` on the arc itself, so a loop of wire pulses
    * instead of latching solid.
    */
+  /**
+   * Spread an arc into adjacent conductors.
+   *
+   * THE NEIGHBOURHOOD HAS TO INCLUDE DIAGONALS, and that is not a detail.
+   *
+   * An arc rides in the empty cell above the conductor carrying it. With a four-cell
+   * neighbourhood, an arc sitting on a horizontal wire finds exactly one conductor —
+   * the one directly beneath it — and the rule then places the new arc "above that
+   * conductor", which is the cell the arc is already in. It re-created itself in place,
+   * forever, and never moved sideways. Charge has never actually travelled along a wire
+   * in this cabinet; a battery pulsing in place was being counted as transport.
+   *
+   * The wire one step along is DIAGONAL to the arc, so seeing it is what turns a
+   * stationary spark into a current.
+   */
   function conduct(x, y, i) {
-    const n4x = [0, 0, 1, -1], n4y = [1, -1, 0, 0];
-    for (let k = 0; k < 4; k++) {
-      const nx = x + n4x[k], ny = y + n4y[k];
+    const NX = [0, 0, 1, -1, 1, 1, -1, -1];
+    const NY = [1, -1, 0, 0, 1, -1, 1, -1];
+    /**
+     * AT MOST ONE new arc per frame, from a randomly chosen starting neighbour.
+     *
+     * Taking all eight neighbours at 0.7 each gives about 5.6 offspring per arc per
+     * frame, over a three-frame life — a wildly supercritical branching process. It
+     * did not look like a current, it looked like a bomb: measured, the cabinet fell
+     * from 120fps to 1.
+     *
+     * Capping at one step per frame makes the arc a moving charge rather than an
+     * expanding cloud, and the random start means it is not biased toward one
+     * direction along the wire.
+     */
+    let placed = false;
+    const start = (Math.random() * 8) | 0;
+    for (let s = 0; s < 8; s++) {
+      const k = (start + s) & 7;
+      const nx = x + NX[k], ny = y + NY[k];
       if (!inb(nx, ny)) continue;
       const j = idx(nx, ny), u = g[j];
       const conducts = COND[u] || (SEMI[u] && temp[j] > 180);   // metalloids need heat
-      if (conducts && Math.random() < 0.7) {
+      if (conducts) {
+        if (placed) continue;
         // The arc rides on top of the conductor: the wire stays, the charge moves.
-        const above = ny > 0 ? idx(nx, ny - 1) : -1;
-        if (above >= 0 && g[above] === 0) { g[above] = E.ARC; life[above] = LIFE0[E.ARC]; sparks++; }
+        const ay = ny - 1;
+        if (ay < 0) continue;
+        const above = idx(nx, ay);
+        if (above === i) continue;                 // never re-light our own cell
+        if (g[above] === 0) {
+          g[above] = E.ARC; life[above] = LIFE0[E.ARC]; sparks++;
+          placed = true;
+        }
       } else if (u === E.CHRG) {
         blast(nx, ny, 13, 900);
       } else if (u === E.DAMP || u === E.NITR || u === E.CORD || u === E.OIL) {
@@ -2090,14 +2128,21 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
       beats: [
         { at: 0, text: "The fuse is lit at the far left. Everything downstream is a different way of catching fire.",
           sub: "oil · gunpowder · a burning support · water · magnesium · a charge" },
-        { when: function (s) { return s.reacts > 240; }, text: "The front has reached the first bay. That is oil.",
+        { when: function (s) { return s.reacts > 240; }, by: 16000,
+          text: "The front has reached the first bay. That is oil.",
           sub: "the fuse is reaction-driven, not thermal — it advances at a fixed rate and nothing hurries it." },
-        { when: function (s) { return s.blasts > 0; }, text: "Gunpowder — and that was a detonation, not a burn.",
+        { when: function (s) { return s.blasts > 0; }, by: 30000,
+          text: "Gunpowder — and that was a detonation, not a burn.",
           sub: "different property, different column: NITR carries a blast radius, OIL only carries an ignition point." },
-        { when: function (s) { return s.reacts > 1400; }, text: "The wood stack. This is the slow one; it will burn for a while." },
-        { when: function (s) { return s.fire > 300; }, text: "Steam off the water bay, and then magnesium, which burns at nine hundred degrees and does not care that it is standing in it." },
-        { when: function (s) { return s.blasts > 120; }, text: "And the charge at the end.",
-          sub: "run finished." }
+        { when: function (s) { return s.reacts > 1400; }, by: 44000,
+          text: "The wood stack. This is the slow one; it will burn for a while." },
+        // Thresholds below come from an instrumented run, not from a guess: reacts
+        // finished at 4392, blasts at 680, burns at 880 over 112 seconds.
+        { when: function (s) { return s.burns > 400; }, by: 62000,
+          text: "Steam off the water bay, and then magnesium — which burns at nine hundred degrees and does not care that it is standing in it." },
+        { when: function (s) { return s.blasts > 400; }, by: 88000,
+          text: "And the charge at the end.",
+          sub: "run finished — pick another from WATCH, or RESET to go back to the sandbox." }
       ]
     },
 
@@ -2136,23 +2181,26 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
       build: function () {
         for (let x = 0; x < COLS; x++)
           for (let y = ROWS - 6; y < ROWS - 1; y++) g[idx(x, y)] = E.BASE;
+        /**
+         * The battery sits INLINE with the wire, on the same row, and the row above the
+         * whole run is left clear. Arcs ride in that channel; if it is blocked, or if
+         * the cell is not level with the wire, the current has nowhere to go.
+         */
         const wy = ROWS - 60;
-        // supply from a cell on the left
-        fillBlock(20, wy + 6, 34, wy + 20, E.PILE, AMBIENT);
-        for (let x = 20; x < 140; x++) g[idx(x, wy)] = E.FILA;
-        for (let y = wy; y < wy + 8; y++) g[idx(20, y)] = E.FILA;
-        // the gate: a plug of silicon in the middle of the run
+        fillBlock(16, wy, 30, wy, E.PILE, AMBIENT);            // the cell, in the line
+        for (let x = 31; x < 140; x++) g[idx(x, wy)] = E.FILA; // wire up to the gate
         var si = S("Si");
-        if (si != null) fillBlock(140, wy - 3, 156, wy + 3, si, AMBIENT);
-        // downstream, to a charge
-        for (let x = 156; x < 250; x++) g[idx(x, wy)] = E.FILA;
-        fillBlock(250, wy - 8, 274, wy + 8, E.CHRG, AMBIENT);
-        // a burner under the gate, not lit yet
-        fillBlock(138, wy + 26, 158, wy + 32, E.CARB, AMBIENT);
+        if (si != null) fillBlock(140, wy, 154, wy, si, AMBIENT);   // the gate itself
+        for (let x = 155; x < 244; x++) g[idx(x, wy)] = E.FILA;     // wire beyond it
+        fillBlock(244, wy - 6, 262, wy + 6, E.CHRG, AMBIENT);       // the charge
+        for (let x = 14; x < 262; x++) g[idx(x, wy - 1)] = 0;       // the arc channel
+        // a burner under the gate, unlit
+        fillBlock(138, wy + 10, 156, wy + 16, E.CARB, AMBIENT);
       },
       tick: function (ms) {
-        // light the burner after ten seconds
-        if (ms > 10000 && ms < 10400) heatBlock(138, ROWS - 34, 158, ROWS - 28, 700);
+        // light the burner after ten seconds, and keep it lit — a one-frame pulse of
+        // heat diffuses away long before the silicon reaches its conducting temperature
+        if (ms > 10000) heatBlock(138, ROWS - 50, 156, ROWS - 44, 900);
       },
       beats: [
         { at: 0, text: "A cell, a wire, and a plug of silicon in the middle of the run. The charge cannot get past the silicon.",
@@ -2161,7 +2209,8 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
         { after: 10500, text: "The burner under the gate is lit." },
         { after: 15000, text: "Once the silicon passes about 180 degrees it starts conducting, and the circuit closes.",
           sub: "the engine checks conductivity per cell against that cell's own temperature." },
-        { when: function (s) { return s.blasts > 0; }, text: "And the charge at the far end goes off. The switch was the temperature.",
+        { when: function (s) { return s.blasts > 0; }, by: 30000,
+          text: "And the charge at the far end goes off. The switch was the temperature.",
           sub: "run finished." }
       ]
     }
@@ -2193,6 +2242,12 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
       let fire = false;
       if (b.when) {
         try { fire = !!b.when(liveStats()); } catch (e) { fire = false; }
+        // A deadline, because beats advance strictly in order and a predicate that
+        // cannot be met blocks every beat behind it. Measured: THE LONG FUSE waited on
+        // `fire > 300` in a scene whose sampled fire count never exceeded 7, so the
+        // last two beats never arrived even though the charge at the end had gone off.
+        // A run that quietly stops narrating looks identical to a run that finished.
+        if (!fire && b.by != null && ms >= b.by) fire = true;
       } else {
         fire = ms >= (b.after != null ? b.after : (b.at || 0));
       }
