@@ -36,6 +36,34 @@ combustion is what lets one blast set off the next.
 used to hardcode sand-through-water and oil-on-water separately — quicksilver drops
 through both because 34 > 10 > 8, not because anyone wrote those three rules down.
 
+## Building tools
+
+A sandbox you cannot pause, in which the only stroke is a smeared circle, is a toy
+rather than something you can build in. These are worth having together because each is
+half-useless without the others:
+
+| tool | key | what it is for |
+|---|---|---|
+| PAUSE / RESUME | `P` | place things precisely without the world running away underneath you |
+| STEP | `.` | advance exactly one frame — the only honest way to watch what a rule does |
+| SHAPE | `S` | FREEHAND · LINE · BOX · FLOOD FILL, so a wall is one drag instead of a smear |
+| HEAT + / COOL − | `G` / `B` | paint temperature directly, instead of dropping lava and hoping |
+| SCENE | — | six starting scenes: DUNES, VOLCANO, AQUARIUM, CIRCUIT, FOREST, ICE CAVE |
+| SAVE / LOAD | — | one slot, run-length encoded into localStorage |
+
+LINE and BOX anchor on press and commit on release, with a dashed preview of what you
+are about to get — a shape you cannot see before committing is a guess. FLOOD FILL is
+capped at 24,000 cells, generous enough for any cavity you would actually build and
+small enough that a misclick on open air is survivable.
+
+The heat brush is the one that changes how the cabinet is used: it turns "drop lava next
+to it and hope" into actually asking what a material does at 400°.
+
+Save is RLE because a sand grid is almost all runs — a scene stores in about 1 kB against
+63 kB for the raw grid. Temperature is deliberately not stored; it re-derives from the
+materials within a second of loading, and keeping it would roughly triple the payload to
+preserve something the simulation regenerates anyway.
+
 ## Shelves
 
 Forty-one materials will not fit in a cycle-through-with-one-key list, so they sit on six

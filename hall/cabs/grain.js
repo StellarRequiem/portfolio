@@ -293,31 +293,62 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
    *  them from an assumed stride, which is how a palette ends up one button off. */
   let hits = [];
 
+  /**
+   * Building tools.
+   *
+   * Until now the only way to put anything anywhere was to smear a circle into a
+   * simulation that never stopped moving, which makes a sandbox a toy rather than
+   * something you can build in. Three things fix that, and they are worth having
+   * together because each is half-useless without the others:
+   *
+   *   PAUSE   place things precisely without the world running away underneath you
+   *   SHAPES  lines, boxes and flood fill, so a wall is one drag instead of a smear
+   *   HEAT    paint temperature directly, instead of dropping lava and hoping
+   *
+   * STEP advances exactly one frame, which is also the only honest way to watch what
+   * a rule actually does — a reaction at 120fps is a guess.
+   */
+  const SHAPES_T = ["FREE", "LINE", "BOX", "FILL"];
+  let shapeI = 0;
+  let paused = false, stepOnce = false;
+  let anchor = null;                 // drag origin for LINE and BOX
+  let heating = false, cooling = false;
+  const HEAT_STEP = 220;             // degrees a heat/cool stroke moves a cell
+
   function idx(x, y) { return y * COLS + x; }
   function inb(x, y) { return x >= 0 && y >= 0 && x < COLS && y < ROWS; }
   function shelf() { return SHELVES[shelfI]; }
+  function shape() { return SHAPES_T[shapeI]; }
   function tool() {
     if (erasing) return "ERASE";
     if (chipping) return "CHIP";
+    if (heating) return "HEAT";
+    if (cooling) return "COOL";
     return shelf().items[Math.min(pickI, shelf().items.length - 1)];
   }
+  function clearTools() { erasing = chipping = heating = cooling = false; }
   function toolType() { const t = tool(); return E[t] == null ? 0 : E[t]; }
   function amount() { return AMOUNTS[amtI]; }
   function mode() { return MODES[modeI]; }
   function toolKind() {
     if (erasing) return "erase";
     if (chipping) return "chip";
+    if (heating) return "heat";
+    if (cooling) return "cool";
     return "paint";
   }
   function toolRgb() {
     if (erasing) return [255, 122, 154];
     if (chipping) return [255, 184, 107];
+    if (heating) return [255, 138, 60];
+    if (cooling) return [120, 198, 240];
     return ELEM[toolType()].rgb;
   }
 
   function hud() {
     return tool() + " · " + shelf().t + " · G" + gr + " · ×" + amount() + " · " + mode() +
-           (heatOn ? " · THERM" : "");
+           (shape() !== "FREE" ? " · " + shape() : "") +
+           (paused ? " · PAUSED" : "") + (heatOn ? " · THERM" : "");
   }
   function note() {
     // Every path that changes selection ends up here — keys, canvas palette, agent bus,
@@ -714,13 +745,25 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
   function writeCell(x, y, kind, type) {
     if (!inb(x, y)) return;
     const i = idx(x, y);
-    if (y === ROWS - 1 && g[i] === E.BASE) return;      // never breach the floor
+    // The bedrock floor is never breached by a brush — but heat still travels into it,
+    // otherwise you could not warm a slab from underneath.
+    if (y === ROWS - 1 && g[i] === E.BASE && kind !== "heat" && kind !== "cool") return;
     if (kind === "erase") {
       if (!g[i]) return;
       g[i] = 0; life[i] = 0; temp[i] = AMBIENT;
       return;
     }
     if (kind === "chip") { chipCell(i, y); return; }
+    if (kind === "heat" || kind === "cool") {
+      // Temperature is a field, so it can be painted like one. This is the difference
+      // between "drop lava next to it and hope" and actually asking a question about
+      // what a material does at 400 degrees.
+      const d = kind === "heat" ? HEAT_STEP : -HEAT_STEP;
+      let t = temp[i] + d;
+      if (t > T_MAX) t = T_MAX; else if (t < T_MIN) t = T_MIN;
+      temp[i] = t;
+      return;
+    }
     if (!type) return;
     g[i] = type;
     life[i] = LIFE0[type];
@@ -752,6 +795,69 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
           writeCell(cx + ox + dx, cy + oy + dy, kind, type);
     }
     hall.score(score);
+  }
+
+  /** Bresenham, so a dragged line has no gaps at any angle. */
+  function strokeLine(x0, y0, x1, y1, kind) {
+    let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy;
+    for (;;) {
+      pourAt(x0, y0, kind);
+      if (x0 === x1 && y0 === y1) break;
+      const e2 = err * 2;
+      if (e2 > -dy) { err -= dy; x0 += sx; }
+      if (e2 < dx) { err += dx; y0 += sy; }
+    }
+  }
+
+  /** Filled box between two corners. Walls and tanks are the two things people build
+   *  first and both are miserable to smear out by hand. */
+  function strokeBox(x0, y0, x1, y1, kind) {
+    const ax = Math.min(x0, x1), bx = Math.max(x0, x1);
+    const ay = Math.min(y0, y1), by = Math.max(y0, y1);
+    const type = toolType();
+    for (let y = ay; y <= by; y++)
+      for (let x = ax; x <= bx; x++) writeCell(x, y, kind, type);
+    hall.score(score);
+  }
+
+  /**
+   * Flood fill the contiguous region matching whatever is under the cursor.
+   *
+   * Capped, because an unbounded fill on a 64,000-cell grid with an empty background
+   * is a frame you never get back. The cap is generous enough to fill any cavity you
+   * would actually build and small enough that a misclick on open air is survivable.
+   */
+  function strokeFill(sx, sy, kind) {
+    const target = g[idx(sx, sy)];
+    const type = toolType();
+    if (kind === "paint" && type === target) return;
+    const CAP = 24000;
+    const stack = [sx, sy];
+    const done = new Uint8Array(COLS * ROWS);
+    let n = 0;
+    while (stack.length && n < CAP) {
+      const y = stack.pop(), x = stack.pop();
+      if (!inb(x, y)) continue;
+      const i = idx(x, y);
+      if (done[i] || g[i] !== target) continue;
+      done[i] = 1;
+      writeCell(x, y, kind, type);
+      n++;
+      stack.push(x + 1, y, x - 1, y, x, y + 1, x, y - 1);
+    }
+    hall.score(score);
+    return n;
+  }
+
+  /** Commit whatever the current shape means for a drag from `anchor` to (x,y). */
+  function commitShape(x, y, kind) {
+    if (!anchor) return;
+    const s = shape();
+    if (s === "LINE") strokeLine(anchor.x, anchor.y, x, y, kind);
+    else if (s === "BOX") strokeBox(anchor.x, anchor.y, x, y, kind);
+    anchor = null;
   }
 
   // ── render ──────────────────────────────────────────────────────────────────
@@ -816,9 +922,35 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     ctx.save();
     ctx.strokeStyle = rgbCss(c, 0.9);
     ctx.lineWidth = 1;
+
+    // A shape you cannot see before you commit it is a guess. The preview is dashed so
+    // it never reads as material already placed.
+    if (anchor) {
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = rgbCss(c, 0.75);
+      const ax = anchor.x * CELL + CELL / 2, ay = anchor.y * CELL + CELL / 2;
+      const bx = aimX * CELL + CELL / 2, by = aimY * CELL + CELL / 2;
+      if (shape() === "LINE") {
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+      } else if (shape() === "BOX") {
+        ctx.strokeRect(Math.min(ax, bx), Math.min(ay, by), Math.abs(bx - ax), Math.abs(by - ay));
+      }
+      ctx.setLineDash([]);
+      ctx.strokeStyle = rgbCss(c, 0.9);
+    }
+
     ctx.beginPath();
     ctx.arc(aimX * CELL + CELL / 2, aimY * CELL + CELL / 2, r * CELL, 0, Math.PI * 2);
     ctx.stroke();
+    // Paused deserves an unmistakable marker — it is the one state where the cabinet
+    // looking broken and the cabinet working correctly are the same picture.
+    if (paused) {
+      ctx.fillStyle = "rgba(255,181,71,.9)";
+      ctx.fillRect(10, 10, 5, 16);
+      ctx.fillRect(19, 10, 5, 16);
+      ctx.font = "600 10px ui-monospace, Menlo, monospace";
+      ctx.fillText("PAUSED", 30, 22);
+    }
     ctx.restore();
   }
 
@@ -958,21 +1090,17 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
   function setShelf(k) {
     shelfI = Math.max(0, Math.min(SHELVES.length - 1, k));
     pickI = Math.min(pickI, SHELVES[shelfI].items.length - 1);
-    erasing = chipping = false;
+    clearTools();
     note();
   }
   function setPick(k) {
     if (k < 0 || k >= shelf().items.length) return;
     pickI = k;
-    erasing = chipping = false;
+    clearTools();
     note();
   }
 
-  function reset() {
-    g.fill(0); life.fill(0); clone.fill(0); temp.fill(AMBIENT); temp2.fill(AMBIENT);
-    seed();
-    note();
-  }
+  function reset() { loadPreset("DUNES"); }
 
   /**
    * The agent bus. Every verb the Hall can send maps to something a hand could do, so
@@ -994,6 +1122,13 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     else if (cmd === "chip") pourAt(aimX, aimY, "chip");
     else if (cmd === "erase") pourAt(aimX, aimY, "erase");
     else if (cmd === "therm") { heatOn = !heatOn; note(); }
+    else if (cmd === "pause") { paused = !paused; note(); }
+    else if (cmd === "step") { paused = true; stepOnce = true; note(); }
+    else if (cmd === "shape") { shapeI = (shapeI + 1) % SHAPES_T.length; anchor = null; note(); }
+    else if (cmd === "heat") { const h = heating; clearTools(); heating = !h; note(); }
+    else if (cmd === "cool") { const c = cooling; clearTools(); cooling = !c; note(); }
+    else if (cmd === "save") saveScene();
+    else if (cmd === "load") loadScene();
     else if (cmd === "reset") reset();
     else return false;
     return true;
@@ -1035,7 +1170,17 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     if (ev.button === 2) paintKind = "erase";
     else if (ev.shiftKey) paintKind = "chip";
     else paintKind = toolKind();
-    pourAt(aimX, aimY, paintKind);
+
+    const s = shape();
+    if (s === "LINE" || s === "BOX") {
+      // Anchor now, draw on release — the drag is the shape, so nothing is committed
+      // until you let go and a preview shows what you are about to get.
+      anchor = { x: p.x, y: p.y };
+    } else if (s === "FILL") {
+      strokeFill(p.x, p.y, paintKind);
+    } else {
+      pourAt(aimX, aimY, paintKind);
+    }
     ev.preventDefault();
   }
   function onMove(ev) {
@@ -1045,15 +1190,150 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     const bx = (ev.clientX - r.left) * (canvas.width / r.width);
     aimX = Math.max(0, Math.min(COLS - 1, (bx / CELL) | 0));
     aimY = Math.max(0, Math.min(ROWS - 1, (by / CELL) | 0));
-    if (painting) pourAt(aimX, aimY, paintKind);
+    if (painting && shape() === "FREE") pourAt(aimX, aimY, paintKind);
   }
-  function onUp() { painting = false; }
+  function onUp() {
+    if (anchor) commitShape(aimX, aimY, paintKind);
+    painting = false;
+  }
   function onContext(ev) { ev.preventDefault(); }
   function onWheel(ev) {
     ev.preventDefault();
     if (ev.shiftKey) amtI = ev.deltaY > 0 ? Math.min(AMOUNTS.length - 1, amtI + 1) : Math.max(0, amtI - 1);
     else gr = ev.deltaY > 0 ? Math.min(8, gr + 1) : Math.max(1, gr - 1);
     note();
+  }
+
+  /**
+   * Starting scenes.
+   *
+   * A sandbox with an empty box asks the player to already know what is interesting.
+   * These are the shortest routes to each of the cabinet's systems doing something
+   * worth watching, and they double as documentation you can run.
+   */
+  const PRESETS = {
+    "DUNES": function () {
+      for (let x = (COLS / 2 | 0) - 30; x < (COLS / 2 | 0) + 30; x++)
+        for (let y = ROWS - 16; y < ROWS - 1; y++)
+          if (Math.random() < 0.74) g[idx(x, y)] = E.DUNE;
+      for (let x = 22; x < 92; x++) g[idx(x, ROWS - 40)] = E.SLAB;
+      for (let x = 26; x < 88; x++)
+        for (let y = ROWS - 44; y < ROWS - 40; y++) g[idx(x, y)] = E.BRIN;
+    },
+    "VOLCANO": function () {
+      for (let x = 0; x < COLS; x++) {
+        const h = 26 + Math.round(22 * Math.exp(-Math.pow((x - COLS / 2) / 46, 2)));
+        for (let y = ROWS - h; y < ROWS - 1; y++) {
+          const d = Math.abs(x - COLS / 2);
+          g[idx(x, y)] = d < 5 ? 0 : (d < 9 ? E.SLAB : (Math.random() < 0.7 ? E.SLAB : E.GRIT));
+        }
+      }
+      for (let y = ROWS - 12; y < ROWS - 2; y++)
+        for (let x = (COLS / 2 | 0) - 4; x < (COLS / 2 | 0) + 4; x++) {
+          g[idx(x, y)] = E.MAGM; temp[idx(x, y)] = 1300;
+        }
+    },
+    "AQUARIUM": function () {
+      for (let x = 40; x < COLS - 40; x++) {
+        g[idx(x, ROWS - 60)] = E.VITR;
+        for (let y = ROWS - 59; y < ROWS - 1; y++) g[idx(x, y)] = E.BRIN;
+      }
+      for (let y = ROWS - 60; y < ROWS - 1; y++) { g[idx(40, y)] = E.VITR; g[idx(COLS - 41, y)] = E.VITR; }
+      for (let x = 44; x < COLS - 44; x++)
+        for (let y = ROWS - 8; y < ROWS - 1; y++) g[idx(x, y)] = E.DUNE;
+      for (let k = 0; k < 26; k++) g[idx(50 + ((Math.random() * (COLS - 100)) | 0), ROWS - 10)] = E.GERM;
+    },
+    "CIRCUIT": function () {
+      const y0 = ROWS - 70;
+      for (let x = 40; x < COLS - 40; x++) g[idx(x, y0)] = E.FILA;
+      for (let y = y0; y < y0 + 40; y++) { g[idx(40, y)] = E.FILA; g[idx(COLS - 41, y)] = E.FILA; }
+      for (let x = 40; x < COLS - 40; x++) g[idx(x, y0 + 40)] = E.FILA;
+      for (let y = y0 + 41; y < y0 + 48; y++)
+        for (let x = 56; x < 64; x++) g[idx(x, y)] = E.PILE;
+      for (let x = COLS - 90; x < COLS - 60; x++)
+        for (let y = y0 + 42; y < y0 + 50; y++) g[idx(x, y)] = E.CHRG;
+    },
+    "FOREST": function () {
+      for (let x = 0; x < COLS; x++)
+        for (let y = ROWS - 10; y < ROWS - 1; y++) g[idx(x, y)] = E.DUNE;
+      for (let k = 0; k < 22; k++) {
+        const bx = 14 + ((Math.random() * (COLS - 28)) | 0);
+        const h = 22 + ((Math.random() * 26) | 0);
+        for (let y = ROWS - 10 - h; y < ROWS - 10; y++) { g[idx(bx, y)] = E.PITH; g[idx(bx + 1, y)] = E.PITH; }
+        for (let dy = -8; dy <= 4; dy++)
+          for (let dx = -7; dx <= 8; dx++)
+            if (dx * dx + dy * dy * 2 < 46 && Math.random() < 0.6) {
+              const vx = bx + dx, vy = ROWS - 10 - h + dy;
+              if (inb(vx, vy) && !g[idx(vx, vy)]) g[idx(vx, vy)] = E.VINE;
+            }
+      }
+    },
+    "ICE CAVE": function () {
+      for (let x = 0; x < COLS; x++) {
+        const h = 40 + Math.round(16 * Math.sin(x / 26) + 10 * Math.sin(x / 9));
+        for (let y = ROWS - h; y < ROWS - 1; y++) g[idx(x, y)] = E.RIME;
+        for (let y = 1; y < 24 + Math.round(9 * Math.sin(x / 17)); y++) g[idx(x, y)] = E.RIME;
+      }
+      for (let i = 0; i < g.length; i++) if (g[i] === E.RIME) temp[i] = -30;
+      for (let k = 0; k < 40; k++) {
+        const x = 8 + ((Math.random() * (COLS - 16)) | 0);
+        g[idx(x, ROWS - 46)] = E.SPAR;
+      }
+    }
+  };
+  const PRESET_NAMES = Object.keys(PRESETS);
+
+  function loadPreset(name) {
+    g.fill(0); life.fill(0); clone.fill(0); temp.fill(AMBIENT); temp2.fill(AMBIENT);
+    for (let x = 0; x < COLS; x++) g[idx(x, ROWS - 1)] = E.BASE;
+    (PRESETS[name] || PRESETS.DUNES)();
+    note();
+  }
+
+  // ── save and load ───────────────────────────────────────────────────────────
+  /**
+   * Run-length encode the grid into localStorage.
+   *
+   * A sand grid is almost all runs, so RLE takes the 64,000-cell field down to a few
+   * kilobytes without needing a compression library. Temperature is dropped on purpose:
+   * it re-derives from the materials within a second of loading, and storing it would
+   * roughly triple the payload to preserve something the simulation regenerates anyway.
+   */
+  const SLOT = "hall.grain.slot1";
+  function saveScene() {
+    const parts = [];
+    let run = 1;
+    for (let i = 1; i <= g.length; i++) {
+      if (i < g.length && g[i] === g[i - 1] && run < 60000) { run++; continue; }
+      parts.push(g[i - 1] + "x" + run);
+      run = 1;
+    }
+    try {
+      localStorage.setItem(SLOT, parts.join("."));
+      hall.note("scene saved · " + Math.round(parts.join(".").length / 1024) + "kb");
+    } catch (e) { hall.note("save failed: " + e.message); }
+  }
+  function loadScene() {
+    let s = null;
+    try { s = localStorage.getItem(SLOT); } catch (e) { /* storage may be blocked */ }
+    if (!s) { hall.note("no saved scene yet — SAVE first"); return false; }
+    g.fill(0); life.fill(0); clone.fill(0); temp.fill(AMBIENT); temp2.fill(AMBIENT);
+    let i = 0;
+    s.split(".").forEach(function (tok) {
+      const p = tok.split("x");
+      const v = +p[0], n = +p[1];
+      for (let k = 0; k < n && i < g.length; k++, i++) {
+        g[i] = v;
+        life[i] = LIFE0[v];
+        if (v === E.MAGM) temp[i] = 1150;
+        else if (v === E.CIND || v === E.EMBR) temp[i] = 620;
+        else if (v === E.CRYO) temp[i] = -190;
+        else if (v === E.RIME || v === E.FLOC) temp[i] = -8;
+      }
+    });
+    note();
+    hall.note("scene loaded");
+    return true;
   }
 
   // ── the menu bar ────────────────────────────────────────────────────────────
@@ -1102,7 +1382,8 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
   (function () {
     const og = document.createElement("optgroup");
     og.label = "TOOLS";
-    [["ERASE", "t:erase"], ["CHIP", "t:chip"]].forEach(function (t) {
+    [["ERASE", "t:erase"], ["CHIP", "t:chip"],
+     ["HEAT +", "t:heat"], ["COOL -", "t:cool"]].forEach(function (t) {
       const o = document.createElement("option");
       o.value = t[1]; o.textContent = t[0];
       og.appendChild(o);
@@ -1112,10 +1393,12 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
   selMat.addEventListener("change", function () {
     const v = selMat.value;
     if (v.charAt(0) === "t") {
+      clearTools();
       erasing = v === "t:erase"; chipping = v === "t:chip";
+      heating = v === "t:heat"; cooling = v === "t:cool";
     } else {
       const p = v.split(":");
-      erasing = chipping = false;
+      clearTools();
       shelfI = +p[1]; pickI = +p[2];
     }
     note();
@@ -1169,34 +1452,87 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     chipping = !chipping; erasing = false; note();
   });
   const btnTherm = mkButton("THERM", "thermal camera (H)", function () { act("therm"); });
+
+  // shape picker
+  const selShape = styleSelect(document.createElement("select"));
+  SHAPES_T.forEach(function (s) {
+    const o = document.createElement("option");
+    o.value = s;
+    o.textContent = { FREE: "FREEHAND", LINE: "LINE", BOX: "BOX", FILL: "FLOOD FILL" }[s];
+    selShape.appendChild(o);
+  });
+  selShape.addEventListener("change", function () {
+    shapeI = SHAPES_T.indexOf(selShape.value); anchor = null; note(); selShape.blur();
+  });
+
+  const btnPause = mkButton("PAUSE", "freeze the simulation (P)", function () {
+    paused = !paused; note();
+  });
+  const btnStep = mkButton("STEP", "advance exactly one frame (.)", function () {
+    paused = true; stepOnce = true; note();
+  });
+
+  // starting scenes
+  const selPreset = styleSelect(document.createElement("select"));
+  (function () {
+    const o = document.createElement("option");
+    o.value = ""; o.textContent = "SCENE…";
+    selPreset.appendChild(o);
+    PRESET_NAMES.forEach(function (n) {
+      const oo = document.createElement("option");
+      oo.value = n; oo.textContent = n;
+      selPreset.appendChild(oo);
+    });
+  })();
+  selPreset.addEventListener("change", function () {
+    if (selPreset.value) loadPreset(selPreset.value);
+    selPreset.value = ""; selPreset.blur();
+  });
+
+  const btnSave = mkButton("SAVE", "store this scene in the browser", saveScene);
+  const btnLoad = mkButton("LOAD", "restore the stored scene", loadScene);
   const btnReset = mkButton("RESET", "clear the lab (R)", function () { act("reset"); });
 
   bar.appendChild(mkLabel("MATERIAL"));
   bar.appendChild(selMat);
   bar.appendChild(btnErase);
   bar.appendChild(btnChip);
-  bar.appendChild(mkLabel("GRAVITY"));
-  bar.appendChild(selMode);
+  bar.appendChild(mkLabel("SHAPE"));
+  bar.appendChild(selShape);
   bar.appendChild(mkLabel("BRUSH"));
   bar.appendChild(selSize);
   bar.appendChild(selFlow);
+  bar.appendChild(mkLabel("GRAVITY"));
+  bar.appendChild(selMode);
+  bar.appendChild(btnPause);
+  bar.appendChild(btnStep);
   bar.appendChild(btnTherm);
+  bar.appendChild(mkLabel("SCENE"));
+  bar.appendChild(selPreset);
+  bar.appendChild(btnSave);
+  bar.appendChild(btnLoad);
   bar.appendChild(btnReset);
   if (canvas.parentNode) canvas.parentNode.insertBefore(bar, canvas);
 
   /** Push current state into the toolbar. Called whenever anything changes selection,
    *  from either surface, so the two views stay in step. */
   function syncMenu() {
-    selMat.value = erasing ? "t:erase" : chipping ? "t:chip" : "m:" + shelfI + ":" + pickI;
+    selMat.value = erasing ? "t:erase" : chipping ? "t:chip"
+                 : heating ? "t:heat" : cooling ? "t:cool"
+                 : "m:" + shelfI + ":" + pickI;
     selMode.value = MODES[modeI];
+    selShape.value = SHAPES_T[shapeI];
     selSize.value = String(gr);
     selFlow.value = String(amtI);
-    btnErase.style.color = erasing ? "#ff7a9a" : "#8b95a4";
-    btnErase.style.borderColor = erasing ? "#ff7a9a" : "#243040";
-    btnChip.style.color = chipping ? "#ffb86b" : "#8b95a4";
-    btnChip.style.borderColor = chipping ? "#ffb86b" : "#243040";
-    btnTherm.style.color = heatOn ? "#6ee7ff" : "#8b95a4";
-    btnTherm.style.borderColor = heatOn ? "#6ee7ff" : "#243040";
+    function lit(b, on, col) {
+      b.style.color = on ? col : "#8b95a4";
+      b.style.borderColor = on ? col : "#243040";
+    }
+    lit(btnErase, erasing, "#ff7a9a");
+    lit(btnChip, chipping, "#ffb86b");
+    lit(btnTherm, heatOn, "#6ee7ff");
+    lit(btnPause, paused, "#ffb547");
+    btnPause.textContent = paused ? "RESUME" : "PAUSE";
   }
 
   canvas.addEventListener("pointerdown", onDown);
@@ -1214,9 +1550,14 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     const pi = PICK_KEYS.indexOf(String(k).toLowerCase());
     if (pi >= 0) { setPick(pi); return; }
     if (k === "h" || k === "H") { act("therm"); return; }
+    if (k === "p" || k === "P") { act("pause"); return; }
+    if (k === "." || k === ">") { act("step"); return; }
+    if (k === "s" || k === "S") { act("shape"); return; }
+    if (k === "g" || k === "G") { act("heat"); return; }
+    if (k === "b" || k === "B") { act("cool"); return; }
     if (k === "r" || k === "R") { act("reset"); return; }
-    if (k === "f" || k === "F") { chipping = !chipping; erasing = false; note(); return; }
-    if (k === "d" || k === "D") { erasing = !erasing; chipping = false; note(); return; }
+    if (k === "f" || k === "F") { const c = chipping; clearTools(); chipping = !c; note(); return; }
+    if (k === "d" || k === "D") { const e = erasing; clearTools(); erasing = !e; note(); return; }
     if (k === "[" || k === "-") { act("soft"); return; }
     if (k === "]" || k === "=" || k === "+") { act("hard"); return; }
     const map = {
@@ -1245,16 +1586,8 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
     return { hot: hot * 7, fire: fire * 7 };
   }
 
-  function seed() {
-    for (let x = 0; x < COLS; x++) g[idx(x, ROWS - 1)] = E.BASE;
-    for (let x = (COLS / 2 | 0) - 30; x < (COLS / 2 | 0) + 30; x++)
-      for (let y = ROWS - 16; y < ROWS - 1; y++)
-        if (Math.random() < 0.74) g[idx(x, y)] = E.DUNE;
-    // a shelf of stone to build against, and a puddle, so the box is never empty
-    for (let x = 22; x < 92; x++) g[idx(x, ROWS - 40)] = E.SLAB;
-    for (let x = 26; x < 88; x++)
-      for (let y = ROWS - 44; y < ROWS - 40; y++) g[idx(x, y)] = E.BRIN;
-  }
+  /** The opening scene is just the first preset, so there is one definition of it. */
+  function seed() { loadPreset("DUNES"); }
 
   function tick(t) {
     if (!alive) return;
@@ -1267,9 +1600,12 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
         if (span >= 400) { fps = Math.round(fpsFrames * 1000 / span); fpsFrames = 0; fpsStamp = t; }
       }
       const t0 = performance.now();
-      sim(t);
+      if (!paused || stepOnce) {
+        sim(t);
+        stepOnce = false;
+      }
       simMs = simMs * 0.9 + (performance.now() - t0) * 0.1;
-      if (hall.keys && hall.keys[" "]) pourAt(aimX, aimY);
+      if (hall.keys && hall.keys[" "] && shape() === "FREE") pourAt(aimX, aimY);
       paint();
     } catch (err) { console.error("GRAIN", err); }
   }
@@ -1305,6 +1641,8 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
         grain: gr,
         amount: amount(),
         mode: mode(),
+        shape: shape(),
+        paused: paused,
         therm: heatOn,
         aim: { x: aimX, y: aimY },
         aimTemp: temp[idx(aimX, aimY)],
@@ -1313,7 +1651,8 @@ window.Cab = { id: "grain", name: "GRAIN", mount(canvas, hall) {
         hot: a.hot, fire: a.fire,
         fps,
         hud: hud(),
-        legal: ["left","right","up","down","cw","ccw","soft","hard","fire","hold","jump","tuck","chip","erase","therm","reset"]
+        legal: ["left","right","up","down","cw","ccw","soft","hard","fire","hold","jump","tuck",
+                "chip","erase","heat","cool","therm","pause","step","shape","save","load","reset"]
       };
     }
   };

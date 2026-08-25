@@ -7,7 +7,7 @@
  * older version of itself. The build tag goes on the URL so a changed cab is a
  * different resource.
  */
-window.HALL_BUILD = "10";
+window.HALL_BUILD = "12";
 
 window.CABS = [
   { id: "well", name: "WELL", era: "PZL", blurb: "STACK · COMBO · RISE",  genre: "puzzle", bank: "floor1" },
