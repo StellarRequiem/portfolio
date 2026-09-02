@@ -54,14 +54,27 @@ Anything not listed as confirmed remains a candidate.
   spending policy. The inherited race fixture separately reproduces the
   defect that motivated the replacement core.
 
+## Confirmed public origin (reviewed 2026-09-01)
+
+- Live HTTPS origin: https://xclusivexo.com/ceiling/ serves the Ceiling
+  WebMCP release-policy console (defense matrix, scalar adapters, receipts).
+  Page presence is not a WebMCP browser-conformance result.
+- Public repository: https://github.com/StellarRequiem/portfolio is public,
+  GitHub Pages is enabled, and `ceiling/` is in the tree.
+- Dated ceiling commit: `a91f59c` (2026-08-28)
+  "Deploy verified Ceiling WebMCP release"
+  (full SHA `a91f59c826763d566ff14eee4ebfa08318599d07`).
+- Claim ledger at the same origin: https://xclusivexo.com/ceiling/CLAIMS.md
+
 ## Explicitly not claimed
 
 - No ambient agent, browser, account, or operating-system authority.
 - No filesystem, credential, payment, email, social-posting, or network tool.
 - No cross-origin tool exposure.
 - No persistent database or server-side mutation.
-- No real deployment or release-policy integration; the policy is synthetic
-  and resets on reload.
+- No real release system or CI/CD integration. The on-page policy is synthetic
+  and resets on reload. That is separate from the console page itself being
+  deployed at the public origin.
 - The adapter matrix establishes the documented scalar change contract only.
   It does not establish arbitrary workflow compatibility, host-side effect
   enforcement, deployment safety, or universal browser conformance.
@@ -71,13 +84,15 @@ Anything not listed as confirmed remains a candidate.
 - A trusted browser activation is not proof of human identity and does not
   rule out operating-system-level automation.
 - No claim of OpenAI authorship, sponsorship, endorsement, or product status.
-- No live deployment or WebMCP browser-conformance result until separately
-  tested against the deployed origin.
+- No live WebMCP browser-conformance or chip-registration result until
+  separately tested against the deployed origin. HTTPS page presence is not
+  that evidence.
 
 ## Pending external gates
 
 - Fresh independent review of the final submission closure.
-- Live browser registration and execution evidence.
-- Public repository creation and dated commit history.
-- Deployment to the public origin.
-- Public demo video and Devpost submission.
+- Live WebMCP browser registration and execution evidence (chip/API
+  conformance against the deployed origin).
+- Public demo video.
+- Devpost listing (gallery unpublished as of 2026-09-01; operator-stated
+  submission is not treated as confirmed).

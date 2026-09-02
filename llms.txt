@@ -26,6 +26,8 @@ Google Search may ignore it; agents that fetch site roots still benefit.
 ## Site pages (human + agent)
 
 - [Home](https://xclusivexo.com/): capability surface + proof links
+- [Ceiling](https://xclusivexo.com/ceiling/): WebMCP release-policy console (synthetic policy; live origin; conformance untested)
+- [Ceiling claims](https://xclusivexo.com/ceiling/CLAIMS.md): confirmed vs pending ledger
 - [Security research](https://xclusivexo.com/security/): authorized defensive research boundaries
 - [MCP authorization assurance](https://xclusivexo.com/mcp-assurance/): authz-logic review + fixtures
 - [AI assurance runtime](https://xclusivexo.com/assurance/): deny-by-default tool gating narrative
