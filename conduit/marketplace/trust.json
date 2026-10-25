@@ -1,0 +1,30 @@
+{
+  "_comment": "PRODUCTION Conduit marketplace trust store (PUBLIC keys only). Private keys: ~/conduit-app/secrets/marketplace-prod-keys/ (gitignored).",
+  "keys": [
+    {
+      "key_id": "prod-index-2026-10",
+      "public_key": "UQ75387kBITmCqW9vdnll8nQolQwSjZbJmTN1q+/XHs=",
+      "publisher": "conduit-prod",
+      "roles": [
+        "index"
+      ]
+    },
+    {
+      "key_id": "prod-pub-conduit-2026-10",
+      "public_key": "jXbaPUuuCMuGj5FORttxFbX1M4Wwbpy7v7eN/T+7yEY=",
+      "publisher": "conduit-prod",
+      "roles": [
+        "publisher"
+      ]
+    },
+    {
+      "key_id": "prod-revocation-2026-10",
+      "public_key": "1KSu0Vf3FNj7FEbJHZuRxfCq+4ZxjZHTipapetwDrik=",
+      "publisher": "conduit-prod",
+      "roles": [
+        "revocation"
+      ]
+    }
+  ],
+  "revoked_key_ids": []
+}
