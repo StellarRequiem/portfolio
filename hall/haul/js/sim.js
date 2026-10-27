@@ -26,13 +26,17 @@
   // ── seeded RNG (mulberry32) ────────────────────────────────────────────────
   function rngFrom(seed) {
     let a = seed >>> 0;
-    return function () {
+    function next() {
       a = (a + 0x6d2b79f5) >>> 0;
       let t = a;
       t = Math.imul(t ^ (t >>> 15), 1 | t);
       t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+    }
+    // Fork from the current state so a choice can be previewed without spending
+    // the voyage's own rolls. The next call on the fork matches the next call here.
+    next.clone = function () { return rngFrom(a); };
+    return next;
   }
   function hashSeed(str) {
     let h = 2166136261 >>> 0;
@@ -139,17 +143,34 @@
   const TIERS = {
     founder: {
       label: "Founder's Circle", money: 9000, scoreMult: 1.0,
-      load: { o2: 245, water: 845, cal: 900, fuel: 122, parts: 26 }
+      // Sized for a worn-drive transit (~250 days) plus a degraded recycler,
+      // so ordinary repairs and the costly-but-safe event choices actually arrive.
+      load: { o2: 280, water: 1020, cal: 940, fuel: 126, parts: 28 }
     },
     contract: {
       label: "Contract Crew", money: 5200, scoreMult: 1.8,
-      load: { o2: 197, water: 692, cal: 742, fuel: 100, parts: 14 }
+      // A careful watch finishes. Hands-off nominal does not have a pantry for bad luck.
+      load: { o2: 206, water: 720, cal: 770, fuel: 108, parts: 15 }
     },
     lottery: {
       label: "Lottery Colonist", money: 2600, scoreMult: 3.2,
-      load: { o2: 190, water: 668, cal: 700, fuel: 92, parts: 13 }
+      // Short of a full-rations transit on purpose. Ration, repair, or bury someone.
+      load: { o2: 190, water: 640, cal: 660, fuel: 90, parts: 11 }
     }
   };
+
+  /**
+   * The tier is a pressure dial, not just a pantry. Founder's Circle takes the same
+   * events as everyone else and they still cost something — they just don't stack
+   * into a death at half distance after the "safe" choice. Lottery is the full dose.
+   * Shortage damage (no air, no water, no food) is never scaled: an empty tank kills.
+   */
+  const TIER_PRESSURE = {
+    founder:  { hurt: 0.74, co2: 0.55, heal: 1.20, wear: 0.90 },
+    contract: { hurt: 0.90, co2: 0.95, heal: 0.95, wear: 1.00 },
+    lottery:  { hurt: 1.00, co2: 1.10, heal: 0.80, wear: 1.12 }
+  };
+  function pressure(s) { return TIER_PRESSURE[s.tier] || TIER_PRESSURE.contract; }
 
   const CAUSES = {
     hypoxia: "hypoxia",
@@ -219,7 +240,10 @@
   // ── derived ────────────────────────────────────────────────────────────────
   function living(s) { return s.crew.filter(function (c) { return c.alive; }); }
   function hasRole(s, key) {
-    return s.crew.some(function (c) { return c.alive && c.role === key && c.health > 25; });
+    // A bruised specialist still has the skill. The bonus drops out only when they
+    // are about to collapse — the old cutoff at 25 turned a bad week into a spiral
+    // the moment the medic crossed it.
+    return s.crew.some(function (c) { return c.alive && c.role === key && c.health > 12; });
   }
   function avgMorale(s) {
     const L = living(s);
@@ -328,7 +352,7 @@
       note(s, "FAULT — " + k + " module degraded (" + dmg.toFixed(1) + "%).", "fault");
       if (k === "hab") {
         const v = L[Math.floor(s.rand() * L.length)];
-        v.health -= 6 + s.rand() * 10;
+        v.health -= (6 + s.rand() * 10) * pressure(s).hurt;
         v.sick = "injury";
       }
     }
@@ -338,7 +362,7 @@
     if (s.rand() < sickRisk) {
       const v = L[Math.floor(s.rand() * L.length)];
       const severity = 10 + s.rand() * 18;
-      const mitigated = hasRole(s, "medic") ? severity * 0.55 : severity;
+      const mitigated = (hasRole(s, "medic") ? severity * 0.55 : severity) * pressure(s).hurt;
       v.health -= mitigated;
       v.sick = s.rand() < 0.4 ? "rads" : "co2";
       s.stats.events += 1;
@@ -374,11 +398,14 @@
     if (s.res.fuel <= 0 && s.throttle > 0.6) s.throttle = 0.6;
 
     // Wear. Heat from a hard burn hurts life-support too, which is the hidden cost
-    // of sprinting — it accelerates the recycling spiral.
-    s.mod.drive = Math.max(0, s.mod.drive - 0.075 * s.throttle * (0.9 + s.rand() * 0.3));
+    // of sprinting — it accelerates the recycling spiral. The daily rates are low
+    // enough that a maintained ship stays in the band where recycling still works;
+    // a neglected one does not. Events, not the calendar, are what break a module.
+    const wear = pressure(s).wear;
+    s.mod.drive = Math.max(0, s.mod.drive - 0.048 * wear * s.throttle * (0.9 + s.rand() * 0.3));
     // Heat scales with the square of throttle, so a hard burn cooks the recycler and
     // quietly raises consumption for the rest of the voyage.
-    s.mod.life  = Math.max(0, s.mod.life  - 0.110 * (0.85 + s.rand() * 0.3) * (0.72 + 0.5 * s.throttle * s.throttle));
+    s.mod.life  = Math.max(0, s.mod.life  - 0.072 * wear * (0.85 + s.rand() * 0.3) * (0.72 + 0.5 * s.throttle * s.throttle));
 
     // travel
     s.progress = Math.min(1, s.progress + speed(s));
@@ -394,14 +421,18 @@
     // "just eat less" a real decision instead of a free lever.
     if (s.ration < 1) {
       const bite = (1 - s.ration);
-      L.forEach(function (c) { c.morale -= 0.75 * bite * 2; c.health -= 0.5 * bite * 2; });
+      // Slow, and a medic on short rations can still out-heal it. The old bite
+      // plus a heal gate at full rations made "eat less" a death sentence, which
+      // closed Lottery — the tier that has to ration — before Mars.
+      L.forEach(function (c) { c.morale -= 0.75 * bite * 2; c.health -= 0.32 * bite * 2; });
     } else if (s.ration > 1) {
       L.forEach(function (c) { c.morale += 0.25; });
     }
 
-    // CO₂ climbs as life-support fails
-    if (s.mod.life < 55) {
-      const sev = (55 - s.mod.life) * 0.055;
+    // CO₂ climbs once the scrubber is actually failing, not merely worn.
+    // Above the gate a tired recycler costs you stores. Below it, it costs blood.
+    if (s.mod.life < 46) {
+      const sev = (46 - s.mod.life) * 0.040 * pressure(s).co2;
       L.forEach(function (c) { c.health -= sev; c.sick = "co2"; });
     }
 
@@ -421,14 +452,21 @@
     const damp = hasRole(s, "content") ? 0.55 : 1;
     L.forEach(function (c) {
       c.morale -= driftBase * damp;
-      if (c.morale < 18) c.health -= 0.55 + s.rand() * 0.6;
+      // Despair hurts a fed crew. Short rations already take their health directly;
+      // stacking the drift on top of that made the ration lever fatal, and Lottery
+      // cannot finish a transit without it.
+      if (c.morale < 18 && s.ration >= 1) c.health -= (0.55 + s.rand() * 0.6) * pressure(s).hurt;
       c.morale = Math.max(0, Math.min(100, c.morale));
     });
 
-    // recovery only when genuinely stable
-    const fine = !short && s.mod.life > 62 && s.ration >= 1;
+    // Recovery while the tanks are not empty. A tired scrubber slows it; short
+    // rations slow it further. Neither one switches healing off — that gate is
+    // what turned a hungry fortnight into a burial.
+    const fine = !short && s.mod.life > 48 && s.ration >= 0.65;
     if (fine) {
-      const heal = hasRole(s, "medic") ? 0.85 : 0.3;
+      let heal = (hasRole(s, "medic") ? 0.85 : 0.38) * pressure(s).heal;
+      if (s.mod.life < 70) heal *= 0.6;
+      if (s.ration < 1) heal *= 0.55;
       L.forEach(function (c) { if (c.health < 100) c.health = Math.min(100, c.health + heal); });
     }
 
@@ -488,14 +526,149 @@
     return s;
   }
 
-  function score(s) {
+  /**
+   * The ledger, in pieces, so a 0 and a 500 are different sentences.
+   * Distance counts even when nobody is left to collect it — getting most of the
+   * way there is not the same result as dying on the pad. The displayed total
+   * floors at zero; `subtotal` can go negative when shortage days eat the rest,
+   * and the end screen shows that line rather than a bare zero.
+   */
+  function scoreParts(s) {
     const surv = living(s).length;
-    const base = surv * 1200
-      + Math.round(avgMorale(s) * 6)
-      + Math.round((s.res.o2 + s.res.water + s.res.cal) * 0.4)
-      + (s.arrived ? 2500 : 0)
-      - s.stats.daysShort * 40;
-    return Math.max(0, Math.round(base * TIERS[s.tier].scoreMult));
+    const crew = surv * 1200;
+    const arrival = s.arrived ? 2500 : 0;
+    const distance = Math.round(Math.max(0, Math.min(1, s.progress || 0)) * 800);
+    const stores = Math.round((Math.max(0, s.res.o2) + Math.max(0, s.res.water) + Math.max(0, s.res.cal)) * 0.35);
+    const spirit = Math.round(avgMorale(s) * 4);
+    const shortage = (s.stats.daysShort || 0) * 16;
+    const mult = TIERS[s.tier] ? TIERS[s.tier].scoreMult : 1;
+    const subtotal = crew + arrival + distance + stores + spirit - shortage;
+    return {
+      crew: crew, arrival: arrival, distance: distance, stores: stores,
+      spirit: spirit, shortage: shortage, mult: mult, subtotal: subtotal,
+      total: Math.max(0, Math.round(subtotal * mult)),
+      surv: surv, progress: s.progress || 0
+    };
+  }
+  function score(s) { return scoreParts(s).total; }
+
+  /**
+   * The public API, bound late so choice resolution can call back into it.
+   * Event code receives this object as `Haul` and must not see a half-built module.
+   */
+  let API = null;
+
+  function cloneRun(s) {
+    const c = JSON.parse(JSON.stringify(s, function (k, v) {
+      return typeof v === "function" ? undefined : v;
+    }));
+    c.rand = s.rand.clone();
+    return c;
+  }
+
+  /**
+   * Apply a choice, then scale the health it took off by the tier. Positive healing
+   * is left alone. A hit that would have killed on Lottery may leave a Founder's
+   * Circle crewmember standing; if it does, the death log and the morale shock
+   * come back off, because they did not die.
+   */
+  function commitChoice(s, choice) {
+    const snap = s.crew.map(function (c) {
+      return { health: c.health, alive: c.alive, name: c.name };
+    });
+    const mem = s.memorials.length;
+    const logN = s.log.length;
+    choice.apply(s, API);
+    const f = pressure(s).hurt;
+    if (f >= 0.999) return;
+    const revived = [];
+    s.crew.forEach(function (c, i) {
+      const p = snap[i];
+      if (!p) return;
+      if (c.health < p.health) c.health = p.health + (c.health - p.health) * f;
+      if (!c.alive && p.alive && c.health > 0) {
+        c.alive = true;
+        c.cause = null;
+        c.dayLost = null;
+        revived.push(c.name);
+      }
+    });
+    if (!revived.length) return;
+    // killCrew docked 14 morale from whoever was still alive at the moment of death.
+    // Put that shock back. A one-point error on a double revival is acceptable;
+    // a ghost memorial is not.
+    s.crew.forEach(function (c) {
+      if (c.alive) c.morale = Math.min(100, c.morale + 14 * revived.length);
+    });
+    let dropped = 0;
+    s.log = s.log.filter(function (line, i) {
+      if (i < logN) return true;
+      if (line.kind === "death" && revived.some(function (n) { return String(line.text).indexOf(n) >= 0; })) return false;
+      if (line.kind === "control" && String(line.text).indexOf("does not affect the projected timeline") >= 0 && dropped < revived.length) {
+        dropped += 1;
+        return false;
+      }
+      return true;
+    });
+    s.memorials = s.memorials.filter(function (m, i) {
+      return i < mem || revived.indexOf(m.name) < 0;
+    });
+  }
+
+  function fmtSigned(n) {
+    const r = Math.round(n);
+    return (r > 0 ? "+" : "") + r;
+  }
+
+  /** What a choice will actually do, from a forked copy of the voyage. */
+  function forecast(s, choice) {
+    const before = cloneRun(s);
+    const after = cloneRun(s);
+    try { commitChoice(after, choice); }
+    catch (err) { return ["Outcome unclear."]; }
+    const bits = [];
+    const resName = { o2: "Oxygen", water: "Water", cal: "Calories", fuel: "Fuel", parts: "Parts" };
+    const resUnit = { o2: " kg", water: " kg", cal: " kg", fuel: "", parts: "" };
+    ["o2", "water", "cal", "fuel", "parts"].forEach(function (k) {
+      const d = after.res[k] - before.res[k];
+      if (Math.abs(d) < 0.5) return;
+      bits.push(resName[k] + " " + fmtSigned(d) + resUnit[k]);
+    });
+    if (Math.abs((after.money || 0) - (before.money || 0)) >= 1) {
+      const d = Math.round(after.money - before.money);
+      bits.push("Credit " + (d > 0 ? "+" : "") + d.toLocaleString());
+    }
+    const modName = { life: "Life support", drive: "Drive", hab: "Habitat", cargo: "Cargo" };
+    ["life", "drive", "hab", "cargo"].forEach(function (k) {
+      const d = after.mod[k] - before.mod[k];
+      if (Math.abs(d) < 0.5) return;
+      bits.push(modName[k] + " " + fmtSigned(d) + "%");
+    });
+
+    const healthBits = [];
+    const deathBits = [];
+    after.crew.forEach(function (c, i) {
+      const p = before.crew[i];
+      if (!p) return;
+      if (p.alive && !c.alive) deathBits.push(c.name + " dies (" + (c.cause || "lost") + ")");
+      else if (p.alive && c.alive && Math.abs(c.health - p.health) >= 1) healthBits.push({ name: c.name, d: c.health - p.health });
+    });
+    if (healthBits.length >= 3) {
+      const nums = healthBits.map(function (h) { return h.d; });
+      const same = nums.every(function (n) { return Math.abs(n - nums[0]) < 1.5; });
+      if (same) bits.push("Crew " + fmtSigned(nums[0]) + " health");
+      else healthBits.forEach(function (h) { bits.push(h.name + " " + fmtSigned(h.d) + " health"); });
+    } else {
+      healthBits.forEach(function (h) { bits.push(h.name + " " + fmtSigned(h.d) + " health"); });
+    }
+    deathBits.forEach(function (t) { bits.push(t); });
+
+    const mb = avgMorale(before), ma = avgMorale(after);
+    if (living(after).length && Math.abs(ma - mb) >= 1) bits.push("Morale " + fmtSigned(ma - mb));
+    if (!before.droneAboard && after.droneAboard) bits.push("Drone aboard — oxygen every day");
+    if (before.throttle !== after.throttle) bits.push("Throttle now " + after.throttle);
+    if (!bits.length) bits.push("No change to the ship");
+    return bits;
   }
 
   function simulate(cfg, policy, maxDays) {
@@ -512,18 +685,20 @@
     return s;
   }
 
-  return {
+  API = {
     NOMINAL_DAYS: NOMINAL_DAYS,
     BRAKE_RESERVE: BRAKE_RESERVE,
     WAYPOINTS: WAYPOINTS, ROLES: ROLES, TIERS: TIERS, USE: USE, CAUSES: CAUSES,
     NAMES: NAMES,
     registerPatrons: registerPatrons, namePool: namePool,
     rngFrom: rngFrom, hashSeed: hashSeed,
-    createRun: createRun, step: step, score: score, simulate: simulate,
+    createRun: createRun, step: step, score: score, scoreParts: scoreParts, simulate: simulate,
+    commitChoice: commitChoice, forecast: forecast,
     living: living, hasRole: hasRole, avgMorale: avgMorale,
     recycleRate: recycleRate, dailyUse: dailyUse, daysLeft: daysLeft,
     speed: speed, daysRemainingAtPace: daysRemainingAtPace,
     currentWaypoint: currentWaypoint, nextWaypoint: nextWaypoint,
     repair: repair, killCrew: killCrew, note: note
   };
+  return API;
 });

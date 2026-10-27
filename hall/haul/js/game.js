@@ -54,6 +54,7 @@
   let speedIdx = 0;
   let lastEventDay = -99;
   let shake = 0;
+  let endShown = false;
 
   // ── setup: tier picker ─────────────────────────────────────────────────────
   const TIER_COPY = {
@@ -88,10 +89,20 @@
     if (!chosenTier) return;
     start(chosenTier);
   });
-  $("again").addEventListener("click", function () {
+  $("again").addEventListener("click", function (e) {
+    if ($("s-end").classList.contains("locked") || $("again").disabled) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     $("s-end").classList.add("hide");
     $("s-title").classList.remove("hide");
     $("s-game").style.display = "none";
+  });
+  // The stones stay up until the button is used. A click on the backdrop does nothing,
+  // and the button itself ignores the click that dismissed the last card.
+  $("s-end").addEventListener("click", function (e) {
+    if (e.target !== $("again")) e.stopPropagation();
   });
 
   /**
@@ -119,6 +130,7 @@
     crossingDone = false;
     lastEventDay = -99;
     running = false;
+    endShown = false;
     tAcc = 0;
     $("s-title").classList.add("hide");
     $("s-end").classList.add("hide");
@@ -131,7 +143,44 @@
     $("runbtn").classList.add("run");
     window.Haul.note(run, "MANIFEST cleared for departure. Astraeus wishes you a productive transit.", "control");
     paintAll();
+    fitDash();
+    if (!seenBrief()) showBrief();
     if (!raf) raf = requestAnimationFrame(frame);
+  }
+
+  function seenBrief() {
+    try { return localStorage.getItem("haul.brief.v1") === "1"; }
+    catch (_) { return false; }
+  }
+  function showBrief() {
+    running = false;
+    const btn = $("runbtn");
+    if (btn) { btn.textContent = "RUN"; btn.classList.add("run"); }
+    $("s-brief").classList.remove("hide");
+  }
+  $("brief-ok").addEventListener("click", function () {
+    try { localStorage.setItem("haul.brief.v1", "1"); } catch (_) {}
+    $("s-brief").classList.add("hide");
+  });
+  $("b-brief").addEventListener("click", function () {
+    if (!run || !$("s-end").classList.contains("hide")) return;
+    showBrief();
+  });
+
+  /** True while a card is up. The voyage clock does not move in any of these. */
+  function uiBlocked() {
+    if (pendingEvent) return true;
+    return ["s-ev", "s-cross", "s-aero", "s-eva", "s-brief", "s-end"].some(function (id) {
+      const el = $(id);
+      return el && !el.classList.contains("hide");
+    });
+  }
+
+  function fitDash() {
+    const dash = document.querySelector(".dash");
+    if (!dash) return;
+    const h = Math.max(72, Math.ceil(dash.getBoundingClientRect().height));
+    document.documentElement.style.setProperty("--dash-h", h + "px");
   }
 
   // ── canvas sizing ──────────────────────────────────────────────────────────
@@ -183,10 +232,26 @@
     paintAll();
   });
   $("runbtn").addEventListener("click", function () {
+    if (!run || uiBlocked()) return;
     running = !running;
     $("runbtn").textContent = running ? "HOLD" : "RUN";
     $("runbtn").classList.toggle("run", !running);
   });
+
+  (function bindTips() {
+    const hint = $("lever-hint");
+    const idle = hint ? hint.innerHTML : "";
+    document.querySelectorAll("[data-tip]").forEach(function (b) {
+      const tip = b.getAttribute("data-tip");
+      if (tip && !b.getAttribute("title")) b.setAttribute("title", tip);
+      function show() { if (hint) hint.textContent = tip; }
+      function hide() { if (hint) hint.innerHTML = idle; }
+      b.addEventListener("mouseenter", show);
+      b.addEventListener("focus", show);
+      b.addEventListener("mouseleave", hide);
+      b.addEventListener("blur", hide);
+    });
+  })();
 
   // Time compression. The default is deliberately slow enough to watch the ship move;
   // this is here for anyone who would rather not sit through the quiet stretches.
@@ -272,19 +337,43 @@
       }
       b.disabled = !ok;
       const note = ch.note || (ok ? "" : "Insufficient stores.");
-      b.innerHTML = "› " + ch.text + (note ? "<small>" + note + "</small>" : "");
+      let fx = [];
+      if (ok && window.Haul.forecast) {
+        try { fx = window.Haul.forecast(run, ch) || []; }
+        catch (_) { fx = []; }
+      }
+      b.innerHTML = "› " + esc(ch.text)
+        + (fx.length ? "<small class='fx'>" + esc(fx.join(" · ")) + "</small>" : "")
+        + (note ? "<small>" + esc(note) + "</small>" : "");
       if (!ok) { opts.appendChild(b); return; }
       b.addEventListener("click", function () {
-        ch.apply(run, window.Haul);
+        window.Haul.commitChoice(run, ch);
         run.stats.events += 1;
         shake = 8;
         puff(10);
         $("s-ev").classList.add("hide");
         pendingEvent = null;
+        reap();
         paintAll();
       });
       opts.appendChild(b);
     });
+  }
+
+  /** Deaths that an event left at zero health, without waiting for another day. */
+  function reap() {
+    if (!run) return;
+    run.crew.forEach(function (c) {
+      if (c.alive && c.health <= 0) window.Haul.killCrew(run, c, c.sick || "injury");
+    });
+    if (run.arrived || (!window.Haul.living(run).length && run.day > 0)) {
+      if (!run.arrived) {
+        run.alive = false;
+        run.endReason = run.endReason || "all-hands";
+      }
+      running = false;
+      showEnd();
+    }
   }
 
   function puff(n) {
@@ -299,11 +388,11 @@
 
   // ── dashboard ──────────────────────────────────────────────────────────────
   const GAUGES = [
-    { k: "o2",    label: "OXYGEN",  unit: "kg", max: 260 },
-    { k: "water", label: "WATER",   unit: "kg", max: 880 },
-    { k: "cal",   label: "CALORIE", unit: "kg", max: 920 },
-    { k: "fuel",  label: "FUEL",    unit: "u",  max: 132 },
-    { k: "parts", label: "PARTS",   unit: "",   max: 32 }
+    { k: "o2",    label: "OXYGEN",   unit: "kg", max: 280 },
+    { k: "water", label: "WATER",    unit: "kg", max: 1020 },
+    { k: "cal",   label: "CALORIES", unit: "kg", max: 940 },
+    { k: "fuel",  label: "FUEL",     unit: "u",  max: 126 },
+    { k: "parts", label: "PARTS",    unit: "",   max: 28 }
   ];
 
   function paintGauges() {
@@ -332,8 +421,8 @@
       const el = document.createElement("div");
       el.className = cls;
       el.innerHTML =
-        "<label>" + g.label + "</label>" +
-        "<div class='v'>" + (g.k === "parts" ? v : v.toFixed(0)) + "<span style='color:var(--dim);font-size:9px'> " + g.unit + "</span></div>" +
+        "<label>" + g.label + (g.unit ? " · " + g.unit : "") + "</label>" +
+        "<div class='v'>" + (g.k === "parts" ? v : v.toFixed(0)) + "</div>" +
         "<div class='b'><i style='width:" + (frac * 100) + "%'></i></div>" +
         "<div class='d'>" + sub + "</div>";
       host.appendChild(el);
@@ -532,6 +621,18 @@
     const st = $("b-status");
     if (run.blackout) { st.className = "warn"; st.textContent = "◈ COMMS BLACKOUT"; }
     else { st.className = ""; st.textContent = "LINK NOMINAL"; }
+    const sc = window.Haul.scoreParts ? window.Haul.scoreParts(run) : null;
+    const scoreEl = $("b-score");
+    if (sc && scoreEl) {
+      scoreEl.innerHTML = "SCORE <b>" + sc.total.toLocaleString() + "</b>";
+      scoreEl.title = "Crew " + sc.crew.toLocaleString()
+        + " · distance " + sc.distance.toLocaleString()
+        + " · stores " + sc.stores.toLocaleString()
+        + " · morale " + sc.spirit.toLocaleString()
+        + (sc.arrival ? " · arrival " + sc.arrival.toLocaleString() : "")
+        + (sc.shortage ? " · shortage −" + sc.shortage.toLocaleString() : "")
+        + " · " + run.tierLabel + " ×" + sc.mult;
+    }
   }
 
   function paintAll() {
@@ -547,9 +648,9 @@
     const dt = last ? ts - last : 16;
     last = ts;
 
-    if (running && !pendingEvent && run.alive && !run.arrived) {
+    if (running && !uiBlocked() && run.alive && !run.arrived) {
       tAcc += dt * SPEEDS[speedIdx];
-      while (tAcc >= DAY_MS) {
+      while (tAcc >= DAY_MS && !uiBlocked()) {
         tAcc -= DAY_MS;
         const before = run.crew.filter(function (c) { return c.alive; }).length;
         window.Haul.step(run);
@@ -565,6 +666,8 @@
         }
 
         if (run.alive && !run.arrived) maybeEvent();
+        // A card opened this day. Do not spend the days still queued behind it.
+        if (pendingEvent || uiBlocked()) break;
         if (!run.alive || run.arrived) { running = false; showEnd(); break; }
       }
       paintAll();
@@ -789,8 +892,11 @@
     $("runbtn").textContent = "RUN";
     $("runbtn").classList.add("run");
     walk = V.createEva(run, window.Haul);
-    thrust = { x: 0, y: 0 };
+    thrust = { x: 0, y: 0, brake: false };
     $("eva-result").classList.add("hide");
+    const sub = $("eva-help-sub");
+    if (sub) sub.textContent = "Cyan arrow: where you are going. Amber arrow: where you are thrusting. The suit assist bleeds a little speed. Only the airlock ends the walk.";
+    fitDash();
     $("s-eva").classList.remove("hide");
     sizeEva();
     if (!evaRaf) evaRaf = requestAnimationFrame(evaFrame);
@@ -812,17 +918,17 @@
     const got = walk.haul;
     if (outcome === "returned") {
       const empty = !walk.tookOff;
-      $("ev-head").textContent = empty ? "EVA ABORTED" : "BACK INSIDE";
-      $("ev-head").style.color = empty ? "var(--dim)" : "var(--mint)";
-      $("ev-body").textContent = empty
+      $("eva-head").textContent = empty ? "EVA ABORTED" : "BACK INSIDE";
+      $("eva-head").style.color = empty ? "var(--dim)" : "var(--mint)";
+      $("eva-copy").textContent = empty
         ? "The hatch never closed behind them. Nothing gained, a little air spent."
         : walk.walker.name + " is back through the lock with " +
           Math.round(got.parts) + " parts, " + Math.round(got.o2) + " kg oxygen, " +
           Math.round(got.water) + " kg water and " + Math.round(got.cal) + " kg stores.";
     } else {
-      $("ev-head").textContent = "TETHER RECOVERED EMPTY";
-      $("ev-head").style.color = "var(--rose)";
-      $("ev-body").textContent = walk.walker.name +
+      $("eva-head").textContent = "TETHER RECOVERED EMPTY";
+      $("eva-head").style.color = "var(--rose)";
+      $("eva-copy").textContent = walk.walker.name +
         " ran the suit dry outside the lock. The salvage went with them.";
     }
     if (window.Haul.living(run).length < before) { shake = 18; puff(20); }
@@ -841,6 +947,7 @@
   document.querySelectorAll("[data-ev]").forEach(function (b) {
     const dir = b.dataset.ev;
     const set = function (on) {
+      if (dir === "brake") { thrust.brake = !!on; return; }
       if (dir === "up") thrust.y = on ? -1 : 0;
       if (dir === "down") thrust.y = on ? 1 : 0;
       if (dir === "left") thrust.x = on ? -1 : 0;
@@ -858,15 +965,24 @@
   };
   window.addEventListener("keydown", function (e) {
     if ($("s-eva").classList.contains("hide")) return;
+    if (e.key === " " || e.code === "Space") { thrust.brake = true; e.preventDefault(); return; }
+    if (e.key === "Escape") {
+      const note = $("eva-help-sub");
+      if (note) note.textContent = "Esc does not open the airlock. You are already outside. Brake, turn around, and fly back — nothing else ends the walk.";
+      e.preventDefault();
+      return;
+    }
     const k = EVA_KEYS[e.key];
     if (k) { thrust[k[0]] = k[1]; e.preventDefault(); }
   });
   window.addEventListener("keyup", function (e) {
     if ($("s-eva").classList.contains("hide")) return;
+    if (e.key === " " || e.code === "Space") { thrust.brake = false; return; }
     const k = EVA_KEYS[e.key];
     if (k && thrust[k[0]] === k[1]) thrust[k[0]] = 0;
   });
   window.addEventListener("resize", function () {
+    fitDash();
     if (!$("s-eva").classList.contains("hide")) sizeEva();
   });
 
@@ -919,8 +1035,11 @@
       const living = H.living(run).length;
       // Margin: how much of the voyage the remaining stores actually cover.
       const left = H.daysLeft ? H.daysLeft(run) : null;
-      const need = Math.max(1, window.Haul.NOMINAL_DAYS - run.day);
-      const margin = left == null ? 1 : Math.max(0, Math.min(1, left / need));
+      const need = Math.max(1, H.daysRemainingAtPace(run));
+      // daysLeft is {o2, water, cal}. The thin-stores term is the worst of the three
+      // against the days still to fly — dividing the object was NaN and the term never moved.
+      const worst = left == null ? need : Math.min(left.o2, left.water, left.cal);
+      const margin = Math.max(0, Math.min(1, worst / need));
       AU.tension(entry.tension({
         living: living, hab: run.mod.hab, margin: margin,
         progress: run.progress
@@ -955,8 +1074,11 @@
 
   // ── end ────────────────────────────────────────────────────────────────────
   function showEnd() {
+    if (!run || endShown) return;
+    endShown = true;
+    running = false;
     const alive = window.Haul.living(run).length;
-    const sc = window.Haul.score(run);
+    const sc = window.Haul.scoreParts ? window.Haul.scoreParts(run) : { total: window.Haul.score(run) };
     const good = run.arrived && alive > 0;
     $("e-head").className = good ? "good" : "bad";
     $("e-head").textContent = run.arrived ? (alive ? "TOUCHDOWN" : "THE SHIP ARRIVED") : "LOST WITH ALL HANDS";
@@ -974,7 +1096,31 @@
             "Mission Control has updated the projected timeline.";
     }
     $("e-sub").innerHTML = sub;
-    $("e-score").textContent = "SCORE  " + sc.toLocaleString() + "   ·   " + run.tierLabel;
+    $("e-score").textContent = "SCORE  " + sc.total.toLocaleString() + "   ·   " + run.tierLabel;
+
+    const lines = $("e-lines");
+    if (lines && sc.crew != null) {
+      lines.innerHTML = "";
+      function row(label, value, neg) {
+        const li = document.createElement("li");
+        if (neg) li.className = "neg";
+        li.innerHTML = "<span>" + label + "</span><b>" + value + "</b>";
+        lines.appendChild(li);
+      }
+      row("Crew aboard (" + sc.surv + ")", sc.crew.toLocaleString());
+      row("Distance (" + Math.round(sc.progress * 100) + "%)", sc.distance.toLocaleString());
+      row("Stores still aboard", sc.stores.toLocaleString());
+      row("Morale", sc.spirit.toLocaleString());
+      row("Arrival", sc.arrival ? sc.arrival.toLocaleString() : "—");
+      if (sc.shortage) row("Shortage days", "−" + sc.shortage.toLocaleString(), true);
+      row(run.tierLabel + " multiplier", "×" + Number(sc.mult).toFixed(1));
+      const why = document.createElement("li");
+      why.className = "why";
+      why.textContent = sc.subtotal < 0
+        ? "Shortage days wiped the ledger. The floor is zero — the lines above are why."
+        : "Crew, distance, stores, and morale, then the tier multiplier. Dying on day 160 is not the same score as dying on the pad.";
+      lines.appendChild(why);
+    }
 
     const st = $("e-stones");
     st.innerHTML = "";
@@ -999,6 +1145,16 @@
     // Let the score fall away rather than cut — the stones deserve the quiet.
     if (AU) { AU.tension(0); setTimeout(function () { AU.stop(2.2); }, 400); }
     if (scoreTimer) { clearInterval(scoreTimer); scoreTimer = null; }
-    setTimeout(function () { $("s-end").classList.remove("hide"); }, 700);
+    $("s-end").classList.add("locked");
+    $("again").disabled = true;
+    // Delay the card, then ignore clicks long enough that the choice which ended
+    // the run cannot also dismiss it.
+    setTimeout(function () {
+      $("s-end").classList.remove("hide");
+      setTimeout(function () {
+        $("s-end").classList.remove("locked");
+        $("again").disabled = false;
+      }, 1400);
+    }, 450);
   }
 })();

@@ -10,8 +10,10 @@
  * collect adds mass, and mass makes you harder to stop — in vacuum there is no drag, so
  * a heavy return is a slow return. Greed is priced in the one currency that kills you.
  *
- * Newtonian: thrust changes velocity, nothing slows you down but more thrust. That is
- * both the skill and the trap.
+ * Newtonian, with a suit assist: thrust changes velocity, mass makes it harder to
+ * stop, and the brake is counter-thrust that spends propellant. A light damping
+ * assist bleeds a little speed on its own so a single tap is not a permanent
+ * commitment. Greed is still priced — a heavy haul brakes slower and costs more air.
  */
 (function (root, factory) {
   const api = factory();
@@ -25,11 +27,14 @@
   const AIRLOCK = { x: 90, y: FIELD_H / 2, r: 62 };
 
   const SUIT_O2       = 100;     // suit charge, also the clock
-  const O2_IDLE       = 0.030;   // per tick just existing
-  const O2_THRUST     = 0.030;   // extra while burning
+  const O2_IDLE       = 0.012;   // per tick just existing (~2 min at 60fps)
+  const O2_THRUST     = 0.010;   // extra while burning or braking
   const PROP_START    = 100;
   const PROP_THRUST   = 0.085;
   const THRUST_ACCEL  = 0.045;
+  const BRAKE_ACCEL   = 0.11;    // counter-thrust along the velocity vector
+  const DAMP_COAST    = 0.0035;  // suit assist, always — a tap is not forever
+  const DAMP_BRAKE    = 0.018;
   const GRAB_RANGE    = 26;
   const BASE_MASS     = 1.0;
   const MASS_PER_KG   = 0.045;   // how much each unit of haul dulls your thrust
@@ -82,7 +87,8 @@
       done: false,
       outcome: null,
       tookOff: false,
-      elapsed: 0
+      elapsed: 0,
+      thrust: { x: 0, y: 0, brake: false }
     };
   }
 
@@ -98,7 +104,10 @@
     if (e.done) return e;
     e.elapsed += dt;
 
+    input = input || { x: 0, y: 0 };
     const thrusting = (input.x !== 0 || input.y !== 0) && e.prop > 0;
+    const braking = !!input.brake && e.prop > 0;
+    e.thrust = { x: input.x || 0, y: input.y || 0, brake: braking };
     const m = totalMass(e);
 
     if (thrusting) {
@@ -110,6 +119,23 @@
       if (!e.tookOff && !inAirlock(e)) e.tookOff = true;
     }
 
+    // Brake is not a cancel button. It thrusts against whatever velocity you have,
+    // and a heavier haul — more salvage — takes longer and more propellant.
+    if (braking) {
+      const sp = Math.hypot(e.vx, e.vy);
+      if (sp > 0.01) {
+        const a = BRAKE_ACCEL / m;
+        e.vx -= (e.vx / sp) * a * dt;
+        e.vy -= (e.vy / sp) * a * dt;
+      }
+      e.prop = Math.max(0, e.prop - PROP_THRUST * 0.55 * dt);
+    }
+
+    const damp = braking ? DAMP_BRAKE : DAMP_COAST;
+    e.vx *= (1 - damp);
+    e.vy *= (1 - damp);
+    if (Math.hypot(e.vx, e.vy) < 0.01) { e.vx = 0; e.vy = 0; }
+
     e.x += e.vx * dt;
     e.y += e.vy * dt;
 
@@ -120,7 +146,7 @@
     if (e.y > FIELD_H - 12) { e.y = FIELD_H - 12; e.vy = -Math.abs(e.vy) * 0.4; }
 
     // oxygen burns whether or not you are doing anything useful
-    e.o2 -= (O2_IDLE + (thrusting ? O2_THRUST : 0)) * e.o2Rate * dt;
+    e.o2 -= (O2_IDLE + ((thrusting || braking) ? O2_THRUST : 0)) * e.o2Rate * dt;
 
     // debris drifts
     e.debris.forEach(function (d) {
@@ -170,7 +196,9 @@
    * even a successful EVA has a floor cost — going outside is never free.
    */
   function resolve(e, s, Haul) {
-    const spent = (SUIT_O2 - Math.max(0, e.o2)) * 0.42;
+    // Suit charge is drawn from ship stores. A full bottle is about 18 kg —
+    // meaningful, not a voyage-ending tuition fee for learning the controls.
+    const spent = (SUIT_O2 - Math.max(0, e.o2)) * 0.18;
     s.res.o2 = Math.max(0, s.res.o2 - spent);
 
     if (e.outcome === "returned") {
@@ -278,11 +306,40 @@
     ctx.lineTo(e.x, e.y);
     ctx.stroke();
 
+    // velocity (cyan) and thrust (amber). The suit faces the thrust when you are
+    // burning, so the key you hold and the way the figure points are the same thing.
+    function arrow(x0, y0, x1, y1, col) {
+      ctx.strokeStyle = col;
+      ctx.fillStyle = col;
+      ctx.lineWidth = 1.7;
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.stroke();
+      const a = Math.atan2(y1 - y0, x1 - x0);
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x1 - Math.cos(a - 0.45) * 8, y1 - Math.sin(a - 0.45) * 8);
+      ctx.lineTo(x1 - Math.cos(a + 0.45) * 8, y1 - Math.sin(a + 0.45) * 8);
+      ctx.closePath();
+      ctx.fill();
+    }
+    const sp = Math.hypot(e.vx, e.vy);
+    if (sp > 0.02) {
+      const len = Math.min(78, 18 + sp * 16);
+      arrow(e.x, e.y, e.x + (e.vx / sp) * len, e.y + (e.vy / sp) * len, "#6ee7ff");
+    }
+    const th = e.thrust || { x: 0, y: 0 };
+    const tlen = Math.hypot(th.x, th.y);
+    if (tlen > 0) {
+      arrow(e.x, e.y, e.x + (th.x / tlen) * 36, e.y + (th.y / tlen) * 36, "#ffb547");
+    }
+
     // the walker
     ctx.save();
     ctx.translate(e.x, e.y);
-    const ang = Math.atan2(e.vy, e.vx);
-    ctx.rotate(ang);
+    const face = tlen > 0 ? Math.atan2(th.y, th.x) : (sp > 0.02 ? Math.atan2(e.vy, e.vx) : 0);
+    ctx.rotate(face);
     ctx.fillStyle = e.o2 < 25 ? "#ff7a9a" : "#e8edf5";
     ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = "#233043";
@@ -338,6 +395,13 @@
       ctx.font = "10px ui-monospace,monospace";
       ctx.fillText("OUTSIDE: " + e.walker.name, 16, 128);
     }
+    ctx.font = "10px ui-monospace,monospace";
+    ctx.fillStyle = "#6ee7ff";
+    ctx.fillText("CYAN arrow  ·  where you are going", 16, 150);
+    ctx.fillStyle = "#ffb547";
+    ctx.fillText("AMBER arrow ·  where you are thrusting", 16, 164);
+    ctx.fillStyle = e.thrust && e.thrust.brake ? "#3df0bb" : "#6c8aa6";
+    ctx.fillText((e.thrust && e.thrust.brake ? "BRAKE ON  ·  " : "SPEED ") + sp.toFixed(2), 16, 178);
 
     // the nag that matters
     if (!e.docked && e.tookOff) {

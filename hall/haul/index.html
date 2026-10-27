@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>THE LONG HAUL</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <style>
   :root{
     --void:#04060a; --panel:#080d16; --panel2:#0c141f;
@@ -46,7 +47,7 @@
   .mf-link span{margin-left:10px;color:var(--rust)}
 
   /* ── main ───────────────────────────────────────────────── */
-  .app{position:fixed;inset:0;display:grid;grid-template-rows:auto 1fr auto;z-index:10}
+  .app{position:fixed;inset:0;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;z-index:10}
   .bar{display:flex;align-items:center;gap:16px;padding:9px 16px;
     border-bottom:1px solid var(--line);background:var(--panel);font-size:12px;letter-spacing:.08em}
   .bar .nm{color:var(--cyan);font-weight:700;letter-spacing:.2em}
@@ -62,7 +63,8 @@
   .track i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--cyan),var(--rust));display:block}
   .track u{position:absolute;top:-3px;width:1px;height:9px;background:rgba(200,210,220,.35)}
 
-  .stage{position:relative;overflow:hidden;background:#03050a}
+  .stage{position:relative;overflow:hidden;background:#03050a;display:flex;flex-direction:column;min-height:0}
+  .viewport{position:relative;flex:1;min-height:0}
   canvas#view{display:block;width:100%;height:100%}
   /* right rail */
   .rail{position:absolute;top:12px;right:12px;width:216px;background:rgba(8,13,22,.9);
@@ -72,7 +74,7 @@
     font-size:9px;letter-spacing:.16em}
   .rt:hover{color:var(--cyan)}
   .rt.on{background:rgba(110,231,255,.1);color:var(--cyan);font-weight:700}
-  .rail-body{padding:9px 10px;max-height:320px;overflow:auto}
+  .rail-body{padding:9px 10px;max-height:min(320px,42vh);overflow:auto}
   .rail-body.hide{display:none}
   canvas#schem{display:block;width:100%;height:auto;margin-bottom:8px}
   .sst{display:flex;justify-content:space-between;font-size:10px;margin-bottom:4px}
@@ -93,16 +95,18 @@
   .cdet b{color:var(--cyan);display:block;margin-bottom:3px;letter-spacing:.1em}
   .cdet .gate{color:var(--amber)}
 
-  /* split feeds — Mission Control and the ship log are different voices */
-  .feeds{position:absolute;left:12px;bottom:12px;display:flex;gap:8px;
-    width:min(560px,58vw);align-items:flex-end}
-  .feed{flex:1;background:rgba(8,13,22,.86);border:1px solid var(--line);padding:7px 9px;
-    max-height:150px;overflow:hidden}
+  /* Mission Control and the ship log sit in their own band, under the viewport
+     and above the gauges, so neither clips the other or the unit readouts. */
+  .feeds{position:relative;flex:0 0 auto;display:flex;gap:8px;align-items:stretch;
+    width:auto;padding:8px 12px 10px;background:rgba(4,6,10,.96);border-top:1px solid var(--line)}
+  .feed{flex:1;min-width:0;background:rgba(8,13,22,.92);border:1px solid var(--line);padding:7px 9px;
+    max-height:132px;overflow:auto}
+  @media(max-width:760px){.feeds{flex-direction:column}}
   .feed h5{margin:0 0 5px;font-size:8.5px;letter-spacing:.2em;color:var(--dim);font-weight:600}
   #feed-control{border-color:rgba(255,181,71,.32)}
   #feed-control h5{color:var(--amber)}
   #ctl-state{color:var(--rose);letter-spacing:.1em}
-  .feed div div{font-size:10.5px;line-height:1.5;margin-bottom:2px;color:var(--dim)}
+  .feed div div{font-size:10.5px;line-height:1.5;margin-bottom:2px;color:var(--dim);overflow-wrap:anywhere}
   #controllog div{color:var(--amber);opacity:.92}
   .silence{color:var(--rose)!important;font-style:italic;opacity:.7!important}
   .cm .n{display:flex;justify-content:space-between;gap:6px}
@@ -113,26 +117,26 @@
   .hp i{display:block;height:100%;background:var(--mint)}
   .hp.low i{background:var(--amber)} .hp.crit i{background:var(--rose)}
 
-  .logbox{position:absolute;left:12px;bottom:12px;width:min(430px,52vw);max-height:172px;
-    overflow:hidden;background:rgba(8,13,22,.82);border:1px solid var(--line);padding:8px 10px;
-    font-size:11px;line-height:1.55}
-  .logbox div{margin-bottom:2px;color:var(--dim)}
-  .logbox .death{color:var(--rose)} .logbox .control{color:var(--amber)}
-  .logbox .waypoint{color:var(--cyan)} .logbox .arrive{color:var(--mint)}
-  .logbox .fault,.logbox .medical{color:#d69a6a}
+  #logbox div{margin-bottom:2px;color:var(--dim);overflow-wrap:anywhere}
+  #logbox .death{color:var(--rose)} #logbox .control{color:var(--amber)}
+  #logbox .waypoint{color:var(--cyan)} #logbox .arrive{color:var(--mint)}
+  #logbox .fault,#logbox .medical{color:#d69a6a}
 
-  .dash{border-top:1px solid var(--line);background:var(--panel);padding:10px 16px;
-    display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center}
-  @media(max-width:760px){.dash{grid-template-columns:1fr}}
-  .gauges{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
-  .g label{display:block;font-size:9px;letter-spacing:.18em;color:var(--dim);margin-bottom:3px}
-  .g .v{font-size:12px;margin-bottom:3px}
+  .dash{position:relative;z-index:12;border-top:1px solid var(--line);background:var(--panel);
+    padding:8px 16px 10px;display:flex;flex-direction:column;gap:8px}
+  .dash-main{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .gauges{flex:1 1 460px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;min-width:0}
+  .g label{display:block;font-size:9px;letter-spacing:.12em;color:var(--dim);margin-bottom:3px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .g .v{font-size:13px;margin-bottom:3px;white-space:nowrap}
   .g .b{height:4px;background:#16202c}
   .g .b i{display:block;height:100%;background:var(--cyan)}
   .g.warn .b i{background:var(--amber)} .g.crit .b i{background:var(--rose)}
   .g .d{font-size:9px;color:var(--dim);margin-top:2px}
 
-  .levers{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .levers{flex:1 1 480px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+  .hint{font-size:11.5px;color:var(--dim);line-height:1.45;min-height:2.5em;max-width:980px}
+  .hint b{color:var(--hull);font-weight:600}
   .lv{background:var(--panel2);border:1px solid var(--line);color:var(--hull);padding:7px 10px;
     font-size:11px;letter-spacing:.08em}
   .lv:hover{border-color:var(--cyan);color:var(--cyan)}
@@ -158,12 +162,19 @@
   .opt{display:block;width:100%;text-align:left;background:transparent;border:0;
     border-bottom:1px solid rgba(110,231,255,.09);color:var(--hull);padding:12px 20px;font-size:13px}
   .opt:hover{background:rgba(110,231,255,.07);color:var(--cyan)}
-  .opt small{display:block;color:var(--dim);font-size:10.5px;margin-top:3px}
+  .opt small{display:block;color:var(--dim);font-size:10.5px;margin-top:3px;line-height:1.45}
+  .opt small.fx{color:var(--cyan);letter-spacing:.02em}
   .opt:disabled{opacity:.32;cursor:default}
 
   /* ── aerobrake ──────────────────────────────────────────── */
   .aero{position:fixed;inset:0;z-index:55;background:#03050a}
   .aero.hide{display:none}
+  /* The salvage overlay stops above the lever bar, so COAST / RUN / REPAIR stay clickable.
+     The HUD's empty gradient must not eat those clicks either. */
+  #s-eva{bottom:var(--dash-h,108px);pointer-events:none}
+  #s-eva canvas,#s-eva .eva-pad,#s-eva .aero-result,#s-eva .aero-result .go{pointer-events:auto}
+  #s-eva .aero-hud{pointer-events:none}
+  #s-eva .aero-hud .lv,#s-eva .aero-hud button{pointer-events:auto}
   canvas#aeroview{display:block;width:100%;height:100%}
   .aero-hud{position:absolute;left:0;right:0;bottom:0;padding:14px 18px;
     display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
@@ -189,12 +200,27 @@
   .endwrap{max-width:640px;padding:0 26px;text-align:center}
   .endwrap h2{font-size:34px;letter-spacing:.2em;margin:0 0 8px}
   .endwrap h2.good{color:var(--mint)} .endwrap h2.bad{color:var(--rose)}
-  .endwrap .es{color:var(--amber);font-size:26px;letter-spacing:.1em;margin:14px 0}
+  .endwrap .es{color:var(--amber);font-size:26px;letter-spacing:.1em;margin:14px 0 8px}
+  .scorelines{list-style:none;margin:0 auto 18px;padding:0;max-width:420px;text-align:left}
+  .scorelines li{display:flex;justify-content:space-between;gap:16px;font-size:11.5px;
+    color:var(--dim);padding:3px 0;border-bottom:1px solid rgba(110,231,255,.1)}
+  .scorelines li b{color:var(--hull);font-weight:600}
+  .scorelines li.neg b{color:var(--rose)}
+  .scorelines .why{border:0;display:block;margin-top:8px;font-size:10.5px;line-height:1.5;color:var(--dim)}
+  #s-end.locked #again{opacity:.35;pointer-events:none}
   .stones{display:grid;gap:8px;margin:20px 0;text-align:left}
   .stone{background:var(--panel);border-left:2px solid var(--rose);padding:9px 13px;font-size:11.5px}
   .stone b{color:var(--hull);letter-spacing:.1em}
   .stone span{color:var(--dim);display:block;margin-top:2px;font-size:10.5px}
   .stone span.mf{color:var(--amber);font-style:italic;margin-top:4px;opacity:.85}
+
+  .brief{width:min(640px,92vw)}
+  .brief h2{margin:0;padding:16px 20px 4px;font-size:16px;letter-spacing:.16em}
+  .brief .body{padding:0 20px 8px}
+  .brief dl{margin:0;padding:4px 20px 12px}
+  .brief dt{color:var(--cyan);font-size:11px;letter-spacing:.14em;margin-top:10px}
+  .brief dd{margin:3px 0 0;color:var(--dim);font-size:12px;line-height:1.55}
+  .brief .opts{padding:12px 20px 16px}
 </style>
 </head>
 <body>
@@ -228,12 +254,15 @@
     <span id="b-wp">Pad 12</span>
     <span>ETA <b id="b-eta">—</b></span>
     <span class="sp"></span>
+    <span id="b-score" title="Distance, crew still aboard, stores, morale, and arrival. Shortage days subtract.">SCORE <b>0</b></span>
     <span id="b-status"></span>
+    <button type="button" id="b-brief" class="sndbtn" title="Controls">BRIEF</button>
     <button type="button" id="b-snd" class="sndbtn" title="cabinet score (M)">&#9834; ON</button>
   </div>
   <div class="track"><i id="b-track" style="width:0%"></i><span id="b-marks"></span></div>
 
   <div class="stage">
+    <div class="viewport">
     <canvas id="view"></canvas>
     <div class="rail" id="rail">
       <div class="rail-tabs">
@@ -247,6 +276,7 @@
         <div id="shipstats"></div>
       </div>
       <div class="rail-body hide" id="tab-route"><div id="routelist"></div></div>
+    </div>
     </div>
 
     <div class="feeds">
@@ -262,20 +292,45 @@
   </div>
 
   <div class="dash">
+    <div class="dash-main">
     <div class="gauges" id="gauges"></div>
     <div class="levers">
-      <button class="lv" data-th="0.7">COAST</button>
-      <button class="lv on" data-th="1">NOMINAL</button>
-      <button class="lv" data-th="1.5">BURN</button>
+      <button class="lv" data-th="0.7" data-tip="COAST — throttle 0.7×. A longer voyage. Less fuel, less heat on the recycler. The pantry still drains every day.">COAST</button>
+      <button class="lv on" data-th="1" data-tip="NOMINAL — throttle 1×. The pace this ship was loaded for. Hold this unless you have a reason not to.">NOMINAL</button>
+      <button class="lv" data-th="1.5" data-tip="BURN — throttle 1.5×. You arrive sooner. Fuel use and recycler heat rise with the square of throttle. You still need 26 fuel to brake at Mars.">BURN</button>
       <span style="width:8px"></span>
-      <button class="lv" data-ra="0.65">SHORT</button>
-      <button class="lv on" data-ra="1">FULL</button>
+      <button class="lv" data-ra="0.65" data-tip="SHORT — rations 0.65×. Stretches calories only. Oxygen does not care. The crew lose health and morale while they are hungry.">SHORT</button>
+      <button class="lv on" data-ra="1" data-tip="FULL — rations 1×. Normal meals. Calories are not recycled. This is what the pantry math assumes.">FULL</button>
       <span style="width:8px"></span>
-      <button class="lv" id="fix">REPAIR</button>
-      <button class="lv" id="eva">SALVAGE</button>
-      <button class="lv" id="speed" title="Time compression">1×</button>
-      <button class="lv run" id="runbtn">RUN</button>
+      <button class="lv" id="fix" data-tip="REPAIR — spend 1 part on the most damaged module. An engineer restores about 7.5%. Anyone else, about 4%. The recycler is the one that compounds.">REPAIR</button>
+      <button class="lv" id="eva" data-tip="SALVAGE — someone goes outside. The suit draws from the ship's oxygen. Inertia is real; SPACE brakes. Only the airlock brings them back.">SALVAGE</button>
+      <button class="lv" id="speed" data-tip="Time compression. The voyage speeds up. An open event card, the corridor, and a spacewalk all stop the clock.">1×</button>
+      <button class="lv run" id="runbtn" data-tip="RUN advances the clock. HOLD pauses it. Choosing on an event card also pauses it until you decide.">RUN</button>
     </div>
+    </div>
+    <div class="hint" id="lever-hint"><b>NOMINAL</b> throttle, <b>FULL</b> rations. The clock moves only while RUN is lit. Hover a control to read what it does.</div>
+  </div>
+</div>
+
+<!-- first-run brief. The clock does not run under this. -->
+<div class="ev hide" id="s-brief">
+  <div class="card brief">
+    <div class="cat">FLIGHT BRIEF · READ ONCE</div>
+    <h2>THE SHIP IS YOURS</h2>
+    <div class="body">Two hundred and forty days if you hold nominal. The levers below the gauges are the whole interface.</div>
+    <dl>
+      <dt>COAST / NOMINAL / BURN</dt>
+      <dd>How hard the drive works. Coast saves fuel and heat and makes the trip longer. Burn shortens it. Fuel and recycler heat rise with the square of throttle. Arriving at Mars still costs 26 fuel unless you fly the corridor.</dd>
+      <dt>SHORT / FULL</dt>
+      <dd>Meals. Short rations stretch calories and nothing else. Oxygen is not on that lever. Hungry crew lose health.</dd>
+      <dt>REPAIR</dt>
+      <dd>One part, into the worst module. An engineer makes it worth about 7.5%. Anyone else, about 4%. Keep the recycler up. When it falls, every day costs more water and oxygen than the last.</dd>
+      <dt>SALVAGE</dt>
+      <dd>A named crewmember goes outside. The suit breathes ship oxygen. Cyan is your velocity, amber is your thrust, Space is the brake. Esc does not bring them in. The airlock does.</dd>
+      <dt>EVENTS</dt>
+      <dd>The card tells you the numbers before you choose. The clock is stopped until you do.</dd>
+    </dl>
+    <div class="opts"><button class="go" id="brief-ok" type="button">UNDERSTOOD</button></div>
   </div>
 </div>
 
@@ -295,6 +350,7 @@
     <h2 id="e-head"></h2>
     <div id="e-sub" style="color:var(--dim);font-size:13px;line-height:1.7"></div>
     <div class="es" id="e-score"></div>
+    <ul class="scorelines" id="e-lines"></ul>
     <div class="stones" id="e-stones"></div>
     <button class="go" id="again">RUN IT AGAIN</button>
   </div>
@@ -333,23 +389,24 @@
 <div class="aero hide" id="s-eva">
   <canvas id="evaview"></canvas>
   <div class="aero-hud">
-    <div class="aero-help">
-      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows to thrust &nbsp;·&nbsp; <kbd>Esc</kbd> nothing saves you
-      <span>Nothing slows you out here but more thrust. Everything you grab makes stopping harder. Get back to the airlock.</span>
+    <div class="aero-help" id="eva-help">
+      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> thrust &nbsp;·&nbsp; <kbd>Space</kbd> brake &nbsp;·&nbsp; <kbd>Esc</kbd> does not bring you inside
+      <span id="eva-help-sub">Cyan arrow: where you are going. Amber arrow: where you are thrusting. The suit assist bleeds a little speed. Only the airlock ends the walk.</span>
     </div>
     <div class="eva-pad">
-      <button class="lv" data-ev="up">▲</button>
+      <button class="lv" data-ev="up" type="button">▲</button>
       <div class="eva-row">
-        <button class="lv" data-ev="left">◀</button>
-        <button class="lv" data-ev="down">▼</button>
-        <button class="lv" data-ev="right">▶</button>
+        <button class="lv" data-ev="left" type="button">◀</button>
+        <button class="lv" data-ev="brake" type="button" title="Brake — thrust against your velocity">●</button>
+        <button class="lv" data-ev="right" type="button">▶</button>
       </div>
+      <button class="lv" data-ev="down" type="button">▼</button>
     </div>
   </div>
   <div class="aero-result hide" id="eva-result">
-    <h3 id="ev-head"></h3>
-    <p id="ev-body"></p>
-    <button class="go" id="ev-ok">CONTINUE</button>
+    <h3 id="eva-head"></h3>
+    <p id="eva-copy"></p>
+    <button class="go" id="ev-ok" type="button">CONTINUE</button>
   </div>
 </div>
 
