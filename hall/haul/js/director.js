@@ -97,7 +97,10 @@
     else if (strategy === "cheap") idx = opts.length - 1;    // last is conventionally the do-nothing one
     else idx = Math.floor(s.rand() * opts.length);           // "random"
     const c = opts[idx];
-    try { c.apply(s, Haul); } catch (_) { return null; }
+    try {
+      if (typeof Haul.commitChoice === "function") Haul.commitChoice(s, c);
+      else c.apply(s, Haul);
+    } catch (_) { return null; }
     return c;
   }
 

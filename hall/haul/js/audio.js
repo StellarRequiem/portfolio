@@ -46,7 +46,8 @@
   let tension = 0, tensionSmooth = 0;
   let tally = null;              // set only by the offline render harness
   function count(layer) { if (tally) tally[layer] = (tally[layer] || 0) + 1; }
-  let enabled = localStorage.getItem(STORE) !== "off";
+  let enabled = true;
+  try { enabled = localStorage.getItem(STORE) !== "off"; } catch (_) { enabled = true; }
   let started = false;
 
   // ── theory ────────────────────────────────────────────────────────────────
@@ -263,7 +264,10 @@
   }
 
   function tick() {
-    if (!ctx || !score) return;
+    if (!ctx || !score || !started) return;
+    // A suspended context cannot start oscillators. Scheduling into one is what
+    // prints "The AudioContext was not allowed to start" once per voice.
+    if (ctx.state !== "running") return;
     // Ease toward the reported tension. A hard cut in arrangement is a jump scare;
     // over about a second it reads as the music noticing.
     tensionSmooth += (tension - tensionSmooth) * 0.06;
@@ -376,7 +380,12 @@
     tension = 0; tensionSmooth = 0;
     if (!enabled) return false;
     if (!ensureCtx()) return false;
-    if (ctx.state === "suspended") ctx.resume();
+    // resume() rejects when the browser has not seen a gesture yet. An unhandled
+    // rejection here is a console error on every launch that races the first note.
+    if (ctx.state === "suspended") {
+      const resumed = ctx.resume();
+      if (resumed && typeof resumed.catch === "function") resumed.catch(function () { started = false; });
+    }
     started = true;
     nextTime = ctx.currentTime + 0.08;
     master.gain.cancelScheduledValues(ctx.currentTime);
@@ -405,7 +414,7 @@
 
   function setEnabled(on) {
     enabled = !!on;
-    localStorage.setItem(STORE, enabled ? "on" : "off");
+    try { localStorage.setItem(STORE, enabled ? "on" : "off"); } catch (_) {}
     if (!enabled) stop(0.25);
     else if (score) play(pending || score);
     return enabled;
