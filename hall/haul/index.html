@@ -47,8 +47,8 @@
   .mf-link span{margin-left:10px;color:var(--rust)}
 
   /* ── main ───────────────────────────────────────────────── */
-  .app{position:fixed;inset:0;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;z-index:10}
-  .bar{display:flex;align-items:center;gap:16px;padding:9px 16px;
+  .app{position:fixed;inset:0;display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto;z-index:10}
+  .bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:9px 16px;
     border-bottom:1px solid var(--line);background:var(--panel);font-size:12px;letter-spacing:.08em}
   .bar .nm{color:var(--cyan);font-weight:700;letter-spacing:.2em}
   .bar .sp{flex:1}
@@ -221,6 +221,21 @@
   .brief dt{color:var(--cyan);font-size:11px;letter-spacing:.14em;margin-top:10px}
   .brief dd{margin:3px 0 0;color:var(--dim);font-size:12px;line-height:1.55}
   .brief .opts{padding:12px 20px 16px}
+
+  /* Soundtrack deck. Same controls on the title screen and in the voyage. */
+  .ost{margin:18px auto 0;max-width:560px;text-align:left;border:1px solid var(--line);
+    background:rgba(8,13,22,.72);padding:10px 12px}
+  .ost-k{font-size:9px;letter-spacing:.22em;color:var(--amber);margin-bottom:6px}
+  .ost-now{margin:0 0 8px;color:var(--dim);font-size:12px;line-height:1.45;min-height:1.45em}
+  .ost-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .ost-row button{min-height:44px}
+  .ost-vol{display:flex;align-items:center;gap:6px;color:var(--dim);font-size:10px;letter-spacing:.14em}
+  .ost-vol input{width:92px;max-width:28vw;accent-color:var(--amber)}
+  .ostbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 12px;
+    background:#070b12;border-bottom:1px solid var(--line)}
+  .ostbar .ost-now{flex:1 1 140px;margin:0;min-width:0}
+  .ostbar button{min-height:36px}
+  button.sndbtn.on{color:var(--amber);border-color:var(--amber)}
 </style>
 </head>
 <body>
@@ -239,7 +254,21 @@
     </p>
     <div class="tiers" id="tiers"></div>
     <button class="go" id="launch" disabled>SELECT A TIER</button>
+    <div class="ost" aria-label="Soundtrack">
+      <div class="ost-k">ORIGINAL SOUNDTRACK</div>
+      <p class="ost-now" data-ost-now>Checking the cue sheet.</p>
+      <div class="ost-row">
+        <button type="button" class="sndbtn" data-ost-toggle aria-pressed="true">MUSIC ON</button>
+        <button type="button" class="sndbtn" data-ost-shuffle aria-pressed="false">SHUFFLE</button>
+        <button type="button" class="sndbtn" data-ost-next>NEXT</button>
+        <label class="ost-vol" data-ost-volume>VOL
+          <input type="range" min="0" max="100" step="1" value="80" aria-label="Soundtrack volume">
+        </label>
+      </div>
+    </div>
     <div class="mf-link">
+      <a href="/arcade/">RAINY DAY ARCADE</a>
+      <span>·</span>
       <a href="manifest.html">COLONIST MANIFEST</a>
       <span id="mf-count"></span>
     </div>
@@ -258,6 +287,15 @@
     <span id="b-status"></span>
     <button type="button" id="b-brief" class="sndbtn" title="Controls">BRIEF</button>
     <button type="button" id="b-snd" class="sndbtn" title="cabinet score (M)">&#9834; ON</button>
+  </div>
+  <div class="ostbar" aria-label="Soundtrack">
+    <p class="ost-now" data-ost-now>Checking the cue sheet.</p>
+    <button type="button" class="sndbtn" data-ost-toggle aria-pressed="true">MUSIC ON</button>
+    <button type="button" class="sndbtn" data-ost-shuffle aria-pressed="false">SHUFFLE</button>
+    <button type="button" class="sndbtn" data-ost-next>NEXT</button>
+    <label class="ost-vol" data-ost-volume>VOL
+      <input type="range" min="0" max="100" step="1" value="80" aria-label="Soundtrack volume">
+    </label>
   </div>
   <div class="track"><i id="b-track" style="width:0%"></i><span id="b-marks"></span></div>
 
@@ -413,6 +451,7 @@
 <script src="js/sim.js"></script>
 <script src="js/manifest.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/soundtrack.js"></script>
 <script src="js/scores.js"></script>
 <script src="js/scenes.js"></script>
 <script src="js/events.js"></script>

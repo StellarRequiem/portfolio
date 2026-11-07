@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Placeholder marquee for The Long Haul">
+  <rect width="640" height="360" fill="#070b12"/>
+  <rect y="230" width="640" height="130" fill="#140c0a"/>
+  <path d="M40 230 L180 200 L300 230 L460 190 L640 230" fill="none" stroke="#c2562c" stroke-width="3"/>
+  <g fill="#6ee7ff">
+    <circle cx="90" cy="70" r="1.5"/><circle cx="150" cy="100" r="1.5"/><circle cx="400" cy="60" r="1.5"/>
+    <circle cx="520" cy="90" r="1.5"/><circle cx="300" cy="40" r="1.5"/>
+  </g>
+  <rect x="250" y="168" width="90" height="18" fill="#c8d2dc"/>
+  <rect x="300" y="150" width="28" height="18" fill="#6ee7ff"/>
+  <text x="32" y="300" fill="#f6efe4" font-family="Impact, sans-serif" font-size="46">THE LONG HAUL</text>
+  <text x="32" y="332" fill="#ffb547" font-family="ui-monospace, monospace" font-size="18" letter-spacing="3">PLACEHOLDER ART</text>
+  <rect x="16" y="16" width="608" height="328" fill="none" stroke="#6ee7ff" stroke-width="4"/>
+</svg>
