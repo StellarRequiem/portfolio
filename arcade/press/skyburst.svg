@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Placeholder marquee for Skyburst">
+  <rect width="640" height="360" fill="#07111f"/>
+  <g fill="#ffd56a" opacity=".9">
+    <circle cx="140" cy="90" r="3"/><circle cx="220" cy="60" r="2"/><circle cx="300" cy="110" r="2.5"/>
+    <circle cx="420" cy="70" r="2"/><circle cx="520" cy="100" r="3"/><circle cx="80" cy="150" r="2"/>
+  </g>
+  <g stroke="#ffb703" fill="none" stroke-width="3">
+    <path d="M320 40 L340 120 L300 120 Z"/><path d="M200 70 L214 130 L186 130 Z"/>
+    <path d="M470 50 L488 140 L452 140 Z"/>
+  </g>
+  <circle cx="320" cy="150" r="18" fill="#fff4c8"/>
+  <circle cx="200" cy="160" r="10" fill="#ffe08a"/>
+  <circle cx="470" cy="170" r="14" fill="#fff"/>
+  <text x="32" y="250" fill="#f6efe4" font-family="Impact, sans-serif" font-size="54">SKYBURST</text>
+  <text x="32" y="292" fill="#ffb703" font-family="ui-monospace, monospace" font-size="18" letter-spacing="3">PLACEHOLDER ART</text>
+  <rect x="16" y="16" width="608" height="328" fill="none" stroke="#ffe08a" stroke-width="4"/>
+</svg>

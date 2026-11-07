@@ -1026,7 +1026,7 @@
     const entry = window.HallScores && HallScores.get("haul");
     if (!entry || !AU) return;
     AU.arm(entry.def);
-    AU.wake();
+    wakeScore();
     paintSnd();
     if (scoreTimer) clearInterval(scoreTimer);
     scoreTimer = setInterval(function () {
@@ -1046,18 +1046,28 @@
       }));
     }, 900);
   }
+  function wakeScore() {
+    if (!AU || !AU.enabled()) return;
+    if (window.HaulSoundtrack && HaulSoundtrack.occupying()) return;
+    AU.wake();
+  }
   function paintSnd() {
     const b = $("b-snd");
     if (b && AU) {
       const on = AU.enabled();
-      b.innerHTML = on ? "&#9834; ON" : "&#9834; OFF";
+      const yielded = on && window.HaulSoundtrack && HaulSoundtrack.occupying();
+      b.innerHTML = !on ? "&#9834; OFF" : yielded ? "&#9834; HELD" : "&#9834; ON";
       b.classList.toggle("off", !on);
+      b.title = yielded
+        ? "Cabinet score waits while a soundtrack reel is playing (M)"
+        : "cabinet score (M)";
     }
   }
+  document.addEventListener("haul-ost", paintSnd);
   if ($("b-snd")) {
     $("b-snd").addEventListener("click", function () {
       AU.setEnabled(!AU.enabled());
-      if (AU.enabled()) AU.wake();
+      if (AU.enabled()) wakeScore();
       paintSnd();
       $("b-snd").blur();
     });
@@ -1067,7 +1077,7 @@
     if (ev.key === "m" || ev.key === "M") {
       if (!AU) return;
       AU.setEnabled(!AU.enabled());
-      if (AU.enabled()) AU.wake();
+      if (AU.enabled()) wakeScore();
       paintSnd();
     }
   });

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Placeholder marquee for Glowdots">
+  <rect width="640" height="360" fill="#1a120c"/>
+  <g>
+    <circle cx="80" cy="70" r="10" fill="#ff5d8f"/><circle cx="120" cy="70" r="10" fill="#ffb703"/>
+    <circle cx="160" cy="70" r="10" fill="#7ee7ff"/><circle cx="200" cy="70" r="10" fill="#7dffa8"/>
+    <circle cx="80" cy="110" r="10" fill="#fff"/><circle cx="120" cy="110" r="10" fill="#ff5d8f"/>
+    <circle cx="160" cy="110" r="10" fill="#ffb703"/><circle cx="200" cy="110" r="10" fill="#7ee7ff"/>
+    <circle cx="100" cy="150" r="10" fill="#7dffa8"/><circle cx="140" cy="150" r="10" fill="#fff"/>
+    <circle cx="180" cy="150" r="10" fill="#ff5d8f"/>
+  </g>
+  <text x="250" y="150" fill="#f6efe4" font-family="Impact, sans-serif" font-size="48">GLOWDOTS</text>
+  <text x="250" y="190" fill="#ffb703" font-family="ui-monospace, monospace" font-size="18" letter-spacing="3">PLACEHOLDER ART</text>
+  <text x="250" y="230" fill="#cbbba8" font-family="Georgia, serif" font-size="20">peg art · diamond art</text>
+  <rect x="16" y="16" width="608" height="328" fill="none" stroke="#ffb703" stroke-width="4"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Placeholder marquee for Aurora EQ">
+  <rect width="640" height="360" fill="#100818"/>
+  <path d="M0 200 C 80 120, 160 240, 240 170 S 400 80, 480 160 640 220, 640 140 L640 360 L0 360 Z" fill="#19f0ff" opacity=".35"/>
+  <path d="M0 230 C 100 160, 180 280, 280 200 S 460 120, 640 210 L640 360 L0 360 Z" fill="#ff2bd6" opacity=".4"/>
+  <text x="32" y="250" fill="#f6efe4" font-family="Impact, sans-serif" font-size="54">AURORA EQ</text>
+  <text x="32" y="292" fill="#7ee7ff" font-family="ui-monospace, monospace" font-size="18" letter-spacing="3">PLACEHOLDER ART</text>
+  <rect x="16" y="16" width="608" height="328" fill="none" stroke="#ff2bd6" stroke-width="4"/>
+</svg>

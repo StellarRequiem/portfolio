@@ -1,0 +1,60 @@
+{
+  "album": "The Long Haul",
+  "folder": "tracks",
+  "formats": ["ogg", "mp3"],
+  "loudness": "Masters are normalized to about -16 LUFS integrated, true peak at or below -1 dBTP. The player plays files at unity and does not re-normalize.",
+  "crossfadeSeconds": 1.5,
+  "notes": "Primary files are OGG Vorbis. MP3 is the fallback. Names are base names with no extension. The player calls canPlayType, requests that extension, and tries the other if the file is missing. loopStart and loopEnd are optional seconds. intro is a one-shot played before the body. tail is a one-shot played when the track ends or the player leaves it. Missing files are skipped.",
+  "tracks": [
+    {
+      "id": "01",
+      "title": "Ten Seconds to Rust",
+      "file": "01-ten-seconds-to-rust",
+      "mode": "one-shot-then-loop"
+    },
+    {
+      "id": "02",
+      "title": "Quiet Between Stars",
+      "file": "02-quiet-between-stars",
+      "mode": "loop"
+    },
+    {
+      "id": "03",
+      "title": "Kappa Lounge, Level Zero",
+      "file": "03-kappa-lounge-level-zero",
+      "mode": "loop"
+    },
+    {
+      "id": "04",
+      "title": "Point of No Return Policy",
+      "file": "04-point-of-no-return-policy",
+      "mode": "one-shot-then-loop"
+    },
+    {
+      "id": "05",
+      "title": "Burn Angle",
+      "file": "05-burn-angle",
+      "mode": "loop",
+      "tail": "05b-burn-angle-touchdown"
+    },
+    {
+      "id": "06",
+      "title": "Dust on the Greenhouse Glass",
+      "file": "06-dust-on-the-greenhouse-glass",
+      "mode": "loop"
+    },
+    {
+      "id": "07",
+      "title": "Shop Hours (Subject to Gravity)",
+      "file": "07-shop-hours",
+      "mode": "loop",
+      "intro": "07b-shop-hours-intro"
+    },
+    {
+      "id": "08",
+      "title": "Something Aboard Is Breaking",
+      "file": "08-something-aboard-is-breaking",
+      "mode": "loop"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Placeholder marquee for Realm">
+  <rect width="640" height="360" fill="#10160e"/>
+  <path d="M0 250 L120 180 L220 240 L340 140 L480 220 L640 160 L640 360 L0 360 Z" fill="#1d3a22"/>
+  <rect x="300" y="168" width="16" height="70" fill="#6b4630"/>
+  <circle cx="308" cy="156" r="28" fill="#3df0bb"/>
+  <text x="32" y="80" fill="#f6efe4" font-family="Impact, sans-serif" font-size="54">REALM</text>
+  <text x="32" y="116" fill="#7dffa8" font-family="ui-monospace, monospace" font-size="18" letter-spacing="3">PLACEHOLDER ART</text>
+  <text x="32" y="150" fill="#cbbba8" font-family="Georgia, serif" font-size="20">in development</text>
+  <rect x="16" y="16" width="608" height="328" fill="none" stroke="#3df0bb" stroke-width="4"/>
+</svg>
