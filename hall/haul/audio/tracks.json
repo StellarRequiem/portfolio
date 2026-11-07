@@ -4,13 +4,15 @@
   "formats": ["ogg", "mp3"],
   "loudness": "Masters are normalized to about -16 LUFS integrated, true peak at or below -1 dBTP. The player plays files at unity and does not re-normalize.",
   "crossfadeSeconds": 1.5,
-  "notes": "Primary files are OGG Vorbis. MP3 is the fallback. Names are base names with no extension. The player calls canPlayType, requests that extension, and tries the other if the file is missing. loopStart and loopEnd are optional seconds. intro is a one-shot played before the body. tail is a one-shot played when the track ends or the player leaves it. Missing files are skipped.",
+  "notes": "Primary files are OGG Vorbis. MP3 is the fallback. The OGG is the gapless master: the MP3 carries about 23 ms (1105 samples at 48 kHz) of encoder priming. Chrome's decoder removes that prime, so loop points are authored on the OGG timeline and apply to a trimmed MP3 unchanged. If a decoder leaves the prime in the buffer, the player shifts loopStart and loopEnd by that extra length. Names are base names with no extension. loopStart and loopEnd are seconds. intro is a one-shot played before the body. tail is a one-shot played when the track ends or the player leaves it. Missing files are skipped.",
   "tracks": [
     {
       "id": "01",
       "title": "Ten Seconds to Rust",
       "file": "01-ten-seconds-to-rust",
-      "mode": "one-shot-then-loop"
+      "mode": "one-shot-then-loop",
+      "loopStart": 90.186229,
+      "loopEnd": 114.186229
     },
     {
       "id": "02",
@@ -48,6 +50,8 @@
       "title": "Shop Hours (Subject to Gravity)",
       "file": "07-shop-hours",
       "mode": "loop",
+      "loopStart": 0,
+      "loopEnd": 120,
       "intro": "07b-shop-hours-intro"
     },
     {

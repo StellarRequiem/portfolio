@@ -95,23 +95,54 @@
     return ["ogg", "mp3"];
   }
 
+  function normalizeMode(mode) {
+    if (mode === "one-shot" || mode === "oneshot") return "one-shot";
+    if (mode === "one-shot-then-loop" || mode === "oneshot-then-loop") return "one-shot-then-loop";
+    return "loop";
+  }
+
+  /**
+   * MP3 priming is about 1105 samples (23 ms at 48 kHz). The OGG is the gapless
+   * master, and Chrome's decoder already removes that prime, so the MP3 buffer
+   * matches the OGG timeline and the authored points apply as written.
+   * A decoder that keeps the prime makes the buffer longer than the authored
+   * loop end by about that much. Only then are the points shifted forward.
+   * A loop that simply ends well before the file (extra length of seconds, not
+   * one prime) is left alone.
+   */
+  function encoderDelay(track, buffer, authoredEnd) {
+    if (!track || track.ext !== "mp3" || !buffer || authoredEnd == null) return 0;
+    var prime = 1105 / (buffer.sampleRate || 48000);
+    var extra = buffer.duration - authoredEnd;
+    if (extra > prime * 0.5 && extra < prime * 2) return Math.min(prime, extra);
+    return 0;
+  }
+
   function regionFor(track, buffer) {
     var dur = Math.max(0.001, (buffer && buffer.duration) || 0);
-    if (!track || track.mode === "one-shot") {
-      return { loop: false, loopStart: 0, loopEnd: dur, offset: 0 };
+    var mode = normalizeMode(track && track.mode);
+    if (!track || mode === "one-shot") {
+      return { loop: false, loopStart: 0, loopEnd: dur, offset: 0, delay: 0 };
     }
-    var loopStart = seconds(track.loopStart);
-    var loopEnd = seconds(track.loopEnd);
-    if (loopStart == null || loopStart <= 0 || loopStart >= dur) {
-      return { loop: true, loopStart: 0, loopEnd: dur, offset: 0 };
+    var authoredStart = seconds(track.loopStart);
+    var authoredEnd = seconds(track.loopEnd);
+    var delay = encoderDelay(track, buffer, authoredEnd);
+    if (authoredStart == null) {
+      return { loop: true, loopStart: 0, loopEnd: dur, offset: 0, delay: 0 };
     }
-    if (loopEnd == null || loopEnd <= loopStart || loopEnd > dur) loopEnd = dur;
-    return {
-      loop: true,
-      loopStart: loopStart,
-      loopEnd: loopEnd,
-      offset: track.mode === "loop" ? loopStart : 0
-    };
+    var loopStart = (authoredStart < 0 ? 0 : authoredStart) + delay;
+    var loopEnd;
+    if (authoredEnd == null || authoredEnd <= authoredStart) loopEnd = dur;
+    else {
+      loopEnd = authoredEnd + delay;
+      if (loopEnd > dur) loopEnd = dur;
+      else if (dur - loopEnd < 0.0005) loopEnd = dur;
+    }
+    if (loopStart >= dur) loopStart = 0;
+    if (loopEnd <= loopStart) loopEnd = dur;
+    var offset = mode === "loop" ? loopStart : delay;
+    if (!(offset >= 0) || offset >= dur) offset = 0;
+    return { loop: true, loopStart: loopStart, loopEnd: loopEnd, offset: offset, delay: delay };
   }
 
   /**
@@ -191,7 +222,11 @@
     }
     var AC = root.AudioContext || root.webkitAudioContext;
     if (!AC) return null;
-    ctx = new AC();
+    // Masters are 48 kHz. Asking for that rate keeps loop points and the
+    // intro/body join on the file's own samples. A browser that refuses the
+    // rate still gets a context; points then clamp to the resampled buffer.
+    try { ctx = new AC({ sampleRate: 48000 }); }
+    catch (e) { ctx = new AC(); }
     master = ctx.createGain();
     master.gain.value = volume;
     bus = ctx.createGain();
@@ -489,12 +524,13 @@
       tailAt: null,
       tailSrc: null,
       tailGain: null,
-      looping: track.mode !== "one-shot",
+      looping: normalizeMode(track.mode) !== "one-shot",
       timer: 0
     };
     voice.gain.connect(bus);
     voice.gain.gain.setValueAtTime(0.0001, inAt);
     var events = schedule(voice, buffers, inAt);
+    voice.plan = events;
     ramp(voice.gain.gain, 0.0001, 1, inAt, outgoing ? fadeSec : 0.22, "in");
     active = voice;
     currentIndex = index;
@@ -735,7 +771,8 @@
               id: safeBase(row.id) || file,
               title: (row.title && String(row.title)) || file,
               file: file,
-              mode: row.mode === "one-shot" || row.mode === "one-shot-then-loop" ? row.mode : "loop",
+              mode: normalizeMode(row.mode),
+              ext: /\.mp3(\?|$)/i.test(mainUrl) ? "mp3" : "ogg",
               loopStart: row.loopStart,
               loopEnd: row.loopEnd,
               mainUrl: mainUrl,
@@ -784,8 +821,15 @@
         current: active ? {
           id: active.track.id,
           title: active.track.title,
+          ext: active.track.ext,
           looping: active.looping,
-          sources: active.sources.length
+          sources: active.sources.length,
+          plan: (active.plan || []).map(function (ev) {
+            return {
+              role: ev.role, start: ev.start, duration: ev.duration,
+              loop: ev.loop, loopStart: ev.loopStart, loopEnd: ev.loopEnd, offset: ev.offset
+            };
+          })
         } : null,
         context: ctx ? ctx.state : null
       };

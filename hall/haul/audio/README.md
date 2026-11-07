@@ -63,6 +63,19 @@ The browser picks the extension with `canPlayType`: OGG Vorbis when it can play
 other extension. A missing body drops that title from the reel. A missing intro or
 tail drops only that piece.
 
+Prefer the OGG for gapless loops. The MP3 of each delivered cue has about 23 ms
+of encoder priming at the start (1105 samples at 48 kHz; ffprobe reports a start
+time of about 0.023 s). Loop points in `tracks.json` are on the OGG timeline.
+Chrome's `decodeAudioData` removes that prime, so the MP3 buffer matches the OGG
+and the same points apply. If a decoder leaves the prime in the buffer, the
+buffer runs long past the authored `loopEnd` by about one prime, and the player
+shifts `loopStart` and `loopEnd` forward by that extra length. It does not shift
+a loop that ends seconds before the file does.
+
+Delivered so far, 48 kHz, about −16 LUFS: `01-ten-seconds-to-rust` (hold from
+90.186229 s to the file end at 114.186229 s) and `07-shop-hours` (loop 0–120 s)
+with intro `07b-shop-hours-intro`.
+
 ## Controls
 
 On the title screen and in the voyage bar:
